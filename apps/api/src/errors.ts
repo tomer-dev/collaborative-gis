@@ -1,5 +1,6 @@
 import type { ApiError } from '@cgis/shared';
 import type { Context } from 'hono';
+import type { HTTPException } from 'hono/http-exception';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 
 /** Every `ApiError.code` the API sends, and the HTTP status that goes with it. */
@@ -46,3 +47,17 @@ export const payloadTooLargeError = errorFor('PAYLOAD_TOO_LARGE', 'Payload too l
 export const rateLimitedError = errorFor('RATE_LIMITED', 'Too many requests');
 export const internalError = errorFor('INTERNAL', 'Internal Server Error');
 export const notReadyError = errorFor('NOT_READY', 'Not ready');
+
+const CODE_BY_STATUS = new Map<number, string>(
+  Object.entries(STATUS_BY_CODE).map(([code, status]) => [status, code]),
+);
+
+/** The `ApiError.code` for an HTTP status: the table above, else `HTTP_<status>`. */
+export function codeFor(status: number): string {
+  return CODE_BY_STATUS.get(status) ?? `HTTP_${status}`;
+}
+
+/** A thrown `HTTPException` keeps its status and message. */
+export function httpExceptionError(c: Context, err: HTTPException) {
+  return send(c, err.status, codeFor(err.status), err.message);
+}

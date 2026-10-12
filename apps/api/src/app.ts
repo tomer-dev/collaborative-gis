@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
-import { internalError, notFoundError } from './errors';
+import { HTTPException } from 'hono/http-exception';
+import { httpExceptionError, internalError, notFoundError } from './errors';
 import { health } from './routes/health';
 
 export type Env = {
@@ -14,7 +15,16 @@ export function createApp() {
   app.notFound((c) => notFoundError(c));
 
   app.onError((err, c) => {
-    console.error(JSON.stringify({ level: 'error', msg: err.message, path: c.req.path }));
+    // Deliberate HTTP errors (auth, validation, ...) keep their status and message.
+    if (err instanceof HTTPException) return httpExceptionError(c, err);
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        msg: err.message,
+        path: c.req.path,
+        stack: err instanceof Error ? err.stack : undefined,
+      }),
+    );
     return internalError(c);
   });
 
