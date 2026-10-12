@@ -189,9 +189,10 @@
 
   /* Map styles (brief §4), read by the Leaflet path classes in map.css. The basemap is light
      imagery in both UI themes, so these do not switch with .dark. Strokes are hairlines, not
-     layout, so their widths are exempt from the 4 px grid. The draw tool's numbers (vertex
-     handle sizes, draft stroke width, dash and fill) are MAP.HANDLE_* and MAP.DRAFT_STYLE in
-     @cgis/shared, because Leaflet takes them in JS; only their colours come from here. */
+     layout, so their widths are exempt from the 4 px grid. The draw tool's vertex handle look
+     (dot radius, ring, colours) is CSS: --map-handle-* below, used by .cgis-draw-handle in
+     map.css. Numbers Leaflet takes in JS stay in @cgis/shared: the handle hit box
+     (MAP.HANDLE_HIT_PX, the marker icon size) and MAP.DRAFT_STYLE (sketch width, dash, fill). */
   --map-area-stroke: var(--color-primary-600);
   --map-area-stroke-width: 2px; /* grid-exception: stroke */
   --map-area-fill: var(--color-primary-500);
@@ -202,6 +203,10 @@
   --map-draft-stroke: var(--color-accent); /* width, dash, fill opacity: MAP.DRAFT_STYLE */
   --map-ghost-stroke-width: 2px; /* grid-exception: stroke */
   --map-ghost-fill-opacity: 0.24;
+  --map-handle-radius: 6px; /* grid-exception: radius of a 12 px dot */
+  --map-handle-border: 2px; /* grid-exception: stroke */
+  --map-handle-ring: var(--color-accent);
+  --map-handle-fill: var(--color-bg); /* open vertex; the first vertex fills with the ring colour */
 }
 
 @layer base {
