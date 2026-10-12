@@ -11,10 +11,12 @@ export const LIMITS = {
   SIMPLIFY_TOLERANCE: 0.0005,
 } as const;
 
-/** Spatial reference of every stored geometry. */
+/** Spatial reference of every stored geometry, and the sphere for client-side measurements. */
 export const GEO = {
   /** WGS 84 lng/lat: the `geometry(Polygon,4326)` columns, bbox envelopes, and GeoJSON's default. */
   SRID: 4326,
+  /** WGS 84 mean radius R1 = (2a + b) / 3, in metres: the sphere `@turf/area` measures on. */
+  EARTH_RADIUS_M: 6371008.8,
 } as const;
 
 /** The small test seed (apps/api/src/db/seed.ts); the 10k benchmark seed is M2. */
@@ -36,6 +38,7 @@ export const WS = {
   BAD_FRAME_STRIKES: 10,
   CLOSE_POLICY_VIOLATION: 1008,
   CLOSE_INTERNAL_ERROR: 1011,
+  CLOSE_IDLE: 1001,
   PING_INTERVAL_MS: 30_000,
   AUTO_PING: 'ping',
   AUTO_PONG: 'pong',
@@ -77,6 +80,8 @@ export const ROUTES = {
   AREA_BY_ID: '/:id',
   WS: '/ws',
   OPENAPI: '/openapi.json',
+  /** SPA routes: redirect/Link/navigate targets (file-route ids in createFileRoute stay literal). */
+  APP: { HOME: '/', LOGIN: '/login', REGISTER: '/register', MAP: '/map' },
 } as const;
 
 /** Local dev origins: `wrangler dev` (API) and `vite` (SPA); wrangler.jsonc CLIENT_ORIGIN mirrors WEB_ORIGIN. */
@@ -138,6 +143,16 @@ export const MAP = {
     '#6250d6',
     '#e34948',
   ],
+  /** Vertex handle hit box (Leaflet icon size); the dot's radius, ring and colours are CSS (`.cgis-draw-handle`). */
+  HANDLE_HIT_PX: 24,
+  /** Leaflet path options for a sketch in progress (own draft now, remote ghosts in T14); design brief §4: 2 px, dashed 8/4, fill 12 %. */
+  DRAFT_STYLE: { weight: 2, dashArray: '8 4', fillOpacity: 0.12 },
+} as const;
+
+/** Polygon draw tool: the client-side `draw:invalid` reasons. */
+export const DRAW = {
+  SELF_INTERSECTION_REASON: 'Polygon edges must not cross or touch each other',
+  MAX_VERTICES_REASON: 'Vertex limit reached',
 } as const;
 
 /** Every `ApiError.code` the API sends; apps/api/src/errors.ts maps each to its HTTP status. */
@@ -181,4 +196,11 @@ export const ERROR_REASONS = {
   INVALID_GEOMETRY: 'invalid geometry',
   /** 409: the area's stored `version` is not the one the client edited; `details.current` is. */
   VERSION_CONFLICT: 'version conflict',
+} as const;
+
+/** `error` frame messages the Room sends where ERROR_MESSAGES' per-code default says too little. */
+export const WS_MESSAGES = {
+  NOT_JSON: 'frames must be JSON text',
+  NOT_JOINED: 'send join first',
+  DRAFT_OP_MISFIT: 'draft op does not fit the current draft',
 } as const;

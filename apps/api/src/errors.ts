@@ -24,6 +24,10 @@ const STATUS_BY_CODE = {
 } as const satisfies Record<ApiErrorCode, ContentfulStatusCode>;
 export type ErrorCode = ApiErrorCode;
 
+function errorBody(code: string, message: string, details?: unknown): ApiError {
+  return details === undefined ? { code, message } : { code, message, details };
+}
+
 function send(
   c: Context,
   status: ContentfulStatusCode,
@@ -31,13 +35,24 @@ function send(
   message: string,
   details?: unknown,
 ) {
-  const body: ApiError = details === undefined ? { code, message } : { code, message, details };
-  return c.json(body, status);
+  return c.json(errorBody(code, message, details), status);
 }
 
 /** Responds with `{ code, message, details? }` and the status that belongs to `code`. */
 export function apiError(c: Context, code: ErrorCode, message: string, details?: unknown) {
   return send(c, STATUS_BY_CODE[code], code, message, details);
+}
+
+/**
+ * The same body and status as `apiError`, without a Hono `Context`: for code that answers a plain
+ * `fetch` (the Room Durable Object). The message defaults to `ERROR_MESSAGES[code]`.
+ */
+export function apiErrorResponse(
+  code: ErrorCode,
+  message: string = ERROR_MESSAGES[code],
+  details?: unknown,
+): Response {
+  return Response.json(errorBody(code, message, details), { status: STATUS_BY_CODE[code] });
 }
 
 /** A helper for one code; the message defaults to `ERROR_MESSAGES[code]`. */
