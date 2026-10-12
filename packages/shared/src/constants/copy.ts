@@ -16,6 +16,14 @@ export const COPY = {
     OFFLINE_DETAIL: `Live updates are off. Saved areas refresh every ${WS.OFFLINE_POLL_MS / MS_PER_SECOND} s.`,
     RETRY: 'Retry',
   },
+  /** The base-layer switch on /map (LayerSwitch): the toolbar's name and its two toggles. */
+  MAP: {
+    BASE_LAYER_LABEL: 'Base map',
+    /** OpenStreetMap on Web Mercator. */
+    OSM_LABEL: 'Street map',
+    /** govmap's aerial imagery on the EPSG:2039 grid. */
+    AERIAL_LABEL: 'Aerial imagery',
+  },
   PRESENCE: {
     TITLE: 'On this map',
     LABEL: 'People on this map',

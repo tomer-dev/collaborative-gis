@@ -13,10 +13,12 @@ export {
   CircleX as IconError,
   Info as IconInfo,
   Layers as IconLayers,
+  Map as IconMap,
   Minus as IconMinus,
   Pencil as IconPencil,
   Plus as IconPlus,
   MousePointer2 as IconPointer,
   Pentagon as IconPolygon,
+  Satellite as IconSatellite,
   TriangleAlert as IconWarning,
 } from 'lucide-react';

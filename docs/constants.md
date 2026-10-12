@@ -198,6 +198,7 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 | Name | Value | Notes |
 |---|---|---|
 | `API_ORIGIN` | `'http://localhost:8787'` | `wrangler dev` default port: the Vite proxy target and the tests' `BETTER_AUTH_URL`. |
+| `WEB_ORIGIN` | `'http://localhost:5173'` | `vite` default port: the e2e run's SPA origin (apps/web/e2e/stack.ts) and its Worker's CLIENT_ORIGIN. |
 
 ## HEADERS
 
@@ -261,6 +262,8 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 | `OSM_TILE_URL` | `'https://tile.openstreetmap.org/{z}/{x}/{y}.png'` | OSM standard tiles. |
 | `OSM_ATTRIBUTION` | `'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'` | Required by the OSM tile usage policy. |
 | `OSM_MAX_ZOOM` | `19` | Highest zoom OSM serves. |
+| `OSM_Z0_METRES_PER_PIXEL` | `156543.03392804097` | Web Mercator metres per pixel at zoom 0 on the equator: 2π × 6,378,137 m / 256 px. Times cos(latitude) / 2^zoom it is OSM's ground resolution, which the layer switch matches to the nearest `GOVMAP.RESOLUTIONS` level. |
+| `CROSSFADE_MS` | `300` | Base-layer switch: the new base layer fades in over a still copy of the old one for this long, with no fade under prefers-reduced-motion. tokens.css `--transition-duration-slow` mirrors it (drift-tested). |
 | `AREAS_PANE` | `'areas'` | Saved areas' pane: above the tiles and Leaflet's overlay pane (400). |
 | `AREAS_PANE_Z` | `450` | `AREAS_PANE`'s z-index; tokens.css `--z-index-map-areas` mirrors it (drift-tested). |
 | `DRAFTS_PANE` | `'drafts'` | Live drafts' pane: above the saved areas. |
@@ -337,6 +340,16 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 | `OFFLINE_TITLE` | `'Offline'` |  |
 | `OFFLINE_DETAIL` | `` `Live updates are off. Saved areas refresh every ${WS.OFFLINE_POLL_MS / MS_PER_SECOND} s.` `` |  |
 | `RETRY` | `'Retry'` |  |
+
+### COPY.MAP
+
+The base-layer switch on /map (LayerSwitch): the toolbar's name and its two toggles.
+
+| Name | Value | Notes |
+|---|---|---|
+| `BASE_LAYER_LABEL` | `'Base map'` |  |
+| `OSM_LABEL` | `'Street map'` | OpenStreetMap on Web Mercator. |
+| `AERIAL_LABEL` | `'Aerial imagery'` | govmap's aerial imagery on the EPSG:2039 grid. |
 
 ### COPY.PRESENCE
 
