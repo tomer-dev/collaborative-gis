@@ -1,4 +1,4 @@
-import { RETENTION } from '@cgis/shared';
+import { AUDIT } from '@cgis/shared';
 import type { Env } from './app';
 import { withClient } from './db';
 import { purgeDeleted } from './db/purge';
@@ -16,7 +16,7 @@ export const scheduled: ExportedHandlerScheduledHandler<Env> = async (controller
   console.log(
     JSON.stringify({
       level: 'info',
-      msg: RETENTION.AUDIT_ACTION,
+      msg: AUDIT.ACTIONS.RETENTION_PURGE,
       ...counts,
       cron: controller.cron,
     }),
