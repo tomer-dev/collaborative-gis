@@ -297,7 +297,7 @@ pre#out{display:none;white-space:pre-wrap;font-family:var(--mono);font-size:.8re
   <h2>Decisions</h2>
 
   <section class="card high" data-id="D1">
-    <header><h3>D1 · Approve the design spec (reopened: answer D11–D14 and tick §2–§9 first)</h3><span class="sev">High</span><span class="affects">gates writing-plans → every ticket</span></header>
+    <header><h3>D1 · Approve the design spec (approved 2026-10-12 after §2–§9 review)</h3><span class="sev">High</span><span class="affects">gates writing-plans → every ticket</span></header>
     <p>The spec at <code>docs/superpowers/specs/2026-10-12-collaborative-gis-design.md</code> fixes the architecture, components, data model, flows, error handling and testing. Nothing gets planned in detail until it is approved.</p>
     <div class="kid"><b>Like you're 5:</b> before we build the Lego castle we drew a picture of it. You have to say "yes, that castle" before we open the box.</div>
     <div class="opts">
@@ -318,6 +318,7 @@ pre#out{display:none;white-space:pre-wrap;font-family:var(--mono);font-size:.8re
       <label class="opt"><input type="radio" name="D3" value="B-direct"><span>Skip A, go straight to the proxy (B)</span></label>
     </div>
     <p class="note">Licence: if govmap's terms forbid use, C is forced regardless of the technical result.</p>
+    <p class="note"><b>Decided in chat: option A (projection swap), no proxy, no fallback.</b></p>
     <textarea placeholder="Notes for D3 (optional)"></textarea>
   </section>
 
@@ -330,6 +331,7 @@ pre#out{display:none;white-space:pre-wrap;font-family:var(--mono);font-size:.8re
       <label class="opt"><input type="radio" name="D4" value="lww"><span>Last-writer-wins with a toast</span></label>
       <label class="opt"><input type="radio" name="D4" value="crdt"><span>Automatic merge (CRDT) — adds roughly a week</span></label>
     </div>
+    <p class="note"><b>Decided in chat: server version check + 409, two-button client prompt.</b></p>
     <textarea placeholder="Notes for D4 (optional)"></textarea>
   </section>
 
@@ -363,6 +365,7 @@ pre#out{display:none;white-space:pre-wrap;font-family:var(--mono);font-size:.8re
       <label class="opt"><input type="radio" name="D6" value="ttl"><span>Short TTL + version stamp <span class="rec">recommended</span></span></label>
       <label class="opt"><input type="radio" name="D6" value="purge-index"><span>Tile index with purge on write (exact, more code)</span></label>
     </div>
+    <p class="note"><b>Decided in chat: version-stamped cache keys bumped by the Room Durable Object.</b></p>
     <textarea placeholder="Notes for D6 (optional)"></textarea>
   </section>
 
@@ -397,6 +400,7 @@ pre#out{display:none;white-space:pre-wrap;font-family:var(--mono);font-size:.8re
       <label class="opt"><input type="radio" name="D9" value="keep"><span>Keep it (bonus points, one extra day) <span class="rec">recommended</span></span></label>
       <label class="opt"><input type="radio" name="D9" value="drop"><span>Drop it; document the wrangler path only</span></label>
     </div>
+    <p class="note"><b>Decided in chat: no Node port; docker-compose = PostGIS + wrangler dev (workerd) container.</b></p>
     <textarea placeholder="Notes for D9 (optional)"></textarea>
   </section>
 
