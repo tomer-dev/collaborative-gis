@@ -60,6 +60,7 @@ Tickets 2.1–2.8, 7.5. In place since M0: no secrets in the repository, the loc
 - The local database listens on port 5433 (not 5432, to avoid a local Postgres), bound to 127.0.0.1 only.
 - Local PostGIS is the community multi-arch `imresamu/postgis:18-3.6` image; Docker Hub's `postgis/postgis` is amd64-only.
 - No application features yet: M0 is the foundation (workspace, contracts, health endpoints, database wiring, CI).
+- Soft-deleted areas are purged after 7 days by a daily cron (`RETENTION.DAYS`, `RETENTION.CRON`), with their version history; until then they stay in the database, invisible to the map.
 - Expanded by ticket 6.5.
 
 ## Future improvements and scaling

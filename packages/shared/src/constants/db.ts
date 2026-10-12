@@ -20,3 +20,19 @@ export const AUDIT = {
   ENTITIES: { AREA: 'area' },
   ACTIONS: { AREA_CREATE: 'area.create', AREA_UPDATE: 'area.update', AREA_DELETE: 'area.delete' },
 } as const;
+
+/**
+ * Retention of soft-deleted areas (D8): a daily Cron Trigger (apps/api/src/scheduled.ts)
+ * hard-deletes areas deleted more than `DAYS` ago, with their `area_versions`.
+ */
+export const RETENTION = {
+  /** Days a soft-deleted area and its version history are kept before the purge removes them. */
+  DAYS: 7,
+  /**
+   * When the purge runs (cron syntax, UTC): daily at 03:00. apps/api/wrangler.jsonc
+   * `triggers.crons` repeats it as a JSON literal; a test fails when the two differ.
+   */
+  CRON: '0 3 * * *',
+  /** `audit_log.action` of the one row each purge run writes: no user, the counts in `details`. */
+  AUDIT_ACTION: 'retention.purge',
+} as const;
