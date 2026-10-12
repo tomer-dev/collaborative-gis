@@ -8,6 +8,7 @@ import { ConflictDialog } from '../../components/ConflictDialog';
 import { ConnectionBanner } from '../../components/ConnectionBanner';
 import { DrawControl } from '../../components/DrawControl';
 import { GhostPolygons } from '../../components/GhostPolygons';
+import { LayerSwitch } from '../../components/LayerSwitch';
 import { MapView } from '../../components/Map';
 import { PresenceList } from '../../components/PresenceList';
 import { SaveDialog } from '../../components/SaveDialog';
@@ -63,6 +64,7 @@ function MapRoute() {
           />
           <DrawControl map={map} onDone={(ring) => setMode({ kind: 'draft', ring })} />
           <GhostPolygons map={map} drafts={room.drafts} users={room.users} />
+          <LayerSwitch map={map} />
         </>
       ) : null}
       <MapOverlay mode={mode} setMode={setMode} areas={areas} bbox={bbox} />
