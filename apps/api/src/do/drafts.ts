@@ -120,6 +120,11 @@ export class DraftStore {
     );
   }
 
+  /** How many drafts are stored. */
+  count(): number {
+    return this.sql.exec<{ n: number }>('SELECT COUNT(*) AS n FROM drafts').one().n;
+  }
+
   /** Every stored draft, oldest edit first. */
   all(): Draft[] {
     return this.sql
