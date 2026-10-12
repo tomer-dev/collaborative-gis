@@ -10,7 +10,7 @@ import {
   ROOM,
   WS,
 } from '@cgis/shared';
-import { useQueryClient } from '@tanstack/react-query';
+import { type QueryFilters, useQueryClient } from '@tanstack/react-query';
 import type * as L from 'leaflet';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { onDraw } from './geo';
@@ -243,8 +243,18 @@ export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
     connectionRef.current = connection;
     senderRef.current = sender;
     const areasKey = { queryKey: [QUERY.AREAS_KEY] };
-    const patch = (event: AreaWsEvent) =>
+    // On-screen viewports whose first GET has not answered yet: no list to patch.
+    const unfetched: QueryFilters = {
+      ...areasKey,
+      type: 'active',
+      predicate: (query) => query.state.data === undefined,
+    };
+    const patch = (event: AreaWsEvent) => {
       queryClient.setQueriesData<AreaList>(areasKey, (list) => patchAreas(list, event));
+      // That GET may have read the database before this change, and a refetch would only join it,
+      // so it is cancelled and sent again.
+      void queryClient.cancelQueries(unfetched).then(() => queryClient.refetchQueries(unfetched));
+    };
     // The viewport lists are refetched on an open only once events may have been missed: after an
     // earlier open, or after the connection degraded. The first open of a healthy connection skips
     // it, so loading the map costs one GET, not two (the list was fetched moments before).
