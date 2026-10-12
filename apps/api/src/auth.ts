@@ -25,6 +25,9 @@ export async function createAuth(
     import('better-auth/adapters/drizzle'),
     import('better-auth/api'),
   ]);
+  // A deployed Worker serves https (docs/deploy.md); `wrangler dev` and the tests use http. Better
+  // Auth's own production switch reads NODE_ENV, which a Worker does not set.
+  const deployed = new URL(env.BETTER_AUTH_URL).protocol === 'https:';
   return betterAuth({
     // `better-auth/minimal` leaves out Kysely, which only direct database connections need.
     database: drizzleAdapter(db(client), { provider: 'pg', schema }),
@@ -49,11 +52,26 @@ export async function createAuth(
     },
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
-    // The SPA's origin; Better Auth also trusts its own baseURL.
+    // The SPA's origin; Better Auth also trusts its own baseURL. Any other Origin gets 403.
     trustedOrigins: [env.CLIENT_ORIGIN],
+    // Sign-in attempts per client IP, once deployed (its default is NODE_ENV-driven, so always off
+    // here). In-memory storage needs no table but counts per Worker isolate: it slows one client,
+    // and the zone's WAF rate rule on /api/auth/* is the global limit (docs/deploy.md).
+    rateLimit: {
+      enabled: deployed,
+      storage: 'memory',
+      customRules: {
+        [AUTH.RATE_LIMIT_PATH]: { window: AUTH.RATE_LIMIT_WINDOW_S, max: AUTH.RATE_LIMIT_MAX },
+      },
+    },
     advanced: {
-      // Cloudflare's edge sets the client IP here; without it sessions store an empty ipAddress.
+      // Cloudflare's edge sets the client IP here; sessions record it and the rate limit keys on it.
       ipAddress: { ipAddressHeaders: ['cf-connecting-ip'] },
+      // `Secure` and the `__Secure-` name prefix on every auth cookie once deployed.
+      useSecureCookies: deployed,
+      // Spelled out though they are Better Auth's defaults: SameSite=Lax, and no Domain
+      // (crossSubDomainCookies stays off), so the cookies are host-only.
+      defaultCookieAttributes: { sameSite: 'lax' },
       // Explicit: Better Auth turns both checks off when process.env has NODE_ENV=test or TEST,
       // and nodejs_compat fills process.env from the Worker's vars.
       disableCSRFCheck: false,
