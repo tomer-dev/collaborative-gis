@@ -24,4 +24,6 @@ export const ROUTES = {
 export const DEV = {
   /** `wrangler dev` default port: the Vite proxy target and the tests' `BETTER_AUTH_URL`. */
   API_ORIGIN: 'http://localhost:8787',
+  /** `vite` default port: the e2e run's SPA origin (apps/web/e2e/stack.ts) and its Worker's CLIENT_ORIGIN. */
+  WEB_ORIGIN: 'http://localhost:5173',
 } as const;
