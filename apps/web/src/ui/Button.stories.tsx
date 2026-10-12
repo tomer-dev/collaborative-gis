@@ -49,7 +49,7 @@ export const Sizes: Story = {
 
 export const WithIcon: Story = { args: { icon: IconPencil, children: 'Draw area' } };
 
-/** Icon-only buttons are square and must have an `aria-label` (or a Tooltip with relation="label"). */
+/** Icon-only buttons are square and must have an `aria-label` (add a `title` for a pointer hint). */
 export const IconOnly: Story = {
   args: { icon: IconPlus, children: undefined, 'aria-label': 'Zoom in', variant: 'secondary' },
 };
