@@ -10,10 +10,19 @@ export const COPY = {
     NAME: 'Collaborative GIS',
   },
   CONNECTION: {
-    DEGRADED_TITLE: 'Reconnecting',
+    /** Banner while `degraded`: the socket keeps retrying with backoff. */
+    DEGRADED_TITLE: 'Reconnecting…',
+    /** The local draft stays in memory and is resent after the next join. */
     DEGRADED_DETAIL: 'Live updates are paused. Your drawing is kept.',
+    /** Banner while `offline`: the saved areas are polled every `WS.OFFLINE_POLL_MS`. */
     OFFLINE_TITLE: 'Offline',
-    OFFLINE_DETAIL: `Live updates are off. Saved areas refresh every ${WS.OFFLINE_POLL_MS / MS_PER_SECOND} s.`,
+    /** States the poll interval from `WS.OFFLINE_POLL_MS`. */
+    OFFLINE_DETAIL: `Showing the last saved areas; polling every ${WS.OFFLINE_POLL_MS / MS_PER_SECOND} s. Your drawing is kept.`,
+    /** Banner while a re-join waits for the Room's state (after a reconnect or a `resync` error); brief. */
+    RESYNC_TITLE: 'Resyncing…',
+    /** Ghosts and presence are replaced by the Room's answer; the draft is resent. */
+    RESYNC_DETAIL: 'Catching up with the live map.',
+    /** The offline banner's button: connect now. */
     RETRY: 'Retry',
   },
   PRESENCE: {
