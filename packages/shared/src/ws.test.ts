@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { parseWsClientMessage, parseWsMessage, WsClientEventSchema } from './ws';
+import { LIMITS } from './constants';
+import { AreaEventSchema, parseWsClientMessage, parseWsMessage, WsClientEventSchema } from './ws';
 
 describe('parseWsMessage', () => {
   it('parses a join event', () => {
@@ -65,5 +66,88 @@ describe('M1 events', () => {
     expect(parseWsClientMessage(frame('presence:set', { state: 'viewing' })).type).toBe(
       'presence:set',
     );
+  });
+});
+
+describe('draft:update userId', () => {
+  const update = (payload: Record<string, unknown>) =>
+    JSON.stringify({ type: 'draft:update', seq: 4, ts: 1, payload });
+  const op = { op: 'add', index: 0, vertex: [34.8, 32.0] };
+
+  it('an outbound draft:update keeps the author the Room stamped', () => {
+    const ev = parseWsMessage(update({ ...op, userId: 'u1' }));
+    expect(ev.type === 'draft:update' && ev.payload).toEqual({ ...op, userId: 'u1' });
+  });
+
+  it('an inbound draft:update may omit userId', () => {
+    const ev = parseWsClientMessage(update(op));
+    expect(ev.type === 'draft:update' && ev.payload).toEqual(op);
+  });
+
+  it('rejects a userId over LIMITS.USER_ID_MAX', () => {
+    expect(() =>
+      parseWsMessage(update({ ...op, userId: 'x'.repeat(LIMITS.USER_ID_MAX + 1) })),
+    ).toThrow();
+  });
+});
+
+describe('area events and mapVersion', () => {
+  const area = {
+    id: '3f8b6c1e-2a4d-4e5f-9a7b-1c2d3e4f5a6b',
+    name: 'Yarkon park',
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [34.8, 32.0],
+          [34.9, 32.0],
+          [34.9, 32.1],
+          [34.8, 32.0],
+        ],
+      ],
+    },
+    areaKm2: 12.3,
+    version: 2,
+    createdBy: 'user-1',
+    createdAt: '2026-10-12T10:00:00Z',
+    updatedAt: '2026-10-12T11:00:00Z',
+  };
+  const created = { type: 'area:created', payload: { area } };
+  const stamped = (event: object, extra: object = {}) =>
+    JSON.stringify({ ...event, seq: 7, ts: 1, ...extra });
+
+  it('an outbound area event carries the mapVersion the Room stamped', () => {
+    const ev = parseWsMessage(stamped(created, { mapVersion: 3 }));
+    expect(ev.type === 'area:created' && ev.mapVersion).toBe(3);
+  });
+
+  it('mapVersion is optional (additive) and must be a non-negative integer', () => {
+    expect(parseWsMessage(stamped(created)).type).toBe('area:created');
+    expect(() => parseWsMessage(stamped(created, { mapVersion: -1 }))).toThrow();
+    expect(() => parseWsMessage(stamped(created, { mapVersion: 1.5 }))).toThrow();
+  });
+
+  it('AreaEventSchema accepts the three unstamped area changes', () => {
+    for (const event of [
+      created,
+      { type: 'area:updated', payload: { area } },
+      { type: 'area:deleted', payload: { id: area.id } },
+    ]) {
+      expect(AreaEventSchema.parse(event)).toEqual(event);
+    }
+  });
+
+  it('AreaEventSchema drops client-sent stamps: the Room sets seq, ts and mapVersion', () => {
+    expect(AreaEventSchema.parse({ ...created, seq: 1, ts: 1, mapVersion: 99 })).toEqual(created);
+  });
+
+  it('AreaEventSchema rejects other event types and invalid payloads', () => {
+    const invalid = [
+      { type: 'presence', payload: { users: [] } },
+      { type: 'area:deleted', payload: { id: 'not-a-uuid' } },
+      { type: 'area:created', payload: { area: { ...area, name: '' } } },
+      { type: 'area:updated', payload: {} },
+    ];
+    for (const event of invalid) expect(AreaEventSchema.safeParse(event).success).toBe(false);
   });
 });

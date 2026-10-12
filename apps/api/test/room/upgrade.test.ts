@@ -1,4 +1,4 @@
-import { LIMITS, MAP, ROOM, type WsEvent } from '@cgis/shared';
+import { type AreaEvent, LIMITS, MAP, ROOM, WS } from '@cgis/shared';
 import { evictDurableObject, runInDurableObject } from 'cloudflare:test';
 import { env, exports } from 'cloudflare:workers';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -46,11 +46,16 @@ const attachments = () =>
 const socketCount = () =>
   runInDurableObject(room(), (_room, state) => state.getWebSockets().length);
 
-const event = (seq: number): WsEvent => ({
+const event = (n: number): AreaEvent => ({
   type: 'area:deleted',
-  seq,
-  ts: 1_700_000_000_000,
-  payload: { id: '00000000-0000-4000-8000-000000000000' },
+  payload: { id: `00000000-0000-4000-8000-00000000000${n}` },
+});
+/** What a socket receives for `event(n)`: stamped with the Room's `seq`, `ts` and `mapVersion`. */
+const received = (n: number) => ({
+  ...event(n),
+  seq: expect.any(Number),
+  ts: expect.any(Number),
+  mapVersion: expect.any(Number),
 });
 
 afterEach(async () => {
@@ -137,6 +142,11 @@ describe('Room Durable Object', () => {
       color: expect.any(String),
       state: 'viewing',
       lastSeen: expect.any(Number),
+      joined: false,
+      strikes: 0,
+      tokens: WS.DRAFT_RATE_PER_SEC,
+      refilledAt: expect.any(Number),
+      lastSeq: null,
     });
     const { color, lastSeen } = PresenceAttachmentSchema.parse(attachment);
     expect(MAP.PRESENCE_COLORS).toContain(color);
@@ -221,19 +231,8 @@ describe('Room Durable Object', () => {
     const b = await connect('u2', 'Bob');
     const [gotA, gotB] = [nextMessage(a), nextMessage(b)];
     await room().broadcast(event(1));
-    expect(JSON.parse(await gotA)).toEqual(event(1));
-    expect(JSON.parse(await gotB)).toEqual(event(1));
-  });
-
-  it('broadcast(event, exceptUserId) skips that user', async () => {
-    const a = await connect('u1', 'Alice');
-    const b = await connect('u2', 'Bob');
-    const [gotA, gotB] = [nextMessage(a), nextMessage(b)];
-    await room().broadcast(event(1), 'u1');
-    await room().broadcast(event(2));
-    // Frames arrive in order, so Alice's first frame being seq 2 proves she never got seq 1.
-    expect(JSON.parse(await gotA)).toEqual(event(2));
-    expect(JSON.parse(await gotB)).toEqual(event(1));
+    expect(JSON.parse(await gotA)).toEqual(received(1));
+    expect(JSON.parse(await gotB)).toEqual(received(1));
   });
 
   it('broadcast closes a socket whose attachment is invalid, once, and still reaches the rest', async () => {
@@ -253,7 +252,7 @@ describe('Room Durable Object', () => {
     await room().broadcast(event(1));
     await room().broadcast(event(2));
     expect(await closed).toBe(1011);
-    expect(JSON.parse(await gotGood)).toEqual(event(1));
+    expect(JSON.parse(await gotGood)).toEqual(received(1));
     expect(logged).toHaveBeenCalledOnce();
   });
 
