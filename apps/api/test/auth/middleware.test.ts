@@ -106,18 +106,19 @@ describe('request id (TOM-31)', () => {
     expect(await res.json()).toEqual({ requestId: res.headers.get('x-request-id') });
   });
 
-  it('keeps a well-formed incoming x-request-id and replaces a malformed one', async () => {
-    const app = testApp();
-    const kept = await app.request(
-      'http://x/t/id',
-      { headers: { 'x-request-id': 'edge-42' } },
-      env,
-    );
-    expect(kept.headers.get('x-request-id')).toBe('edge-42');
-
-    const bad = await app.request('http://x/t/id', { headers: { 'x-request-id': 'a b"}' } }, env);
-    expect(bad.headers.get('x-request-id')).toMatch(UUID);
-  });
+  it.each(['edge-42', 'a b"}'])(
+    'ignores an incoming x-request-id (%s): the id is always server-generated',
+    async (incoming) => {
+      const res = await testApp().request(
+        'http://x/t/id',
+        { headers: { 'x-request-id': incoming } },
+        env,
+      );
+      const id = res.headers.get('x-request-id');
+      expect(id).toMatch(UUID);
+      expect(await res.json()).toEqual({ requestId: id });
+    },
+  );
 });
 
 describe('request timeout (2.6)', () => {
