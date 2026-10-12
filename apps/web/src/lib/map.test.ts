@@ -20,7 +20,8 @@ describe('boundsToBbox', () => {
       [31.9, 34.7],
       [32.2, 35.0],
     ]);
-    expect(boundsToBbox(m)).toEqual([34.7, 31.9, 35.0, 32.2]);
+    // wrapLatLngBounds re-centres even in-range bounds, adding float noise to the longitudes.
+    expect(boundsToBbox(m)).toEqual([expect.closeTo(34.7, 9), 31.9, expect.closeTo(35.0, 9), 32.2]);
   });
 
   it('brings a view on a wrapped world copy back into [-180, 180]', () => {
