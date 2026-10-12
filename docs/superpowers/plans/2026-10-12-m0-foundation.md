@@ -6,7 +6,7 @@
 
 **Architecture:** pnpm workspace with `apps/api` (Hono on Cloudflare Workers, workerd runtime), `apps/web` (Vite + React), `packages/shared` (Zod schemas consumed by both). The Worker reaches Postgres only through a Hyperdrive binding; locally that binding points at a docker PostGIS via `localConnectionString`. No Node port of the Worker exists (decision D9).
 
-**Tech Stack:** pnpm 9, TypeScript 5, Node 22+, Hono 4 + `@hono/cli`, Wrangler 4, `@cloudflare/vitest-pool-workers`, Vitest 3, Zod 3, Vite 6 + React 19, Docker (`postgis/postgis:16-3.4`), Neon CLI (`neonctl`), 1Password CLI (`op`).
+**Tech Stack:** pnpm 9, TypeScript 5, Node 22+, Hono 4 + `@hono/cli`, Wrangler 4, `@cloudflare/vitest-plugin`, Vitest 3, Zod 3, Vite 6 + React 19, Docker (`imresamu/postgis:18-3.6`), Neon CLI (`neonctl`), 1Password CLI (`op`).
 
 **Spec:** `docs/superpowers/specs/2026-10-12-collaborative-gis-design.md`
 **Roadmap / tickets:** `docs/roadmap.md` → Linear TOM-13 (0.1), TOM-14 (0.2), TOM-15 (0.3), TOM-16 (0.4), TOM-17 (0.5)
@@ -480,7 +480,7 @@ Expected: `apps/api/src/index.ts`, `apps/api/wrangler.jsonc` (or `.toml`), `apps
 Run:
 ```bash
 pnpm --filter @cgis/api add @cgis/shared@workspace:* zod
-pnpm --filter @cgis/api add -D @cloudflare/vitest-pool-workers vitest @cloudflare/workers-types typescript
+pnpm --filter @cgis/api add -D @cloudflare/vitest-plugin vitest @cloudflare/workers-types typescript
 ```
 Set `apps/api/package.json` scripts to:
 ```json
@@ -514,17 +514,7 @@ Set `apps/api/package.json` scripts to:
 }
 ```
 
-`apps/api/vitest.config.ts`:
-```ts
-import { defineWorkersConfig } from '@cloudflare/vitest-pool-workers/config';
-
-export default defineWorkersConfig({
-  test: {
-    include: ['test/**/*.test.ts'],
-    poolOptions: { workers: { wrangler: { configPath: './wrangler.jsonc' } } },
-  },
-});
-```
+`apps/api/vitest.config.ts`: superseded at execution; see apps/api/vitest.config.ts.
 
 `apps/api/AGENTS.md` (replace template content):
 ```md
@@ -766,7 +756,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ```yaml
 services:
   postgis:
-    image: postgis/postgis:16-3.4
+    image: imresamu/postgis:18-3.6
     environment:
       POSTGRES_USER: cgis
       POSTGRES_PASSWORD: cgis
@@ -914,7 +904,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgis:
-        image: postgis/postgis:16-3.4
+        image: imresamu/postgis:18-3.6
         env:
           POSTGRES_USER: cgis
           POSTGRES_PASSWORD: cgis
@@ -1003,7 +993,7 @@ Filled by ticket 6.5.
 Ticket 4.9 ADR.
 
 ## Testing approach
-Unit (Vitest), Worker + Durable Object integration (`@cloudflare/vitest-pool-workers`), API contract suite (`hono batch`), two-browser Playwright E2E: tickets 6.1–6.3.
+Unit (Vitest), Worker + Durable Object integration (`@cloudflare/vitest-plugin`), API contract suite (`hono batch`), two-browser Playwright E2E: tickets 6.1–6.3.
 ```
 
 - [ ] **Step 2: ADR template and the three decided ADRs**
@@ -1050,7 +1040,7 @@ Date: 2026-10-12 · Status: accepted
 Workers execute fetch handlers on workerd; Fastify needs a Node HTTP server. Hono is web-standard, runs on Workers and Node, ships an official agent skill and a CLI that tests the app in-process with local bindings.
 
 ## Decision
-Build the API with Hono, validate with Zod via `hono-openapi`, document with OpenAPI 3.1, test with `hono batch` and `@cloudflare/vitest-pool-workers`.
+Build the API with Hono, validate with Zod via `hono-openapi`, document with OpenAPI 3.1, test with `hono batch` and `@cloudflare/vitest-plugin`.
 
 ## Consequences
 No controllers; routes grouped with `app.route`; shared types through the `hc` client. WebSocket upgrades are forwarded to the Durable Object rather than handled by Hono's helper.

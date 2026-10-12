@@ -25,7 +25,7 @@ E0 ──┬── E1 (db) ──┐
 |---|---|---|---|
 | 0.1 | Monorepo scaffold (pnpm workspaces: apps/web, apps/api via `hono init -t cloudflare-workers` with `@hono/cli` + `AGENTS.md`, `wrangler.jsonc`, `nodejs_compat`; packages/shared; tsconfig base; eslint/prettier) | `pnpm -r typecheck` passes; `hono routes` lists the hello route; `wrangler dev` serves it | — |
 | 0.2 | Shared contracts package: Zod schemas for Area, AreaVersion, bounds query, API error shape, WS message envelope + event types | Types exported; schema tests for one valid and one invalid polygon | 0.1 |
-| 0.3 | Local DB: docker-compose with postgis/postgis image; `.env.example`; Neon project + `CREATE EXTENSION postgis` (direct connection); Hyperdrive config with `localConnectionString` for dev | `select postgis_version()` works locally (via Hyperdrive local) and on Neon | 0.1 |
+| 0.3 | Local DB: docker-compose with imresamu/postgis:18-3.6 image; `.env.example`; Neon project + `CREATE EXTENSION postgis` (direct connection); Hyperdrive config with `localConnectionString` for dev | `select postgis_version()` works locally (via Hyperdrive local) and on Neon | 0.1 |
 | 0.4 | CI: GitHub Actions lint + typecheck + test on PR; `wrangler deploy --dry-run` | Green on empty repo | 0.1 |
 | 0.5 | Docs skeleton: README outline per submission checklist, ADR template, `docs/process-log.md` | Files exist with headings | 0.1 |
 
@@ -99,7 +99,7 @@ E0 ──┬── E1 (db) ──┐
 | 6.1 | Unit tests: area calc, polygon validation, rate limiter, conflict resolution, projection utils | Vitest green in CI | E1–E5 |
 | 6.2 | Integration tests: `@cloudflare/vitest-pool-workers` for Worker + DO (WS protocol tests), ephemeral PostGIS via compose; `hono batch` JSONL contract suite run in CI (`--runtime workerd`) | Green in CI; `hono batch` reports `failed: 0` | 6.1 |
 | 6.3 | E2E: Playwright two-browser collaborative scenario | Passes locally | 5.10 |
-| 6.4 | Local parity: docker-compose = `postgis/postgis` + a `wrangler dev` (workerd) container with Hyperdrive `localConnectionString`; no Node port of the Worker | `docker compose up` serves app, API, WS | E1–E5 |
+| 6.4 | Local parity: docker-compose = `imresamu/postgis:18-3.6` + a `wrangler dev` (workerd) container with Hyperdrive `localConnectionString`; no Node port of the Worker | `docker compose up` serves app, API, WS | E1–E5 |
 | 6.5 | README: setup, architecture, decisions, performance, security, limitations, future work, testing approach; ADRs linked | Matches submission checklist | all |
 | 6.6 | Load test: k6 WS + REST scenario, results in `docs/benchmarks.md` | Numbers recorded | 6.4 |
 | 6.7 | Telemetry: Workers Logs + Workers Analytics Engine datapoints (ws connections, msgs/s, query latency); `/metrics` counters from the room DO; OpenTelemetry as design note | Endpoint returns counters | 2.7 |
