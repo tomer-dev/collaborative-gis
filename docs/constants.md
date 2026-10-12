@@ -11,7 +11,7 @@ Import from `@cgis/shared` in app code (`@cgis/shared/constants` in Node-side co
 | `POLYGON_MAX_VERTICES` | `1000` | `packages/shared/src/geo.ts` (ring max; re-exported under the old name), `apps/web/src/App.tsx` | Spec §5 polygon rule; bounds payload and `ST_IsValid` cost |
 | `AREA_NAME_MAX` | `120` | `packages/shared/src/area.ts` (`AreaSchema.name`) | D13 name length cap |
 | `USER_NAME_MAX` | `60` | `apps/api/src/do/handoff.ts` (Room trims and caps the user name), `apps/api/src/do/presence.ts` `PresenceAttachmentSchema.name` | Presence list and ghost labels stay short; attachments stay small |
-| `USER_ID_MAX` | `128` | `apps/api/src/do/handoff.ts` (Room rejects longer ids with 400), `PresenceAttachmentSchema.userId` | With both strings capped, a socket attachment cannot reach the runtime's 16 KiB limit |
+| `USER_ID_MAX` | `128` | `apps/api/src/do/handoff.ts` (Room rejects longer ids with 400), `PresenceAttachmentSchema.userId`, `packages/shared/src/ws.ts` `draft:update` `payload.userId` (the author the Room stamps) | With both strings capped, a socket attachment cannot reach the runtime's 16 KiB limit |
 | `BOUNDS_LIMIT` | `500` | `apps/api/src/db/spatial.ts` `selectAreasInBounds` default `limit`; `apps/api/src/services/areas.ts` `listAreas` (`GET /api/areas`) | Caps one viewport response |
 | `SIMPLIFY_ZOOM_BELOW` | `12` | Unused in M1: `GET /api/areas` validates `zoom` and ignores it (T15 ruling: no simplification); planned M2 | Fewer vertices when zoomed out |
 | `SIMPLIFY_TOLERANCE` | `0.0005` | Unused in M1 (see `SIMPLIFY_ZOOM_BELOW`); planned M2 `ST_SimplifyPreserveTopology` tolerance (degrees) | ~50 m at the equator: invisible at zoom < 12 |
@@ -44,6 +44,7 @@ The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmar
 | `BAD_FRAME_STRIKES` | `10` | Planned: T7 (strikes before closing a socket) | Tolerates a few bad frames, stops a flood |
 | `CLOSE_POLICY_VIOLATION` | `1008` | Planned: T7 close code after the strikes | RFC 6455 "policy violation" |
 | `CLOSE_INTERNAL_ERROR` | `1011` | `apps/api/src/do/room.ts` closes an open socket without a valid attachment | RFC 6455 "internal error": the server cannot attribute the socket |
+| `CLOSE_IDLE` | `1001` | `apps/api/src/do/room.ts` `alarm()` closes a socket silent for `PRESENCE_IDLE_MS` (no frame and no auto-answered ping) | RFC 6455 "going away": a client that pings every `PING_INTERVAL_MS` is never reaped; one that stopped is dead, and reconnects if it is not |
 | `PING_INTERVAL_MS` | `30_000` | Planned: T14 client ping (DO auto-responds ping→pong) | Keeps idle sockets and proxies alive |
 | `AUTO_PING` / `AUTO_PONG` | `'ping'` / `'pong'` | `apps/api/src/do/room.ts` `setWebSocketAutoResponse`; planned T14 client ping | The runtime answers without waking a hibernated Room |
 | `RECONNECT_BACKOFF_MS` | `{ min: 1000, max: 30_000 }` | Planned: T14 reconnect backoff (+ jitter) | Fast first retry, bounded worst case |
@@ -122,7 +123,7 @@ The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmar
 
 | Name | Value | Where used | Why |
 |---|---|---|---|
-| `DEFAULT_ROOM_ID` | `'default'` | `apps/api/test/scaffold.test.ts`; planned T6 `ROOM.idFromName`, T8 fan-out | D11: one shared map, one Room DO |
+| `DEFAULT_ROOM_ID` | `'default'` | `apps/api/src/ws.ts` (`GET /ws` hand-off), `apps/api/src/services/fanout.ts` (area changes → `Room.broadcast`), `apps/api/test/scaffold.test.ts` | D11: one shared map, one Room DO |
 | `USER_ID_HEADER` / `USER_NAME_HEADER` | `'x-user-id'` / `'x-user-name'` | `apps/api/src/do/handoff.ts`: `withRoomUser` (used by `ws.ts`) sets them, name percent-encoded; `readRoomUser` (used by `room.ts`) validates them | The Worker hands the session user to the Room; client-sent copies are overwritten |
 
 ## MAP
@@ -188,3 +189,13 @@ Default `ApiError.message` per code, same keys as `ERROR_CODES` (`satisfies` + a
 | `ORIGIN_NOT_ALLOWED` | `'origin not allowed'` | `FORBIDDEN` (403) | `apps/api/src/ws.ts` `wsGate()`: a `GET /ws` upgrade whose Origin is missing or is not `env.CLIENT_ORIGIN` | Cross-site WebSocket hijacking: Better Auth's `getSession` ignores Origin, so without this a foreign page could open a socket with the victim's cookie |
 | `INVALID_GEOMETRY` | `'invalid geometry'` | `UNPROCESSABLE` (422) | `apps/api/src/routes/areas.ts`: `POST`/`PUT` whose polygon passed Zod but failed `ST_IsValid`; `details.reason` is the `ST_IsValidReason` text | Tells the client the geometry, not the request shape, is at fault |
 | `VERSION_CONFLICT` | `'version conflict'` | `CONFLICT` (409) | `apps/api/src/routes/areas.ts` `PUT`: the stored `version` is not the one sent; `details.current` is the stored area | The client can show the current area and let the user re-apply |
+
+## WS_MESSAGES
+
+`error` frame messages the Room sends beside the `ERROR_CODES` code, where the `ERROR_MESSAGES` default says too little. Clients branch on the code, never on the message.
+
+| Name | Value | Where used | Why |
+|---|---|---|---|
+| `NOT_JSON` | `'frames must be JSON text'` | `apps/api/src/do/room.ts` (binary or non-JSON frame → `BAD_REQUEST`, one strike) | Says what the Room accepts; a schema failure sends Zod's issue text instead |
+| `NOT_JOINED` | `'send join first'` | `apps/api/src/do/room.ts` (`draft:update` before `join` → `BAD_REQUEST`, no strike) | Drafts come only from users in presence |
+| `DRAFT_OP_MISFIT` | `'draft op does not fit the current draft'` | `apps/api/src/do/room.ts` (index past the end, or an `add` beyond `LIMITS.POLYGON_MAX_VERTICES` → `BAD_REQUEST`, no strike) | The client's draft and the Room's have diverged; the op is not relayed |

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AreaSchema } from './area';
+import { LIMITS } from './constants';
 import { PositionSchema } from './geo';
 
 const base = { seq: z.number().int().nonnegative(), ts: z.number().int().nonnegative() };
@@ -31,6 +32,9 @@ const presenceSet = z.object({
   payload: z.object({ state: PresenceStateSchema }),
 });
 // Both directions: the server rebroadcasts a sender's draft:update to the other sockets.
+// `userId` is the author: clients may omit it; the Room always stamps it on the frames it relays
+// and overwrites any value a client sent.
+const draftAuthor = { userId: z.string().max(LIMITS.USER_ID_MAX).optional() };
 const draftUpdate = z.object({
   type: z.literal('draft:update'),
   ...base,
@@ -39,14 +43,16 @@ const draftUpdate = z.object({
       op: z.literal('add'),
       index: z.number().int().nonnegative(),
       vertex: PositionSchema,
+      ...draftAuthor,
     }),
     z.object({
       op: z.literal('move'),
       index: z.number().int().nonnegative(),
       vertex: PositionSchema,
+      ...draftAuthor,
     }),
-    z.object({ op: z.literal('remove'), index: z.number().int().nonnegative() }),
-    z.object({ op: z.literal('clear') }),
+    z.object({ op: z.literal('remove'), index: z.number().int().nonnegative(), ...draftAuthor }),
+    z.object({ op: z.literal('clear'), ...draftAuthor }),
   ]),
 });
 
@@ -61,24 +67,32 @@ const draftState = z.object({
   ...base,
   payload: z.object({ drafts: z.array(DraftSchema) }),
 });
+// `mapVersion` is the map's version after this change: the Room's counter, bumped once per
+// committed area change (D6: the M2 viewport cache keys on it). The Room stamps it on every area
+// event it sends; it is optional only so that adding it changed no existing producer.
+const mapVersion = { mapVersion: z.number().int().nonnegative().optional() };
 const areaCreated = z.object({
   type: z.literal('area:created'),
   ...base,
+  ...mapVersion,
   payload: z.object({ area: AreaSchema }),
 });
 const areaUpdated = z.object({
   type: z.literal('area:updated'),
   ...base,
+  ...mapVersion,
   payload: z.object({ area: AreaSchema }),
 });
 const areaDeleted = z.object({
   type: z.literal('area:deleted'),
   ...base,
+  ...mapVersion,
   payload: z.object({ id: z.uuid() }),
 });
 const error = z.object({
   type: z.literal('error'),
   ...base,
+  // retryAfter is in milliseconds (RATE_LIMITED: wait at least this long before retrying).
   payload: z.object({ code: z.string(), message: z.string(), retryAfter: z.number().optional() }),
 });
 
@@ -105,6 +119,18 @@ export const WsClientEventSchema = z.discriminatedUnion('type', [
   presenceSet,
 ]);
 export type WsClientEvent = z.infer<typeof WsClientEventSchema>;
+
+/**
+ * A committed area change as the Worker hands it to the Room (`fanout` → `Room.broadcast` RPC):
+ * an `area:*` event before the Room stamps `seq`, `ts` and `mapVersion`. Parsing drops any stamps
+ * the caller sent, so the Room's own always win.
+ */
+export const AreaEventSchema = z.discriminatedUnion('type', [
+  areaCreated.omit({ seq: true, ts: true, mapVersion: true }),
+  areaUpdated.omit({ seq: true, ts: true, mapVersion: true }),
+  areaDeleted.omit({ seq: true, ts: true, mapVersion: true }),
+]);
+export type AreaEvent = z.infer<typeof AreaEventSchema>;
 
 export function parseWsMessage(raw: string): WsEvent {
   return WsEnvelopeSchema.parse(JSON.parse(raw));

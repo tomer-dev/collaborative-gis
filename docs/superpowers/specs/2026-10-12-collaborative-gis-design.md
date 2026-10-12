@@ -54,7 +54,7 @@ Rule: the Worker never holds state between requests; all coordination state live
 
 ## 5. Data flows
 
-**Save polygon.** Client validates ring (closed, ≥3 unique vertices, ≤1,000, no self-intersection via a simple segment check) → `POST /areas` → Zod → `requireUser` → `RateLimiter.take('draw')` → transaction: insert area with computed `area_km2`, insert version 1, audit row → response → `ctx.waitUntil(room.broadcast({type:'area:created', area}))`.
+**Save polygon.** Client validates ring (closed, ≥3 unique vertices, ≤1,000, no self-intersection via a simple segment check) → `POST /areas` → Zod → `requireUser` → `RateLimiter.take('draw')` → transaction: insert area with computed `area_km2`, insert version 1, audit row → response → `ctx.waitUntil(fanout(env, {type:'area:created', payload:{area}}))` → `Room.broadcast` (DO RPC) validates the event, bumps the map version and sends it to every socket stamped with `seq`, `ts` and `mapVersion` (`Room.getVersion()` reads the counter). `PUT` and `DELETE` fan out `area:updated` / `area:deleted {id}` the same way; a refused mutation (409, 404, 422) sends nothing.
 
 **Concurrent edit.** `PUT /areas/:id` carries `version`. `UPDATE … WHERE id=$1 AND version=$2 AND deleted_at IS NULL`; zero rows → 409 with the current server row. Client shows a two-button prompt: Overwrite with mine (resend with the server version) or Load theirs. Success bumps version and writes a version row.
 
@@ -107,6 +107,8 @@ In: everything in the brief's sections 1–6, bonus Docker/tests/OpenAPI/benchma
 - No Proj4Leaflet: unmaintained since 2017; a CRS object on `proj4` is ~50 lines.
 - Hono over Fastify: Workers are fetch runtimes; Hono runs on Node too; official agent skill + CLI.
 - Cloudflare over Vercel: Vercel WebSocket beta has a hard per-connection duration cap; Durable Objects give a native coordinator.
+- Design system "Grid 4" adopted (D15, 2026-10-12): 4 px base unit, fixed spacing steps, 6 type sizes on the grid, OKLCH ramps used only through semantic tokens with base/hover/active/disabled variants; reasonable exceptions allowed case by case when a 4 px multiple cannot work, documented in the token file. Brief: `docs/design-system-brief.html`.
+- Font: Inter variable, self-hosted (D16). Primary hue: blue as proposed (D17). Storybook: full scope — foundations + components + a11y gating + vitest browser tests in CI (D18).
 
 ## 11. Open questions carried into tickets
 
