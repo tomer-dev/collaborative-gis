@@ -1,7 +1,8 @@
 import { ApiErrorSchema, ERROR_CODES, ERROR_MESSAGES, type ApiError } from '@cgis/shared';
 import { hc } from 'hono/client';
 import { z } from 'zod';
-// Type only (erased from the bundle); see src/api-bindings.d.ts for what this pulls into tsc.
+// Type only (erased from the bundle). tsconfig.app.json references the api's declaration project,
+// so tsc reads apps/api/dist-types/app.d.ts here, never the Worker's source.
 import type { AppType } from '../../../api/src/app';
 
 /**
