@@ -259,6 +259,7 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 | `PASSWORD_LABEL` | `'Password'` |  |
 | `PASSWORD_HINT` | `` `At least ${LIMITS.PASSWORD_MIN} characters.` `` |  |
 | `ERROR_GENERIC` | `'Something went wrong. Try again.'` | Shown when a failed auth call carries no server message (network error, empty body). |
+| `SESSION_CHECKING` | `'Checking your session…'` | Shown once, while the first session check runs; later refetches keep the current screen. |
 | `SIGN_OUT` | `'Sign out'` |  |
 | `SIGN_OUT_ERROR` | `'Could not sign out. Try again.'` |  |
 

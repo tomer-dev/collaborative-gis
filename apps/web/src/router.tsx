@@ -5,7 +5,8 @@ import {
   RouterProvider,
   type RouterHistory,
 } from '@tanstack/react-router';
-import { useEffect, useRef } from 'react';
+import { COPY } from '@cgis/shared/constants';
+import { useEffect, useRef, useState } from 'react';
 import { useSession } from './lib/session';
 import { routeTree } from './routeTree.gen';
 
@@ -42,6 +43,10 @@ export function AppRouterProvider({ router }: { router: AppRouter }) {
   const session = useSession();
   const userId = session.data?.id ?? null;
   const lastUserId = useRef(userId);
+  // Better Auth marks the session pending on every refetch while it holds none (right after a
+  // sign-in, for one), so only the first check shows the status; later ones keep the screen.
+  const [checked, setChecked] = useState(false);
+  if (!checked && !session.isPending) setChecked(true);
 
   useEffect(() => {
     if (lastUserId.current === userId) return;
@@ -49,10 +54,10 @@ export function AppRouterProvider({ router }: { router: AppRouter }) {
     void router.invalidate();
   }, [router, userId]);
 
-  if (session.isPending) {
+  if (!checked) {
     return (
       <p role="status" className="grid h-full place-items-center text-sm">
-        Checking your session…
+        {COPY.AUTH.SESSION_CHECKING}
       </p>
     );
   }

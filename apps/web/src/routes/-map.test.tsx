@@ -72,7 +72,7 @@ afterEach(() => {
 it('shows a status and no route while the session is pending', () => {
   renderAppAt('/map', { data: null, isPending: true });
 
-  expect(screen.getByRole('status').textContent).toMatch(/checking your session/i);
+  expect(screen.getByRole('status').textContent).toBe(COPY.AUTH.SESSION_CHECKING);
   expect(screen.queryByTestId('map-root')).toBeNull();
 });
 
