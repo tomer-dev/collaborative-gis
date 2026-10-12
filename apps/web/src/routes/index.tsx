@@ -1,4 +1,8 @@
-import { createFileRoute } from '@tanstack/react-router';
-import App from '../App';
+import { createFileRoute, redirect } from '@tanstack/react-router';
 
-export const Route = createFileRoute('/')({ component: App });
+// The map is the app; `/` only forwards there (and `/map` forwards signed-out visitors to `/login`).
+export const Route = createFileRoute('/')({
+  beforeLoad: () => {
+    throw redirect({ to: '/map' });
+  },
+});
