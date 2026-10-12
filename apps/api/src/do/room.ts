@@ -1,14 +1,13 @@
-import { DEV, PresenceStateSchema, ROOM, ROUTES, WS, type WsEvent } from '@cgis/shared';
+import { PresenceStateSchema, ROUTES, WS, type WsEvent } from '@cgis/shared';
 import { DurableObject } from 'cloudflare:workers';
-import { type Context, Hono } from 'hono';
+import { Context } from 'hono';
 import type { Env } from '../app';
-import { notFoundError, unauthorizedError, upgradeRequiredError } from '../errors';
+import { badRequestError, internalError, notFoundError, upgradeRequiredError } from '../errors';
+import { isWebSocketUpgrade, readRoomUser, type RoomUser } from './handoff';
 import { attachmentOf, type PresenceAttachment, presenceColor } from './presence';
 
 /** The status of a WebSocket upgrade response (RFC 6455). */
 const SWITCHING_PROTOCOLS = 101;
-
-type RoomEnv = { Bindings: Env };
 
 /**
  * The single map room (id `ROOM.DEFAULT_ROOM_ID`). Sockets use the WebSocket Hibernation API:
@@ -16,31 +15,47 @@ type RoomEnv = { Bindings: Env };
  * attachments and nothing presence-related is kept in instance memory.
  */
 export class Room extends DurableObject<Env> {
-  private readonly router = new Hono<RoomEnv>()
-    .get(ROOM.DEBUG_COUNT_PATH, (c) => this.debugCount(c))
-    .get(ROUTES.WS, (c) => this.accept(c))
-    .notFound((c) => notFoundError(c))
-    // The Worker's onError logs and sanitises; rethrow so the error reaches it through stub.fetch().
-    .onError((err) => {
-      throw err;
-    });
-
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     // Answered by the runtime without waking a hibernated Room (clients ping every WS.PING_INTERVAL_MS).
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(WS.AUTO_PING, WS.AUTO_PONG));
   }
 
-  /** Only `wsUpgrade` (ws.ts) calls this, with the user in `ROOM.USER_*_HEADER`. */
+  /**
+   * Inbound surface: exactly one thing, a `GET ROUTES.WS` WebSocket upgrade from `wsUpgrade`.
+   * Only this Worker holds the `ROOM` binding, so the user headers come from an authenticated
+   * session; they are still validated, and every other request gets a 4xx. Never throws.
+   * 404 NOT_FOUND: other method or path · 426 UPGRADE_REQUIRED: no `Upgrade: websocket` ·
+   * 400 BAD_REQUEST: missing or invalid user headers · 500 INTERNAL: logged, no socket kept.
+   */
   override async fetch(request: Request): Promise<Response> {
-    return this.router.fetch(request, this.env);
+    // errors.ts helpers need only `c.json`; a bare Context gives them that without a router.
+    const c = new Context(request);
+    try {
+      if (request.method !== 'GET' || new URL(request.url).pathname !== ROUTES.WS) {
+        return notFoundError(c);
+      }
+      if (!isWebSocketUpgrade(request)) return upgradeRequiredError(c);
+      const user = readRoomUser(request);
+      if (!user.success) return badRequestError(c, undefined, user.error.issues);
+      return await this.accept(user.data);
+    } catch (err) {
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          msg: 'room fetch failed',
+          stack: err instanceof Error ? err.stack : String(err),
+        }),
+      );
+      return internalError(c);
+    }
   }
 
   /** RPC: sends `event` to every socket except those of `exceptUserId` (T7 presence, T8 fan-out). */
   async broadcast(event: WsEvent, exceptUserId?: string): Promise<void> {
     const frame = JSON.stringify(event);
-    for (const ws of this.ctx.getWebSockets()) {
-      if (exceptUserId !== undefined && attachmentOf(ws).userId === exceptUserId) continue;
+    for (const { ws, attachment } of this.sockets()) {
+      if (attachment.userId === exceptUserId) continue;
       try {
         ws.send(frame);
       } catch (err) {
@@ -62,32 +77,41 @@ export class Room extends DurableObject<Env> {
   // T7: same cleanup as webSocketClose.
   override async webSocketError(): Promise<void> {}
 
-  private async accept(c: Context<RoomEnv>): Promise<Response> {
-    if (c.req.header('upgrade')?.toLowerCase() !== 'websocket') return upgradeRequiredError(c);
-    const userId = c.req.header(ROOM.USER_ID_HEADER);
-    const name = c.req.header(ROOM.USER_NAME_HEADER);
-    if (!userId || !name) return unauthorizedError(c);
+  /**
+   * Open sockets with their attachments. An open socket without a valid attachment cannot be
+   * attributed to a user, so it is closed here (and logged once: a closing socket is skipped).
+   */
+  private sockets(): Array<{ ws: WebSocket; attachment: PresenceAttachment }> {
+    const open: Array<{ ws: WebSocket; attachment: PresenceAttachment }> = [];
+    for (const ws of this.ctx.getWebSockets()) {
+      if (ws.readyState !== WebSocket.OPEN) continue;
+      const attachment = attachmentOf(ws);
+      if (attachment) {
+        open.push({ ws, attachment });
+        continue;
+      }
+      console.error(
+        JSON.stringify({ level: 'error', msg: 'room socket without a valid attachment; closing' }),
+      );
+      ws.close(WS.CLOSE_INTERNAL_ERROR);
+    }
+    return open;
+  }
 
+  private async accept(user: RoomUser): Promise<Response> {
     const attachment: PresenceAttachment = {
-      userId,
-      // ws.ts percent-encodes the name: header values cannot carry non-Latin-1 text.
-      name: decodeURIComponent(name),
-      color: await presenceColor(userId),
+      userId: user.id,
+      name: user.name,
+      color: await presenceColor(user.id),
       state: PresenceStateSchema.enum.viewing,
       lastSeen: Date.now(),
     };
     const pair = new WebSocketPair();
     const [client, server] = [pair[0], pair[1]];
-    // Attach first: an attachment over 16 KiB throws here, before the Room owns a socket with no
-    // attachment. acceptWebSocket (not server.accept()) makes the socket hibernatable.
+    // Attach before accepting: if serializing ever failed, the Room would not be left owning a
+    // socket without an attachment. acceptWebSocket (not server.accept()) makes it hibernatable.
     server.serializeAttachment(attachment);
     this.ctx.acceptWebSocket(server);
     return new Response(null, { status: SWITCHING_PROTOCOLS, webSocket: client });
-  }
-
-  /** Test-only socket count, behind the same flag as the stub auth. */
-  private debugCount(c: Context<RoomEnv>): Response {
-    if (c.env.DEBUG_STUB_AUTH !== DEV.STUB_AUTH_ON) return notFoundError(c);
-    return c.json({ count: this.ctx.getWebSockets().length });
   }
 }
