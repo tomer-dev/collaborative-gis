@@ -1,3 +1,4 @@
+import { MAP } from '@cgis/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Code, Page, TokenTable } from './TokenTable';
 import { darkTokens, tokens, type Token } from './tokens';
@@ -85,11 +86,25 @@ export const Colour: Story = {
         columns={SEMANTIC_COLUMNS}
         rows={semanticRows(tokens(/^--color-(ok|warn|danger|info)(-|$)/))}
       />
-      <TokenTable
-        caption="Presence (by join order; mirrors MAP.PRESENCE_COLORS)"
-        columns={SEMANTIC_COLUMNS}
-        rows={semanticRows(tokens(/^--color-presence-/))}
-      />
+      <section className="flex flex-col gap-2">
+        <h2 className="text-lg font-medium">Presence palette</h2>
+        <p className="text-sm text-fg-muted">
+          <Code>MAP.PRESENCE_COLORS</Code> in @cgis/shared. The server hashes each user id into it
+          and sends the colour; avatars and ghost drafts apply it with the token tint and ring.
+        </p>
+        <ul className="grid grid-cols-4 gap-2 sm:grid-cols-8">
+          {MAP.PRESENCE_COLORS.map((color) => (
+            <li key={color} className="flex flex-col gap-1">
+              <span
+                aria-hidden="true"
+                className="block h-12 w-full rounded-md border border-line"
+                style={{ background: color }}
+              />
+              <span className="font-mono text-xs">{color}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
     </Page>
   ),
 };

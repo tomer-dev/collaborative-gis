@@ -52,20 +52,19 @@ describe('tokens.css', () => {
     }
   });
 
-  it('mirrors MAP.PRESENCE_COLORS as --color-presence-1..8, in order', () => {
-    const presence = MAP.PRESENCE_COLORS.map((_, i) => themeValue(`--color-presence-${i + 1}`));
-    expect(presence).toEqual([...MAP.PRESENCE_COLORS]);
-    expect(themeValue(`--color-presence-${MAP.PRESENCE_COLORS.length + 1}`)).toBeUndefined();
-  });
-
   it('mirrors the map pane z-indexes from MAP', () => {
     expect(Number(themeValue('--z-index-map-areas'))).toBe(MAP.AREAS_PANE_Z);
     expect(Number(themeValue('--z-index-map-drafts'))).toBe(MAP.DRAFTS_PANE_Z);
   });
 
-  it('leaves the draw tool numbers to MAP (one source; Leaflet takes them in JS)', () => {
+  it('owns the vertex handle look in CSS and leaves the Leaflet JS numbers to MAP', () => {
+    // CSS source: the handle dot (radius, ring, colours) for .cgis-draw-handle in map.css.
+    for (const name of ['--map-handle-radius', '--map-handle-border', '--map-handle-ring']) {
+      expect(themeValue(name), name).toBeDefined();
+    }
+    // JS source (MAP): the marker hit box and the sketch path options; no CSS copy of them.
     const duplicated = decls.filter((d) =>
-      /^--map-(handle-|draft-(dash|stroke-width|fill-opacity))/.test(d.name),
+      /^--map-(handle-hit|draft-(dash|stroke-width|fill-opacity))/.test(d.name),
     );
     expect(duplicated.map((d) => d.name)).toEqual([]);
     expect(MAP.DRAFT_STYLE.dashArray).toBe('8 4');

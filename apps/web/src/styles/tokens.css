@@ -16,7 +16,7 @@
  *   active (+2 steps); disabled is the base at 40 % (opacity-disabled).
  * - Dark theme: the .dark class on <html> (Storybook's theme toolbar, or syncColorScheme() from
  *   src/ui/theme.ts in the app). The dark values are in the @variant dark block at the end.
- * - Presence hues and the map pane z-indexes mirror MAP in packages/shared/src/constants.ts;
+ * - The map pane z-indexes mirror MAP in packages/shared/src/constants.ts;
  *   tokens.test.ts fails when they drift.
  */
 
@@ -143,21 +143,13 @@
   --color-info-bg: oklch(95.5% 0.03 255.5);
   --color-info-strong: oklch(47% 0.13 255.5);
 
-  /* Presence: categorical hues by join order, CVD-checked (brief §3). Mirrors
-     MAP.PRESENCE_COLORS; the 9th user and later get presence-none. Same values in both themes. */
-  --color-presence-1: #2a78d6;
-  --color-presence-2: #eb6834;
-  --color-presence-3: #1baf7a;
-  --color-presence-4: #eda100;
-  --color-presence-5: #e87ba4;
-  --color-presence-6: #008300;
-  --color-presence-7: #6250d6;
-  --color-presence-8: #e34948;
-  --color-presence-none: var(--color-neutral-500);
+  /* Presence colours are not tokens: the server picks each user's colour from MAP.PRESENCE_COLORS
+     (hash of the user id) and sends it; components receive it as the --presence variable and
+     apply the token alpha (opacity-tint) and ring width here. */
 
   /* Alpha steps: the only opacities in the system (utilities opacity-*, colour/* modifiers). */
   --opacity-disabled: 40%; /* disabled = base at 40 % */
-  --opacity-tint: 16%; /* identity tints, e.g. an avatar's presence-hue fill */
+  --opacity-tint: 16%; /* identity tints, e.g. an avatar's presence-colour fill */
 
   /* Radius: 4 · 8 · 12 · full (rounded-full is built in). */
   --radius-sm: 0.25rem;
@@ -170,13 +162,12 @@
 
   /* Stacking. Map panes mirror MAP.AREAS_PANE_Z / DRAFTS_PANE_Z (Leaflet: tiles 200, overlay
      400, markers 600, its own controls 1000). Native <dialog> renders in the top layer;
-     dialog/toast/tooltip order the non-modal overlays above the map. */
+     dialog and toast order the non-modal overlays above the map. */
   --z-index-map-areas: 450;
   --z-index-map-drafts: 460;
   --z-index-controls: 1000;
   --z-index-dialog: 1100;
   --z-index-toast: 1200;
-  --z-index-tooltip: 1300;
 
   /* Motion: 100 / 200 / 300 ms on one curve; all three drop to 0 under
      prefers-reduced-motion (base layer below). Layer crossfade = slow. */
@@ -189,9 +180,10 @@
 
   /* Map styles (brief §4), read by the Leaflet path classes in map.css. The basemap is light
      imagery in both UI themes, so these do not switch with .dark. Strokes are hairlines, not
-     layout, so their widths are exempt from the 4 px grid. The draw tool's numbers (vertex
-     handle sizes, draft stroke width, dash and fill) are MAP.HANDLE_* and MAP.DRAFT_STYLE in
-     @cgis/shared, because Leaflet takes them in JS; only their colours come from here. */
+     layout, so their widths are exempt from the 4 px grid. The draw tool's vertex handle look
+     (dot radius, ring, colours) is CSS: --map-handle-* below, used by .cgis-draw-handle in
+     map.css. Numbers Leaflet takes in JS stay in @cgis/shared: the handle hit box
+     (MAP.HANDLE_HIT_PX, the marker icon size) and MAP.DRAFT_STYLE (sketch width, dash, fill). */
   --map-area-stroke: var(--color-primary-600);
   --map-area-stroke-width: 2px; /* grid-exception: stroke */
   --map-area-fill: var(--color-primary-500);
@@ -202,6 +194,10 @@
   --map-draft-stroke: var(--color-accent); /* width, dash, fill opacity: MAP.DRAFT_STYLE */
   --map-ghost-stroke-width: 2px; /* grid-exception: stroke */
   --map-ghost-fill-opacity: 0.24;
+  --map-handle-radius: 6px; /* grid-exception: radius of a 12 px dot */
+  --map-handle-border: 2px; /* grid-exception: stroke */
+  --map-handle-ring: var(--color-accent);
+  --map-handle-fill: var(--color-bg); /* open vertex; the first vertex fills with the ring colour */
 }
 
 @layer base {

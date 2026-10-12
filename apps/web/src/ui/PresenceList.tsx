@@ -1,21 +1,14 @@
-import type { PresenceState } from '@cgis/shared';
-import { cx } from 'class-variance-authority';
+import type { PresenceUser } from '@cgis/shared';
 import { forwardRef, type HTMLAttributes, type Ref } from 'react';
+import { cx } from './cx';
 import { Avatar } from './Avatar';
 import { IconPencil } from './icons';
 
-export interface PresenceUser {
-  id: string;
-  name: string;
-  /** Join-order slot (0-based) for the presence hue; null = neutral. */
-  colorSlot: number | null;
-  state?: PresenceState;
-  /** The signed-in user; labelled "(you)". */
-  self?: boolean;
-}
-
 export interface PresenceListProps extends Omit<HTMLAttributes<HTMLElement>, 'children'> {
+  /** The room's presence list as the server sends it (each user with their colour). */
   users: PresenceUser[];
+  /** The signed-in user's id; that row is labelled "(you)". */
+  selfId?: string;
   /** `list`: rows with names and state (side panel). `stack`: overlapping avatars (top bar). */
   variant?: 'list' | 'stack';
   /** Accessible name of the list. */
@@ -26,10 +19,11 @@ export interface PresenceListProps extends Omit<HTMLAttributes<HTMLElement>, 'ch
   emptyText?: string;
 }
 
-/** Who is on the map, in join order, each with their presence hue. */
+/** Who is on the map, each with their server-assigned presence colour. */
 export const PresenceList = forwardRef<HTMLElement, PresenceListProps>(function PresenceList(
   {
     users,
+    selfId,
     variant = 'list',
     label = 'People on this map',
     max = 4,
@@ -50,10 +44,10 @@ export const PresenceList = forwardRef<HTMLElement, PresenceListProps>(function 
         {...rest}
       >
         {shown.map((user) => (
-          <li key={user.id} className="flex rounded-full ring-2 ring-bg-raised">
+          <li key={user.userId} className="flex rounded-full ring-2 ring-bg-raised">
             <Avatar
-              name={user.self ? `${user.name} (you)` : user.name}
-              colorSlot={user.colorSlot}
+              name={user.userId === selfId ? `${user.name} (you)` : user.name}
+              color={user.color}
             />
           </li>
         ))}
@@ -92,11 +86,11 @@ export const PresenceList = forwardRef<HTMLElement, PresenceListProps>(function 
       {...rest}
     >
       {users.map((user) => (
-        <li key={user.id} className="flex h-10 items-center gap-3">
-          <Avatar name={user.name} colorSlot={user.colorSlot} decorative />
+        <li key={user.userId} className="flex h-10 items-center gap-3">
+          <Avatar name={user.name} color={user.color} decorative />
           <span className="min-w-0 flex-1 truncate text-sm text-fg">
             {user.name}
-            {user.self ? <span className="text-fg-muted"> (you)</span> : null}
+            {user.userId === selfId ? <span className="text-fg-muted"> (you)</span> : null}
           </span>
           {user.state === 'drawing' ? (
             <span className="flex shrink-0 items-center gap-1 text-xs text-fg-muted">

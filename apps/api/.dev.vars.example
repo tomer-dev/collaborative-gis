@@ -2,13 +2,18 @@
 # wrangler.jsonc `secrets.required` lists them; only listed keys are loaded from .dev.vars.
 # Deployed: `wrangler secret put <NAME>`. Tests: apps/api/vitest.config.ts sets test-only values.
 #
-# Random, at least 32 characters, e.g. `openssl rand -base64 32`.
+# Better Auth signs session cookies with it. Random, at least 32 characters; generate one with
+#   openssl rand -base64 32
+# Changing it signs everyone out. Use a different value per environment.
 BETTER_AUTH_SECRET=
-# Public URL of this Worker (`wrangler dev` default below).
+# Public origin of this Worker, which serves /api/auth (`wrangler dev` default below). Better Auth
+# builds its URLs from it and trusts it as an origin; with https it sets `__Secure-` Secure cookies.
 BETTER_AUTH_URL=http://localhost:8787
 #
-# Non-secret settings live in wrangler.jsonc `vars` (CLIENT_ORIGIN, DEBUG_STUB_AUTH); override one
-# for a single run with `wrangler dev --var NAME:value`.
+# Non-secret settings live in wrangler.jsonc `vars` (CLIENT_ORIGIN); override one for a single run
+# with `wrangler dev --var NAME:value`. CLIENT_ORIGIN is the SPA's origin and
+# Better Auth's other trusted origin; a request from any other Origin gets 403.
 # HYPERDRIVE uses `localConnectionString` from wrangler.jsonc (the docker-compose PostGIS) locally,
 # or CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE when set (see scripts/db-lane.sh);
-# deployed, it uses the Hyperdrive config backed by Neon.
+# deployed, it uses the Hyperdrive config backed by Neon. Migrate that database first (0002 adds
+# Better Auth's user, session, account and verification tables).
