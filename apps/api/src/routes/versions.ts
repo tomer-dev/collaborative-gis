@@ -5,7 +5,6 @@ import {
   ERROR_MESSAGES,
   ERROR_REASONS,
   HEADERS,
-  RATE_LIMIT,
   VersionsResponseSchema,
 } from '@cgis/shared';
 import { type Context, Hono } from 'hono';
@@ -13,18 +12,16 @@ import { describeRoute, resolver } from 'hono-openapi';
 import { z } from 'zod';
 import type { AppEnv } from '../app';
 import { apiError, notFoundError } from '../errors';
-import { requireUser } from '../middleware';
-import { rateLimit } from '../middleware/rate-limit';
+import { mutationGuards, requireUser } from '../middleware';
 import { type Actor, listAreaVersions, revertAreaToVersion } from '../services/areas';
 import { fanout } from '../services/fanout';
 import { IdParamSchema, validate } from '../validate';
 
 // An area's saved versions, and the revert to one of them; routes/areas.ts mounts both. Same
-// guards as the area routes: a session first (401); the revert then spends the user's D5 budget
-// (429) before validation (422), like every mutation. services/areas.ts owns the transaction and
-// the audit row, and a committed revert is broadcast after the response.
-
-const mutation = () => rateLimit(RATE_LIMIT.ACTIONS.MUTATE);
+// guards as the area routes: a session first (401); the revert, like every mutation, mounts
+// `mutationGuards()` (session, then the user's D5 budget (429) and the body cap (413)) before
+// validation (422). services/areas.ts owns the transaction and the audit row, and a committed
+// revert is broadcast after the response.
 
 /** The session user and the client hints the audit row records. */
 function actor(c: Context, userId: string): Actor {
@@ -76,7 +73,7 @@ export const versions = new Hono<AppEnv>().use(requireUser()).get(
 );
 
 /** Mounted at `ROUTES.AREA_REVERT` (`/api/areas/:id/revert/:version`). */
-export const revert = new Hono<AppEnv>().use(requireUser()).post(
+export const revert = new Hono<AppEnv>().post(
   '/',
   describeRoute({
     summary: 'Revert an area to a saved version',
@@ -94,7 +91,7 @@ export const revert = new Hono<AppEnv>().use(requireUser()).post(
       429: error('Over the per-user mutation budget (`RATE_LIMITED`), with `Retry-After`'),
     },
   }),
-  mutation(),
+  mutationGuards(),
   validate('param', RevertParamSchema),
   async (c) => {
     const { id, version } = c.req.valid('param');
