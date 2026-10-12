@@ -251,8 +251,9 @@ export async function softDeleteArea(
 }
 
 /**
- * A live area's saved versions, newest first, each geometry as GeoJSON; empty when the area is
- * missing or soft-deleted (a live area always has its version 1 row). A builder select (D23):
+ * A live area's saved versions, newest first and at most `LIMITS.VERSIONS_PAGE` of them, each
+ * geometry as GeoJSON; empty when the area is missing or soft-deleted (a live area always has at
+ * least its version 1 row). A builder select (D23):
  * `ST_AsGeoJSON` is its one `sql` fragment.
  */
 export async function listVersions(c: pg.Client, areaId: string): Promise<AreaVersion[]> {
@@ -269,7 +270,8 @@ export async function listVersions(c: pg.Client, areaId: string): Promise<AreaVe
     .from(areaVersions)
     .innerJoin(areas, eq(areas.id, areaVersions.areaId))
     .where(and(eq(areaVersions.areaId, areaId), isNull(areas.deletedAt)))
-    .orderBy(desc(areaVersions.version));
+    .orderBy(desc(areaVersions.version))
+    .limit(LIMITS.VERSIONS_PAGE);
   // The builder reads `timestamptz` as a `Date`; on the wire it is the ISO 8601 UTC string, to the
   // millisecond, as AREA_COLUMNS prints an area's timestamps.
   return rows.map(({ changedAt, ...row }) => ({ ...row, changedAt: changedAt.toISOString() }));
