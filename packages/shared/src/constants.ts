@@ -83,6 +83,24 @@ export const MAP = {
     '#6250d6',
     '#e34948',
   ],
+  HANDLE_RADIUS_PX: 6,
+  HANDLE_HIT_PX: 24,
+  HANDLE_BORDER_PX: 2,
+  /** Leaflet path options for a sketch in progress (own draft now, remote ghosts in T14); design brief §4: 2 px, dashed 8/4, fill 12 %. */
+  DRAFT_STYLE: { weight: 2, dashArray: '8 4', fillOpacity: 0.12 },
+} as const;
+
+/** Geodesy constants for client-side measurements. */
+export const GEO = {
+  EARTH_RADIUS_M: 6371008.8,
+} as const;
+
+/** Polygon draw tool: the map container's accessible name and the client-side `draw:invalid` reasons. */
+export const DRAW = {
+  ARIA_LABEL:
+    'Polygon drawing. Click to add a vertex, drag a vertex to move it, Enter or double-click to finish, Backspace to undo, Escape to cancel.',
+  SELF_INTERSECTION_REASON: 'Polygon edges must not cross or touch each other',
+  MAX_VERTICES_REASON: 'Vertex limit reached',
 } as const;
 
 /** TanStack Query options the SPA sets per query. */

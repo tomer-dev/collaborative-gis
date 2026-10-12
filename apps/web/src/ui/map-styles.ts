@@ -7,7 +7,6 @@ export const MAP_CLASS = {
   areaSelected: 'map-area-selected',
   draft: 'map-draft',
   ghost: 'map-ghost',
-  handle: 'map-handle',
 } as const;
 
 /** Saved polygon, in the areas pane. */
@@ -18,9 +17,9 @@ export function areaPathOptions(selected = false): PathOptions {
   };
 }
 
-/** The polygon you are drawing, in the drafts pane. */
+/** The polygon you are drawing, in the drafts pane: accent colour from map.css, shape from MAP.DRAFT_STYLE. */
 export function draftPathOptions(): PathOptions {
-  return { pane: MAP.DRAFTS_PANE, className: MAP_CLASS.draft };
+  return { pane: MAP.DRAFTS_PANE, className: MAP_CLASS.draft, ...MAP.DRAFT_STYLE };
 }
 
 /** Another user's draft in their presence hue; slots past MAP.PRESENCE_COLORS are neutral. */
