@@ -43,6 +43,9 @@ it('redirects a signed-out visitor from /map to /login', async () => {
   expect(await screen.findByRole('heading', { name: /sign in/i })).toBeTruthy();
   expect(router.state.location.pathname).toBe('/login');
   expect(screen.queryByTestId('map-root')).toBeNull();
+  // /login has the minimal header: the app name, no user chip.
+  expect(screen.getByRole('heading', { name: /collaborative gis/i })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: /sign out/i })).toBeNull();
 });
 
 it('treats a failing session check as signed out and lands on /login', async () => {
@@ -59,6 +62,12 @@ it('renders the map route and the top bar for a signed-in user', async () => {
 
   expect(await screen.findByTestId('map-root')).toBeTruthy();
   expect(router.state.location.pathname).toBe('/map');
+  // /map renders inside the pathless _authed layout, which owns the guard and the user chip.
+  expect(router.state.matches.map((match) => match.routeId)).toEqual([
+    '__root__',
+    '/_authed',
+    '/_authed/map',
+  ]);
   expect(screen.getByRole('heading', { name: /collaborative gis/i })).toBeTruthy();
   expect(screen.getByText('Ada Lovelace')).toBeTruthy();
   expect(screen.getByRole('button', { name: /sign out/i })).toBeTruthy();
