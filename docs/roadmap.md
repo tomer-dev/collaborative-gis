@@ -97,7 +97,7 @@ E0 ──┬── E1 (db) ──┐
 | # | Ticket | Acceptance | Blocked by |
 |---|---|---|---|
 | 6.1 | Unit tests: area calc, polygon validation, rate limiter, conflict resolution, projection utils | Vitest green in CI | E1–E5 |
-| 6.2 | Integration tests: `@cloudflare/vitest-pool-workers` for Worker + DO (WS protocol tests), ephemeral PostGIS via compose; `hono batch` JSONL contract suite run in CI (`--runtime workerd`) | Green in CI; `hono batch` reports `failed: 0` | 6.1 |
+| 6.2 | Integration tests: `@cloudflare/vitest-plugin` for Worker + DO (WS protocol tests), ephemeral PostGIS via compose; `hono batch` JSONL contract suite run in CI (`--runtime workerd`) | Green in CI; `hono batch` reports `failed: 0` | 6.1 |
 | 6.3 | E2E: Playwright two-browser collaborative scenario | Passes locally | 5.10 |
 | 6.4 | Local parity: docker-compose = `imresamu/postgis:18-3.6` + a `wrangler dev` (workerd) container with Hyperdrive `localConnectionString`; no Node port of the Worker | `docker compose up` serves app, API, WS | E1–E5 |
 | 6.5 | README: setup, architecture, decisions, performance, security, limitations, future work, testing approach; ADRs linked | Matches submission checklist | all |
