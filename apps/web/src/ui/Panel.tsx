@@ -38,7 +38,7 @@ export const Panel = forwardRef<HTMLElement, PanelProps>(function Panel(
       {...rest}
     >
       <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-line px-4">
-        <h2 id={titleId} className="truncate text-md font-semibold">
+        <h2 id={titleId} className="min-w-0 truncate text-md font-semibold">
           {title}
         </h2>
         {actions ? <div className="flex shrink-0 items-center gap-1">{actions}</div> : null}
