@@ -11,7 +11,8 @@ export type TakeResult = { ok: true; remaining: number } | { ok: false; retryAft
 /**
  * Exact sliding-window limiter for one user (`idFromName(userId)`), D5: at most
  * DRAW_ACTIONS_PER_WINDOW accepted actions in any WINDOW_MS span, one budget shared by REST
- * mutations (the `rateLimit` middleware) and WS drawing actions (the Room DO calls `take`).
+ * mutations (the `rateLimit` middleware) and WS drawing actions (the Room DO's `draft:update`
+ * handler calls `take` once per frame that passes its per-socket bucket, do/handlers.ts).
  *
  * The window lives only in SQLite, so hibernation or eviction cannot reset it. Exact is cheap
  * here: `actions` holds just the accepted actions still inside the window (never more than the
