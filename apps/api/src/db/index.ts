@@ -27,8 +27,10 @@ export type ClientOptions = {
   /**
    * When it aborts, the client is ended at once (the query in flight rejects) and the call rejects
    * with the signal's reason. Default: the signal of the request being served (`withSignal`).
+   * `null`: none. For work that outlives its request (`waitUntil` writers such as the audit), which
+   * must not end when the request's deadline passes or its client disconnects.
    */
-  signal?: AbortSignal;
+  signal?: AbortSignal | null;
 };
 
 /**
