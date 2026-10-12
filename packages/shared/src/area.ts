@@ -36,6 +36,10 @@ export const AreaVersionSchema = z.object({
 });
 export type AreaVersion = z.infer<typeof AreaVersionSchema>;
 
+/** `GET /api/areas/:id/versions` response body: the area's saved versions, newest first. */
+export const VersionsResponseSchema = z.object({ versions: z.array(AreaVersionSchema) });
+export type VersionsResponse = z.infer<typeof VersionsResponseSchema>;
+
 /** One `bbox` part: a non-empty number in [min, max] (`Number('')` would read an empty part as 0). */
 const coordinate = (min: number, max: number) =>
   z.string().trim().min(1).transform(Number).pipe(z.number().min(min).max(max));

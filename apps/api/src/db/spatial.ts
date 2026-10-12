@@ -1,8 +1,8 @@
-import { GEO, LIMITS, type Area, type Bbox, type Polygon } from '@cgis/shared';
-import { sql, type SQL } from 'drizzle-orm';
+import { GEO, LIMITS, type Area, type AreaVersion, type Bbox, type Polygon } from '@cgis/shared';
+import { and, desc, eq, isNull, sql, type SQL } from 'drizzle-orm';
 import type pg from 'pg';
 import { db } from './index';
-import { auditLog } from './schema';
+import { areas, areaVersions, auditLog } from './schema';
 
 // Spatial reads and writes on `areas` / `area_versions` / `audit_log`, one `pg.Client` per call
 // (from `withClient`). Every write that touches geometry is a single statement, so it is atomic
@@ -15,6 +15,10 @@ export type AreaInput = { name: string; geometry: Polygon; userId: string };
 export type UpdateResult = { ok: true; area: AreaRow } | { ok: false; current: AreaRow | null };
 
 export type AuditRow = Omit<typeof auditLog.$inferInsert, 'id' | 'at'>;
+
+/** A revert's result: the reverted area, or why nothing was written. */
+export type RevertResult =
+  { status: 'reverted'; area: AreaRow } | { status: 'missing' } | { status: 'deleted' };
 
 /**
  * PostGIS rejected a polygon that passed Zod (e.g. a self-intersection). `reason` is the
@@ -180,6 +184,74 @@ export async function softDeleteArea(
     SELECT id, version, name, geom, area_km2, ${userId} FROM deleted
     RETURNING version`);
   return rows[0]?.version ?? null;
+}
+
+/**
+ * A live area's saved versions, newest first, each geometry as GeoJSON; empty when the area is
+ * missing or soft-deleted (a live area always has its version 1 row). A builder select (D23):
+ * `ST_AsGeoJSON` is its one `sql` fragment.
+ */
+export async function listVersions(c: pg.Client, areaId: string): Promise<AreaVersion[]> {
+  const rows = await db(c)
+    .select({
+      areaId: areaVersions.areaId,
+      version: areaVersions.version,
+      name: areaVersions.name,
+      geometry: sql<Polygon>`ST_AsGeoJSON(${areaVersions.geom})::json`,
+      areaKm2: areaVersions.areaKm2,
+      changedBy: areaVersions.changedBy,
+      changedAt: areaVersions.changedAt,
+    })
+    .from(areaVersions)
+    .innerJoin(areas, eq(areas.id, areaVersions.areaId))
+    .where(and(eq(areaVersions.areaId, areaId), isNull(areas.deletedAt)))
+    .orderBy(desc(areaVersions.version));
+  // The builder reads `timestamptz` as a `Date`; on the wire it is the ISO 8601 UTC string, to the
+  // millisecond, as AREA_COLUMNS prints an area's timestamps.
+  return rows.map(({ changedAt, ...row }) => ({ ...row, changedAt: changedAt.toISOString() }));
+}
+
+/**
+ * Reverts a live area to its saved `version` in one statement (a data-modifying CTE, the D23
+ * exception): copies that version's name, geometry and area onto the area, bumps `version`, and
+ * records the result as a new version row changed by `userId`; history is never rewritten. The
+ * saved geometry passed `ST_IsValid` when it was written, so it is not checked again.
+ *
+ * When nothing was written, a second statement says why: `deleted` (the area is soft-deleted) or
+ * `missing` (no such area, or no such version of a live one). Under READ COMMITTED (the default)
+ * it sees a delete that committed while the UPDATE waited for the row.
+ */
+export async function revertArea(
+  c: pg.Client,
+  id: string,
+  version: number,
+  userId: string,
+): Promise<RevertResult> {
+  const { rows } = await db(c).execute<AreaRow>(sql`
+    WITH target AS (
+      SELECT name, geom, area_km2 FROM area_versions
+      WHERE area_id = ${id} AND version = ${version}
+    ),
+    reverted AS (
+      UPDATE areas
+      SET name = target.name, geom = target.geom, area_km2 = target.area_km2,
+          version = areas.version + 1, updated_at = now()
+      FROM target
+      WHERE areas.id = ${id} AND areas.deleted_at IS NULL
+      RETURNING areas.*
+    ),
+    next_version AS (
+      INSERT INTO area_versions (area_id, version, name, geom, area_km2, changed_by)
+      SELECT id, version, name, geom, area_km2, ${userId} FROM reverted
+    )
+    SELECT ${AREA_COLUMNS} FROM reverted`);
+  const area = rows[0];
+  if (area) return { status: 'reverted', area };
+  const [current] = await db(c)
+    .select({ deletedAt: areas.deletedAt })
+    .from(areas)
+    .where(eq(areas.id, id));
+  return current?.deletedAt ? { status: 'deleted' } : { status: 'missing' };
 }
 
 /** Appends one `audit_log` row (`at` defaults to now()). */

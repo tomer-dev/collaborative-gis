@@ -63,11 +63,12 @@ const CODE_BY_STATUS = new Map<number, string>(
     .map(([code, status]) => [status, code]),
 );
 
-/**
- * A thrown `HTTPException` keeps its status and message; its code comes from the table above, or
- * is `HTTP_<status>` for a status without one.
- */
+/** The `ApiError.code` for an HTTP status: the table above, else `HTTP_<status>`. */
+export function codeFor(status: number): string {
+  return CODE_BY_STATUS.get(status) ?? `HTTP_${status}`;
+}
+
+/** A thrown `HTTPException` keeps its status and message; its code is `codeFor(status)`. */
 export function httpExceptionError(c: Context, err: HTTPException) {
-  const code = CODE_BY_STATUS.get(err.status) ?? `HTTP_${err.status}`;
-  return c.json(errorBody(code, err.message), err.status);
+  return c.json(errorBody(codeFor(err.status), err.message), err.status);
 }
