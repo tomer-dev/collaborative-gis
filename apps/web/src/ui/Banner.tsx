@@ -53,7 +53,7 @@ export const Banner = forwardRef<HTMLDivElement, BannerProps>(function Banner(
       className={cx(bannerVariants({ tone }), className)}
       {...rest}
     >
-      <Icon className={cx('size-5', iconClass)} />
+      <Icon className={cx('size-5 shrink-0', iconClass)} />
       <div className="flex min-w-0 flex-1 flex-wrap gap-x-2">
         <p className="font-semibold">{title}</p>
         {children ? <p>{children}</p> : null}

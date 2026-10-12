@@ -72,7 +72,7 @@ export const Field = forwardRef<HTMLDivElement, FieldProps>(function Field(
         ) : null}
         {hasError ? (
           <p id={errorId} className="flex items-center gap-1 text-xs text-danger-strong">
-            <IconError className="size-4" />
+            <IconError className="size-4 shrink-0" />
             {error}
           </p>
         ) : null}
