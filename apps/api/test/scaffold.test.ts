@@ -1,4 +1,4 @@
-import { DEV, ROOM } from '@cgis/shared';
+import { DEV } from '@cgis/shared';
 import { SELF } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
 import { sql } from 'drizzle-orm';
@@ -18,12 +18,6 @@ describe('M1 composition stubs', () => {
     expect(await res.json()).toEqual({ code: 'NOT_IMPLEMENTED', message: 'not implemented' });
   });
 
-  it('GET /ws answers 501 until the Room upgrade lands', async () => {
-    const res = await SELF.fetch('http://x/ws');
-    expect(res.status).toBe(501);
-    expect(await res.json()).toEqual({ code: 'NOT_IMPLEMENTED', message: 'not implemented' });
-  });
-
   it('health routes still answer through the middleware chain', async () => {
     expect((await SELF.fetch('http://x/healthz')).status).toBe(200);
     const ready = await SELF.fetch('http://x/readyz');
@@ -32,16 +26,10 @@ describe('M1 composition stubs', () => {
   });
 
   it('the test env carries the vars and secrets lanes rely on', () => {
-    expect(env.DEBUG_STUB_AUTH).toBe('1');
     // wrangler.jsonc is JSON, so CLIENT_ORIGIN mirrors DEV.WEB_ORIGIN by hand; this catches drift.
     expect(env.CLIENT_ORIGIN).toBe(DEV.WEB_ORIGIN);
     expect(env.BETTER_AUTH_URL).toBe(DEV.API_ORIGIN);
     expect(env.BETTER_AUTH_SECRET.length).toBeGreaterThanOrEqual(32);
-  });
-
-  it('the ROOM binding reaches the Room Durable Object stub', async () => {
-    const res = await env.ROOM.get(env.ROOM.idFromName(ROOM.DEFAULT_ROOM_ID)).fetch('http://room/');
-    expect(res.status).toBe(501);
   });
 
   it('withClient + db run a Drizzle query on one per-call client', async () => {
