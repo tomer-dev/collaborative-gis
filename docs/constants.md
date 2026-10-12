@@ -33,6 +33,7 @@ Import from `@cgis/shared` in app code (`@cgis/shared/constants` in Node-side co
 |---|---|---|---|
 | `DRAW_ACTIONS_PER_WINDOW` | `50` | `apps/api/src/do/rate-limiter.ts` `RateLimiter.take` (actions allowed per window); planned: api lane mounts `rateLimit(action)` on mutations, T7/T8 Room calls `take` for WS drawing actions | D5: 50 drawing actions per user per window, one budget for REST and WS |
 | `WINDOW_MS` | `60_000` | `apps/api/src/do/rate-limiter.ts` (sliding window length, prune cutoff, idle alarm) | D5: exact sliding window over the last 60 s; the 429 `Retry-After` is at most this long |
+| `ACTIONS` | `{ DRAW: 'draw', MUTATE: 'mutate' }` | `apps/api/src/do/rate-limiter.ts` (`take` rejects any other value at runtime), type `RateLimitAction`; planned: api lane `rateLimit(ACTIONS.MUTATE)` on area mutations, T7/T8 Room `take(ACTIONS.DRAW)` per WS drawing action | RPC does not enforce TS types, so the limiter only stores known labels; both spend the one D5 budget |
 
 ## TIMEOUTS
 
