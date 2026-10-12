@@ -1,4 +1,4 @@
-import { AreaSchema, LIMITS, SEED, type Area, type Polygon } from '@cgis/shared';
+import { AreaSchema, LIMITS, SEED, type Area, type Bbox, type Polygon } from '@cgis/shared';
 import { sql } from 'drizzle-orm';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
@@ -12,7 +12,6 @@ import {
   softDeleteArea,
   updateAreaIfVersion,
   writeAudit,
-  type Bbox,
 } from '../../src/db/spatial';
 
 // Runs in the `db` project on cgis_db, next to schema.test.ts and geometry.test.ts (files run in
