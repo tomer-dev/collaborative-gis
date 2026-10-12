@@ -14,7 +14,7 @@ import { areasClient, areasEnv, freshUser, squareAt } from '../areas/fixtures';
 import { signUp, tokenCookie } from '../auth/session';
 
 // D6: `GET /api/areas` is answered from the Workers Cache API under a key made of the quantised
-// tile, the zoom and the Room's map version. Wire values (headers, statuses) are spelled out: they
+// tile and the Room's map version. Wire values (headers, statuses) are spelled out: they
 // are what browsers and the logs see.
 
 let base: Env;
@@ -193,14 +193,14 @@ describe('GET /api/areas through the bounds cache', () => {
     expect((await room.getVersion()).version).toBe(1);
   });
 
-  it('the zoom is part of the key', async () => {
+  it('the zoom is not part of the key: the response does not vary by zoom, so zooms share a tile', async () => {
     const { env } = ownRoom();
     const api = areasClient(env, freshUser());
     const cell = randomCell();
 
     expect((await api.list(query(inCell(cell), 10))).headers.get('x-cache')).toBe('MISS');
-    expect((await api.list(query(inCell(cell), 11))).headers.get('x-cache')).toBe('MISS');
-    expect((await api.list(query(inCell(cell), 10))).headers.get('x-cache')).toBe('HIT');
+    expect((await api.list(query(inCell(cell), 11))).headers.get('x-cache')).toBe('HIT');
+    expect((await api.list(query(inCell(cell)))).headers.get('x-cache')).toBe('HIT');
   });
 });
 
@@ -340,7 +340,7 @@ describe('nothing about the reader is cached', () => {
     expect(res.headers.getSetCookie()).not.toEqual([]);
     expect(res.headers.get('x-request-id')).not.toBeNull();
 
-    const key = boundsKey('http://x', tileOf(inCell(cell)), 9, await room.getVersion());
+    const key = boundsKey('http://x', tileOf(inCell(cell)), await room.getVersion());
     const entry = await workersCache().match(key);
     expect(entry?.status).toBe(200);
     for (const name of entry!.headers.keys()) {

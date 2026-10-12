@@ -124,9 +124,7 @@ test('two users share presence, drafts, saves and a version conflict', async ({ 
   const a = await test.step('A signs up and opens the map', () => signUp(browser, 'a'));
   const b = await test.step('B signs up and opens the map', () => signUp(browser, 'b'));
 
-  await test.step('the map reads its viewport with its zoom, through the bounds cache', async () => {
-    // The zoom is part of the cache key (`z=<zoom>`); a read without it would key on `z=`.
-    expect(new URL(a.firstRead.url()).searchParams.get('zoom')).toMatch(/^\d+$/);
+  await test.step('the map reads its viewport through the bounds cache', async () => {
     expect(a.firstRead.status()).toBe(200);
     expect([CACHE.STATUS.MISS, CACHE.STATUS.HIT]).toContain(
       a.firstRead.headers()[CACHE.STATUS_HEADER],

@@ -12,10 +12,12 @@ import type { AppEnv, Env } from '../app';
 import { withDeadline } from '../db';
 import { log, requestFields } from '../log';
 
-// The viewport cache (D6, spec §5, ADR-0004). A bounds read is keyed by its quantised tile, its
-// zoom and the map version the Room DO bumps on every area change, so a write moves every later
-// read to a new key in every data center without a purge, and old entries expire by TTL. The
-// Cache API is per data center; the version read is one Room RPC per request, hit or miss.
+// The viewport cache (D6, spec §5, ADR-0004). A bounds read is keyed by its quantised tile and the
+// map version the Room DO bumps on every area change, so a write moves every later read to a new
+// key in every data center without a purge, and old entries expire by TTL. The query's `zoom` is
+// accepted but not in the key: the response does not vary by zoom (nothing is simplified by zoom
+// yet), so keying on it would only split one tile's entry per zoom level. The Cache API is per
+// data center; the version read is one Room RPC per request, hit or miss.
 
 /** A viewport snapped to the `CACHE.TILE_QUANT_DEG` grid: the cache key part and the envelope. */
 export type Tile = { key: string; bbox: Bbox };
@@ -56,15 +58,10 @@ export function tileOf([west, south, east, north]: Bbox): Tile {
 
 /**
  * The synthetic Cache API key on the request's origin:
- * `${ROUTES.AREAS}?tile=${tile}&z=${zoom}&v=${epoch}.${version}`.
+ * `${ROUTES.AREAS}?tile=${tile}&v=${epoch}.${version}`.
  */
-export function boundsKey(
-  origin: string,
-  tile: Tile,
-  zoom: number | undefined,
-  version: MapVersion,
-): string {
-  const query = `tile=${tile.key}&z=${zoom ?? ''}&v=${stamp(version)}`;
+export function boundsKey(origin: string, tile: Tile, version: MapVersion): string {
+  const query = `tile=${tile.key}&v=${stamp(version)}`;
   return new URL(`${ROUTES.AREAS}?${query}`, origin).toString();
 }
 
@@ -87,7 +84,7 @@ export function boundsKey(
  */
 export function boundsCache(): MiddlewareHandler<AppEnv, string, { out: { query: BoundsQuery } }> {
   return async (c, next) => {
-    const { bbox, zoom } = c.req.valid('query');
+    const { bbox } = c.req.valid('query');
     const tile = tileOf(bbox);
 
     let version: MapVersion;
@@ -114,7 +111,7 @@ export function boundsCache(): MiddlewareHandler<AppEnv, string, { out: { query:
       return c.body(null, 304, headers);
     }
 
-    const key = boundsKey(c.req.url, tile, zoom, version);
+    const key = boundsKey(c.req.url, tile, version);
     const stored = await workersCache().match(key);
     if (stored) {
       logRead(c, CACHE.STATUS.HIT, tile, { version: stamp(version) });
