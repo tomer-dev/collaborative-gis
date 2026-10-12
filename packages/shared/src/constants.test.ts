@@ -15,6 +15,7 @@ describe('constants', () => {
       'MAP',
       'ERROR_CODES',
       'ERROR_MESSAGES',
+      'WS_MESSAGES',
     ] as const;
     for (const name of groups) {
       const group: unknown = shared[name];
