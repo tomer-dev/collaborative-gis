@@ -36,6 +36,10 @@ export const AreaVersionSchema = z.object({
 });
 export type AreaVersion = z.infer<typeof AreaVersionSchema>;
 
+/** `GET /api/areas/:id/versions` response body: the area's saved versions, newest first. */
+export const VersionsResponseSchema = z.object({ versions: z.array(AreaVersionSchema) });
+export type VersionsResponse = z.infer<typeof VersionsResponseSchema>;
+
 export const BoundsQuerySchema = z.object({
   bbox: z
     .string()

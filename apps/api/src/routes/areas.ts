@@ -21,6 +21,7 @@ import { rateLimit } from '../middleware/rate-limit';
 import { type Actor, createArea, deleteArea, listAreas, updateArea } from '../services/areas';
 import { fanout } from '../services/fanout';
 import { IdParamSchema, validate } from '../validate';
+import { revert, versions } from './versions';
 
 // Every path under /api/areas needs a session (401 first, from the one `use` below; an unrouted
 // path answers 401, not 404, to an anonymous caller); mutations then spend the user's D5 budget
@@ -167,4 +168,6 @@ export const areas = new Hono<AppEnv>()
       c.executionCtx.waitUntil(fanout(c.env, { type: 'area:deleted', payload: { id } }));
       return c.body(null, 204);
     },
-  );
+  )
+  .route(ROUTES.AREA_VERSIONS, versions)
+  .route(ROUTES.AREA_REVERT, revert);
