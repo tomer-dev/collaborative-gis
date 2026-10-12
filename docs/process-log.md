@@ -82,3 +82,39 @@ T16 checks in a browser (headless Chrome driven by Playwright, two isolated brow
 - No page errors in either context.
 - On the production build (`vite build`, `vite preview`): one Leaflet in the bundle; `L.Editable` attaches to it and is the map's default `editToolsClass`; drawing works. Reading `L.Editable` from the ESM namespace instead fails with or without `resolve.dedupe: ['leaflet']`: the bundler's CommonJS interop copies Leaflet's exports into the namespace before the plugin adds `Editable`. The `editToolsClass` lookup stays, with that reason in its comment.
 - Not reproduced: a tab hidden for more than five minutes in desktop Chrome (timer throttling against the Room's idle sweep); the client now pings when the tab is shown again, and the server-side cutoff is an M2 lane's.
+
+## 2026-10-12/13 — M2: hardening, with the M3 test lanes and the M4 repository side
+
+Plan: `docs/superpowers/plans/2026-10-12-m2-hardening.md`. Same model as M1: parallel lanes in separate worktrees, one PR per task (stacked where a lane needed another's code), one integration lane (H15) and one review for the whole milestone. Every lane branched from the M1 integration (`m1/integration-t16`).
+
+Tasks, one line each:
+
+- H1 + H16 (TOM-22, TOM-20, ticket 1.7), PR #32: batched idempotent seed (`db:seed`) and the bounds EXPLAIN benchmark (`db:explain`: on 10,000 areas, GiST p95 0.22 ms against 1.33 ms without index scans); reads on the Drizzle builder, with an ESLint rule rejecting hand-written `SELECT` in `sql` templates; M1 review fixes M6 (404/409 before 422) and M7 (write-CTE rows Zod-parsed).
+- H2 (TOM-23), PR #26: retention purge of areas soft-deleted more than 7 days ago, daily Cron Trigger, one audit row per run (migration 0004, `audit_log.details`).
+- H3 (TOM-58), PR #28: `GET /api/areas/:id/versions` and `POST /api/areas/:id/revert/:version` (a revert is a new version).
+- H4 (TOM-60), PR #33: audit rows for sign-in, failed sign-in, sign-up, sign-out, 422/429 rejections and Room draw sessions (migration 0005, `audit_log.request_id`).
+- H5 (TOM-29 REST half, TOM-30), PR #30: `mutationGuards()` (session, D5 budget, 64 KiB body cap: M1 review M2), AbortSignal-aware database clients under the request timeout, PUT `version` capped at the Postgres integer max.
+- H6 + H7 (TOM-40, TOM-38, TOM-61 half, TOM-32), PR #35: every `draft:update` frame spends the user's D5 budget, sockets idle past 90 s are reaped (M1 review I1 server half and M8), `bumpVersion()`/`getVersion()` RPC, `/readyz` pings the Room.
+- H8 (TOM-45, TOM-46), PR #29: EPSG:2039 with Proj4Leaflet (D22), the govmap aerial tile layer, ADR-0005; closes the govmap spike.
+- H9 (TOM-61), PR #39: viewport reads through the Workers Cache API, keyed by quantised tile, zoom and the Room's `{ epoch, version }`; ETag and 304.
+- H10 (TOM-62), PR #34: OpenAPI 3.1 validation test and the `/docs` reference UI (Scalar, bundle pinned).
+- H11 (TOM-39 server half), PR #38: storage epoch, `resync` on error events, re-join after a Room restart, chaos tests.
+- H12 (TOM-47), PR #37: base-layer switch OSM ⇄ govmap aerial with the CRS swap and a crossfade; the aerial modules load on first use.
+- H13 (TOM-52), PR #42: area panel (areas in view, the selected area's history, revert); the client sends its zoom with each viewport read.
+- H14 (TOM-39 client half), PR #41: resync on `resync` errors, reconnect recovery, polling while offline, the connection banner.
+- M3 e2e (TOM-64), PR #31: two-browser Playwright scenario and `pnpm e2e`.
+- M3 load (roadmap 6.6), PR #27: k6 REST and WebSocket scripts, `pnpm bench`, local results in `docs/benchmarks-load.md`.
+- M4 deploy (TOM-69, TOM-70), PR #40: one production Worker (`env.production`) serving the SPA and the API, the deploy workflow, the owner's checklist in `docs/deploy.md`.
+- M4 hardening (TOM-73), PR #43: secure cookies and a sign-in rate limit once deployed, the production hardening section of `docs/deploy.md`.
+- H15, the integration PR: the lane branches merged in order (merge commits; each conflict resolution is in its merge commit's message), then the wiring the lanes left: the audit middleware and `/docs` mounted in `app.ts`; a mutation bumps the map version before its response and broadcasts after it; one routes helper module; `AUDIT.ACTIONS.RETENTION_PURGE`; one OSM layer factory; the health routes in the OpenAPI document; versions capped at `LIMITS.VERSIONS_PAGE`; per-lane test databases (`<base>_<lane>`, from the git branch); an e2e job in CI; the deploy workflow waits for CI; ADR-0003 marked superseded by ADR-0005.
+
+Rulings and open questions:
+
+- M1 review findings skipped by ruling: M4 (not required) and M9 (speculative). The others went to T16 (I1 web half, I2, M1, M3, M5, M10), H6/H7 (I1 server half, M8), H5 (M2) and H16 (M6, M7).
+- Open: D5 and drafts. Every `draft:update` frame spends one action of the 50 per minute, so about 5 s of continuous dragging exhausts the budget (H6), and a resync resends each vertex (H11). Per frame, per session or not counted is a product decision still to make.
+- Deferred to M5 (E8): docker-compose parity with a workerd container (the M3 compose lane), with telemetry, UX polish, preview branches and Storybook in CI.
+- H5: the request's abort signal reaches `withClient` through `AsyncLocalStorage` (`withSignal`), documented in `apps/api/src/db/index.ts`, rather than a parameter on every handler and service.
+- H9: the base has no per-request log line, so the cache keeps its own `bounds read` info line (with `cache`, `tile`, `version`).
+- H4: tests that call the app without an ExecutionContext still write audit rows in the background; accepted: the rows land in the test databases and no assertion depends on them.
+- H12: switching layers maps to the nearest resolution, so a round trip is not always the identity (documented in `mapZoom` and the README).
+- M4: assets live in `env.production` only (at the top level they would break `pnpm dev` and `hono batch` before a web build); the production Worker is named `collaborative-gis`; the CI dry run builds the production config.

@@ -55,6 +55,8 @@ export function zoomResolutions(base: BaseLayerId, lat: number): readonly number
  * The zoom on `to` whose resolution at latitude `lat` is nearest to that of `zoom` on `from`,
  * compared as ratios: the levels step ×2 on OSM and ×2 to ×3 on govmap, so 2.02 m/px is nearer
  * 2.65 (×1.31) than 1.32 (×1.53). Throws a RangeError for a zoom `from` does not have.
+ * Not its own inverse: govmap has fewer levels, so a round trip can come back one zoom off
+ * (z15 → L07 → z16; z0–z8 → L00 → z7). z9–z14 and z16–z19 come back unchanged.
  */
 export function mapZoom(zoom: number, from: BaseLayerId, to: BaseLayerId, lat: number): number {
   const metresPerPixel = zoomResolutions(from, lat)[Math.round(zoom)];
