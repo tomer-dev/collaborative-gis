@@ -1,23 +1,32 @@
+import { MAP, type PresenceUser } from '@cgis/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { PresenceList, type PresenceUser } from './PresenceList';
+import { PresenceList } from './PresenceList';
 
-const USERS: PresenceUser[] = [
-  { id: 'u1', name: 'Ada Lovelace', colorSlot: 0, state: 'drawing', self: true },
-  { id: 'u2', name: 'Grace Hopper', colorSlot: 1, state: 'viewing' },
-  { id: 'u3', name: 'Alan Turing', colorSlot: 2, state: 'drawing' },
-  { id: 'u4', name: 'Katherine Johnson', colorSlot: 3 },
-  { id: 'u5', name: 'Edsger Dijkstra', colorSlot: 4 },
-  { id: 'u6', name: 'Barbara Liskov', colorSlot: 5 },
-  { id: 'u7', name: 'Donald Knuth', colorSlot: 6 },
-  { id: 'u8', name: 'Margaret Hamilton', colorSlot: 7 },
-  { id: 'u9', name: 'Ninth Visitor', colorSlot: null },
+const NAMES = [
+  'Ada Lovelace',
+  'Grace Hopper',
+  'Alan Turing',
+  'Katherine Johnson',
+  'Edsger Dijkstra',
+  'Barbara Liskov',
+  'Donald Knuth',
+  'Margaret Hamilton',
+  'Hedy Lamarr',
 ];
 
-/** Who is on the map, in join order. `list` for the side panel, `stack` for the top bar. */
+/** What the room sends: each user with the colour the server hashed from their id. */
+const USERS: PresenceUser[] = NAMES.map((name, index) => ({
+  userId: `u${index + 1}`,
+  name,
+  color: MAP.PRESENCE_COLORS[index % MAP.PRESENCE_COLORS.length] ?? MAP.PRESENCE_COLORS[0],
+  state: index === 0 || index === 2 ? 'drawing' : 'viewing',
+}));
+
+/** Who is on the map. `list` for the side panel, `stack` for the top bar. */
 const meta = {
   title: 'Components/PresenceList',
   component: PresenceList,
-  args: { users: USERS.slice(0, 3) },
+  args: { users: USERS.slice(0, 3), selfId: 'u1' },
   argTypes: { variant: { control: 'inline-radio', options: ['list', 'stack'] } },
   decorators: [
     (Story) => (
@@ -33,7 +42,7 @@ type Story = StoryObj<typeof meta>;
 
 export const List: Story = {};
 
-/** Nine users: the ninth has no hue left and gets the neutral. */
+/** Nine users on an eight-colour palette: two share a colour; names tell them apart. */
 export const Crowded: Story = { args: { users: USERS } };
 
 export const Stack: Story = { args: { variant: 'stack' } };

@@ -1,61 +1,52 @@
-import { cva, cx, type VariantProps } from 'class-variance-authority';
 import { forwardRef, type ButtonHTMLAttributes } from 'react';
+import { cx } from './cx';
 import { focusRing } from './focus';
 import type { IconComponent } from './icons';
 
-export const buttonVariants = cva(
-  [
-    'inline-flex shrink-0 touch-manipulation items-center justify-center gap-2 rounded-md font-medium whitespace-nowrap select-none',
-    'transition-colors duration-fast ease-standard',
-    'disabled:cursor-not-allowed disabled:opacity-disabled',
-    focusRing,
-  ],
-  {
-    variants: {
-      variant: {
-        primary:
-          'bg-primary text-primary-fg enabled:hover:bg-primary-hover enabled:active:bg-primary-active',
-        secondary:
-          'border border-line-control bg-bg-raised text-fg enabled:hover:bg-bg-hover enabled:active:bg-bg-active',
-        ghost: 'bg-transparent text-fg enabled:hover:bg-bg-hover enabled:active:bg-bg-active',
-        danger:
-          'bg-danger-strong text-danger-strong-fg enabled:hover:bg-danger-strong-hover enabled:active:bg-danger-strong-active',
-      },
-      size: {
-        sm: 'h-8 text-sm',
-        md: 'h-10 text-sm',
-        lg: 'h-12 text-md',
-      },
-      iconOnly: {
-        true: '',
-        false: '',
-      },
-    },
-    compoundVariants: [
-      { iconOnly: false, size: 'sm', class: 'px-3' },
-      { iconOnly: false, size: 'md', class: 'px-4' },
-      { iconOnly: false, size: 'lg', class: 'px-5' },
-      { iconOnly: true, size: 'sm', class: 'w-8' },
-      { iconOnly: true, size: 'md', class: 'w-10' },
-      { iconOnly: true, size: 'lg', class: 'w-12' },
-    ],
-    defaultVariants: { variant: 'primary', size: 'md', iconOnly: false },
-  },
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+export type ButtonSize = 'sm' | 'md' | 'lg';
+
+const base = cx(
+  'inline-flex shrink-0 touch-manipulation items-center justify-center gap-2 rounded-md font-medium whitespace-nowrap select-none',
+  'transition-colors duration-fast ease-standard',
+  'disabled:cursor-not-allowed disabled:opacity-disabled',
+  focusRing,
 );
 
-const iconSize = { sm: 'size-4', md: 'size-4', lg: 'size-5' } as const;
+const variantClass: Record<ButtonVariant, string> = {
+  primary:
+    'bg-primary text-primary-fg enabled:hover:bg-primary-hover enabled:active:bg-primary-active',
+  secondary:
+    'border border-line-control bg-bg-raised text-fg enabled:hover:bg-bg-hover enabled:active:bg-bg-active',
+  ghost: 'bg-transparent text-fg enabled:hover:bg-bg-hover enabled:active:bg-bg-active',
+  danger:
+    'bg-danger-strong text-danger-strong-fg enabled:hover:bg-danger-strong-hover enabled:active:bg-danger-strong-active',
+};
 
-export interface ButtonProps
-  extends
-    ButtonHTMLAttributes<HTMLButtonElement>,
-    Omit<VariantProps<typeof buttonVariants>, 'iconOnly'> {
+/** Height and text per size; padding for text buttons, a square width for icon-only ones. */
+const sizeClass: Record<ButtonSize, string> = {
+  sm: 'h-8 text-sm',
+  md: 'h-10 text-sm',
+  lg: 'h-12 text-md',
+};
+const paddingClass: Record<ButtonSize, string> = { sm: 'px-3', md: 'px-4', lg: 'px-5' };
+const squareClass: Record<ButtonSize, string> = { sm: 'w-8', md: 'w-10', lg: 'w-12' };
+const iconClass: Record<ButtonSize, string> = {
+  sm: 'size-4 shrink-0',
+  md: 'size-4 shrink-0',
+  lg: 'size-5 shrink-0',
+};
+
+export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
   /** Leading icon. Without children the button is icon-only (square) and needs `aria-label`. */
   icon?: IconComponent;
 }
 
 /** Action button: primary · secondary · ghost · danger × sm 32 / md 40 / lg 48. Defaults to `type="button"`. */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant, size, icon: Icon, className, children, type = 'button', ...rest },
+  { variant = 'primary', size = 'md', icon: Icon, className, children, type = 'button', ...rest },
   ref,
 ) {
   const iconOnly = children === undefined || children === null || children === false;
@@ -63,10 +54,16 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     <button
       ref={ref}
       type={type}
-      className={cx(buttonVariants({ variant, size, iconOnly }), className)}
+      className={cx(
+        base,
+        variantClass[variant],
+        sizeClass[size],
+        iconOnly ? squareClass[size] : paddingClass[size],
+        className,
+      )}
       {...rest}
     >
-      {Icon ? <Icon className={iconSize[size ?? 'md']} /> : null}
+      {Icon ? <Icon className={iconClass[size]} /> : null}
       {children}
     </button>
   );
