@@ -38,28 +38,25 @@ describe('health', () => {
     expect(log).toHaveBeenCalledOnce();
   });
 
-  it('GET /readyz returns 503 within the timeout when the host never answers', {
-    timeout: 15_000,
-  }, async () => {
+  it('GET /readyz answers 503 in time when the host never answers', async () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { createApp } = await import('../src/app');
     const app = createApp();
+    // Non-routable: SYNs are dropped, so only the readiness timeout ends the attempt.
+    const connectionString = 'postgresql://nobody:x@10.255.255.1:5432/none';
     const started = Date.now();
     const res = await app.request(
       'http://x/readyz',
       {},
       {
-        // Non-routable: SYNs are dropped, so only the readiness timeout ends the attempt.
-        HYPERDRIVE: {
-          connectionString: 'postgresql://nobody:x@10.255.255.1:5432/none',
-        } as Hyperdrive,
+        HYPERDRIVE: { connectionString } as Hyperdrive,
       },
     );
     expect(res.status).toBe(503);
     expect(await res.json()).toEqual({ code: 'NOT_READY', message: 'database unreachable' });
     expect(Date.now() - started).toBeLessThan(8000);
     expect(log).toHaveBeenCalledOnce();
-  });
+  }, 15_000);
 
   it('unknown route returns 404 ApiError', async () => {
     const res = await SELF.fetch('http://x/nope');
