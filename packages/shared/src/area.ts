@@ -17,7 +17,9 @@ export type Area = z.infer<typeof AreaSchema>;
 export const AreaCreateSchema = AreaSchema.pick({ name: true, geometry: true });
 export type AreaCreate = z.infer<typeof AreaCreateSchema>;
 
-export const AreaUpdateSchema = AreaCreateSchema.extend({ version: z.number().int().positive() });
+export const AreaUpdateSchema = AreaCreateSchema.extend({
+  version: z.number().int().positive().max(LIMITS.VERSION_MAX),
+});
 export type AreaUpdate = z.infer<typeof AreaUpdateSchema>;
 
 /** `GET /api/areas?bbox=…` response body: the live areas in the viewport. */
@@ -35,6 +37,10 @@ export const AreaVersionSchema = z.object({
   changedAt: z.iso.datetime(),
 });
 export type AreaVersion = z.infer<typeof AreaVersionSchema>;
+
+/** `GET /api/areas/:id/versions` response body: the area's saved versions, newest first. */
+export const VersionsResponseSchema = z.object({ versions: z.array(AreaVersionSchema) });
+export type VersionsResponse = z.infer<typeof VersionsResponseSchema>;
 
 export const BoundsQuerySchema = z.object({
   bbox: z

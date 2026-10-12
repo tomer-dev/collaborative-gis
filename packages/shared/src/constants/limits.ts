@@ -15,6 +15,16 @@ export const LIMITS = {
   USER_ID_MAX: 128,
   /** Caps one viewport response. */
   BOUNDS_LIMIT: 500,
+  /**
+   * Request body cap on mutations (64 KiB): 413 `PAYLOAD_TOO_LARGE` before JSON parsing. A ring at
+   * POLYGON_MAX_VERTICES with full-precision coordinates and a maximal name is about 41 KB.
+   */
+  BODY_MAX_BYTES: 64 * 1024,
+  /**
+   * Largest `version` a PUT body may carry: Postgres `integer` max, the type of `areas.version` and
+   * `area_versions.version`. A larger value would fail the query (22003) as a 500, not a 422.
+   */
+  VERSION_MAX: 2_147_483_647,
   /** Better Auth's default `minPasswordLength`; the register form's `minlength`. */
   PASSWORD_MIN: 8,
 } as const;
