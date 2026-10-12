@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import type { TestProject } from 'vitest/node';
 import { migrate } from '../../src/db/migrate';
+import { LANE_ENV, laneDatabase } from '../lane';
 
 declare module 'vitest' {
   export interface ProvidedContext {
@@ -14,12 +15,14 @@ declare module 'vitest' {
 const dbLane = fileURLToPath(new URL('../../../../scripts/db-lane.sh', import.meta.url));
 
 /**
- * Creates cgis_db on the local compose PostGIS (scripts/db-lane.sh), empties it, and runs every
+ * Creates the db lane's database (`cgis_db_<lane>`: test/lane.ts; apps/api/vitest.config.ts sets
+ * the lane) on the local compose PostGIS (scripts/db-lane.sh), empties it, and runs every
  * migration once, so the migrations are proven from scratch on each run. Dropping `public` also
  * drops PostGIS, which 0000_postgis.sql must then reinstall.
  */
 export default async function setup(project: TestProject) {
-  const url = execFileSync('bash', [dbLane, 'cgis_db'], { encoding: 'utf8' }).trim();
+  const name = laneDatabase('cgis_db', process.env[LANE_ENV] ?? '');
+  const url = execFileSync('bash', [dbLane, name], { encoding: 'utf8' }).trim();
 
   const client = new pg.Client({ connectionString: url });
   await client.connect();
