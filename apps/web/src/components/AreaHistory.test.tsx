@@ -12,6 +12,7 @@ import {
   queryWrapper,
   stubApi,
   type StubRequest,
+  ZOOM,
 } from '../test/api-stub';
 import { AreaHistory } from './AreaHistory';
 
@@ -48,7 +49,7 @@ function renderHistory(post: () => Response | Promise<Response> = () => jsonResp
     isVersionsGet(request) ? jsonResponse(200, { versions }) : post(),
   );
   const { queryClient, wrapper } = queryWrapper();
-  queryClient.setQueryData<AreaList>(areasKey(ISRAEL), { areas: [area] });
+  queryClient.setQueryData<AreaList>(areasKey(ISRAEL, ZOOM), { areas: [area] });
   render(<AreaHistory area={area} />, { wrapper });
   const history = screen.getByRole('region', { name: COPY.AREAS.HISTORY_TITLE });
   return { requests, queryClient, history };
@@ -105,7 +106,7 @@ it('reverts to the chosen version and patches the 201 area into the cache', asyn
   response.resolve(jsonResponse(201, reverted));
 
   await waitFor(() =>
-    expect(queryClient.getQueryData(areasKey(ISRAEL))).toEqual({ areas: [reverted] }),
+    expect(queryClient.getQueryData(areasKey(ISRAEL, ZOOM))).toEqual({ areas: [reverted] }),
   );
   expect(screen.queryByRole('alert')).toBeNull();
 });

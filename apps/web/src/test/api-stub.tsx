@@ -1,6 +1,6 @@
 // Test helpers for the areas data layer: a fetch stand-in (the hc client calls the global
 // `fetch`), area fixtures, a QueryClient wrapper and jsdom's missing modal-dialog API.
-import type { Area, AreaVersion } from '@cgis/shared';
+import { MAP, type Area, type AreaVersion } from '@cgis/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { vi } from 'vitest';
@@ -81,6 +81,9 @@ export function makeVersion(
     ...overrides,
   };
 }
+
+/** The map zoom the areas cache keys carry in tests. */
+export const ZOOM: number = MAP.DEFAULT_ZOOM;
 
 export const AREA_ID = '00000000-0000-4000-8000-000000000001';
 export const OTHER_ID = '00000000-0000-4000-8000-000000000002';
