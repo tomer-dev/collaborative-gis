@@ -1,22 +1,25 @@
-import { MAP, type PresenceState } from '@cgis/shared';
+import { LIMITS, MAP, PresenceStateSchema } from '@cgis/shared';
+import { z } from 'zod';
 
 /**
- * Per-socket state, kept with `ws.serializeAttachment()` (≤ 16 KiB) so it survives hibernation.
- * Presence is always derived from these, never from instance memory. T7 adds its own fields.
+ * Per-socket state, kept with `ws.serializeAttachment()` so it survives hibernation. Presence is
+ * always derived from these, never from instance memory. With both strings capped, an attachment
+ * stays far below the runtime's 16 KiB limit. T7 extends this schema with its own fields.
  */
-export type PresenceAttachment = {
-  userId: string;
-  name: string;
-  color: PresenceColor;
-  state: PresenceState;
-  lastSeen: number;
-};
+export const PresenceAttachmentSchema = z.object({
+  userId: z.string().min(1).max(LIMITS.USER_ID_MAX),
+  name: z.string().min(1).max(LIMITS.USER_NAME_MAX),
+  color: z.enum(MAP.PRESENCE_COLORS),
+  state: PresenceStateSchema,
+  lastSeen: z.number().int().nonnegative(),
+});
+export type PresenceAttachment = z.infer<typeof PresenceAttachmentSchema>;
+export type PresenceColor = PresenceAttachment['color'];
 
-export type PresenceColor = (typeof MAP.PRESENCE_COLORS)[number];
-
-/** The attachment `Room` stored when it accepted `ws`. */
-export function attachmentOf(ws: WebSocket): PresenceAttachment {
-  return ws.deserializeAttachment() as PresenceAttachment;
+/** The attachment `Room` stored on `ws`, or `undefined` when it is missing or invalid. */
+export function attachmentOf(ws: WebSocket): PresenceAttachment | undefined {
+  const parsed = PresenceAttachmentSchema.safeParse(ws.deserializeAttachment());
+  return parsed.success ? parsed.data : undefined;
 }
 
 /**

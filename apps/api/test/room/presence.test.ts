@@ -1,6 +1,6 @@
 import { MAP, PresenceUserSchema } from '@cgis/shared';
 import { describe, expect, it } from 'vitest';
-import { presenceColor } from '../../src/do/presence';
+import { attachmentOf, presenceColor } from '../../src/do/presence';
 
 describe('presenceColor', () => {
   it('MAP.PRESENCE_COLORS is the 8-hue palette, each a valid PresenceUser colour', () => {
@@ -23,5 +23,34 @@ describe('presenceColor', () => {
     const ids = Array.from({ length: 64 }, (_, i) => `user-${i}`);
     const colors = new Set(await Promise.all(ids.map(presenceColor)));
     expect(colors.size).toBeGreaterThanOrEqual(6);
+  });
+});
+
+describe('attachmentOf', () => {
+  const socketWith = (attachment?: unknown) => {
+    const ws = new WebSocketPair()[1];
+    if (attachment !== undefined) ws.serializeAttachment(attachment);
+    return ws;
+  };
+  const valid = {
+    userId: 'u1',
+    name: 'Alice',
+    color: MAP.PRESENCE_COLORS[0],
+    state: 'viewing',
+    lastSeen: 1_700_000_000_000,
+  };
+
+  it('returns a valid attachment', () => {
+    expect(attachmentOf(socketWith(valid))).toEqual(valid);
+  });
+
+  it.each([
+    ['no attachment', undefined],
+    ['missing fields', { userId: 'u1' }],
+    ['a colour outside the palette', { ...valid, color: '#000000' }],
+    ['an unknown state', { ...valid, state: 'sleeping' }],
+    ['a fractional lastSeen', { ...valid, lastSeen: 1.5 }],
+  ])('returns undefined for %s', (_label, attachment) => {
+    expect(attachmentOf(socketWith(attachment))).toBeUndefined();
   });
 });
