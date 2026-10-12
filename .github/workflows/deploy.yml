@@ -1,7 +1,10 @@
 name: deploy
 # Production deploy of the one Worker (SPA + API + Durable Objects). Owner setup: docs/deploy.md.
+# Runs once `ci` has passed on a push to main (the merge commit itself), or on demand.
 on:
-  push:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 permissions:
@@ -15,6 +18,10 @@ jobs:
   # three are set. Without them (a fork, or before the owner configures the repository) `deploy`
   # is skipped, not failed.
   secrets:
+    # A `ci` run that failed or was cancelled deploys nothing; only a push run on main counts.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     outputs:
       ready: ${{ steps.check.outputs.ready }}
@@ -36,7 +43,10 @@ jobs:
     if: needs.secrets.outputs.ready == 'true'
     runs-on: ubuntu-latest
     steps:
+      # The commit `ci` checked (workflow_run's own default is the branch's newest commit).
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - name: production origin is set
         run: |
           if grep -q 'REPLACE-WITH-' apps/api/wrangler.jsonc; then
