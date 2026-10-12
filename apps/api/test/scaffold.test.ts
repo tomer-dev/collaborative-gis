@@ -6,10 +6,10 @@ import { describe, expect, it } from 'vitest';
 import { db, withClient } from '../src/db';
 
 describe('M1 composition stubs', () => {
-  it('GET /api/areas is mounted but has no routes yet: 404 ApiError', async () => {
+  it('GET /api/areas reaches the area routes (M1 T15): 401 without a session', async () => {
     const res = await SELF.fetch('http://x/api/areas');
-    expect(res.status).toBe(404);
-    expect(await res.json()).toEqual({ code: 'NOT_FOUND', message: 'Not found' });
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ code: 'UNAUTHORIZED', message: 'sign in' });
   });
 
   it('GET /api/auth/* reaches Better Auth (M1 T4)', async () => {
