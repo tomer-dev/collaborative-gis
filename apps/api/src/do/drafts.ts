@@ -37,9 +37,9 @@ export function applyDraftOp(vertices: Position[], op: DraftOp): Position[] | un
 }
 
 /** A per-socket token bucket, kept in the socket attachment so hibernation cannot refill it. */
-export type DraftBucket = { tokens: number; refilledAt: number };
+type DraftBucket = { tokens: number; refilledAt: number };
 
-export type DraftTake =
+type DraftTake =
   { ok: true; bucket: DraftBucket } | { ok: false; bucket: DraftBucket; retryAfterMs: number };
 
 /** A full bucket: a burst of `WS.DRAFT_RATE_PER_SEC` frames, then that many per second (D13). */
