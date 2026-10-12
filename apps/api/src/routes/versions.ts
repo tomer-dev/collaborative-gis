@@ -4,34 +4,24 @@ import {
   ERROR_CODES,
   ERROR_MESSAGES,
   ERROR_REASONS,
-  HEADERS,
   VersionsResponseSchema,
 } from '@cgis/shared';
-import { type Context, Hono } from 'hono';
-import { describeRoute, resolver } from 'hono-openapi';
+import { Hono } from 'hono';
+import { describeRoute } from 'hono-openapi';
 import { z } from 'zod';
 import type { AppEnv } from '../app';
 import { apiError } from '../errors';
-import { mutationGuards, requireUser, type SignedIn } from '../middleware';
-import { type Actor, listAreaVersions, revertAreaToVersion } from '../services/areas';
+import { mutationGuards, requireUser } from '../middleware';
+import { listAreaVersions, revertAreaToVersion } from '../services/areas';
 import { fanout } from '../services/fanout';
 import { IdParamSchema, validate } from '../validate';
+import { actor, error, json, RATE_LIMITED, UNAUTHORIZED } from './common';
 
 // An area's saved versions, and the revert to one of them; routes/areas.ts mounts both. Same
 // guards as the area routes: a session first (401); the revert, like every mutation, mounts
 // `mutationGuards()` (session, then the user's D5 budget (429) and the body cap (413)) before
 // validation (422). services/areas.ts owns the transaction and the audit row, and a committed
 // revert is broadcast after the response.
-
-/** The session user, the client hints and the request id the audit row records. */
-function actor(c: Context<AppEnv & SignedIn>, userId: string): Actor {
-  return {
-    userId,
-    ip: c.req.header(HEADERS.CF_CONNECTING_IP) ?? null,
-    userAgent: c.req.header(HEADERS.USER_AGENT) ?? null,
-    requestId: c.get('requestId'),
-  };
-}
 
 /**
  * `:version` is an `area_versions.version`, a Postgres integer: past the int4 range the query
@@ -43,11 +33,6 @@ const RevertParamSchema = IdParamSchema.extend({
 
 const DeletedSchema = ApiErrorSchema.extend({ details: z.object({ reason: z.string() }) });
 
-const json = (schema: Parameters<typeof resolver>[0]) => ({
-  'application/json': { schema: resolver(schema) },
-});
-const error = (description: string) => ({ description, content: json(ApiErrorSchema) });
-const UNAUTHORIZED = error('No session (`UNAUTHORIZED`)');
 const UNPROCESSABLE = error('Invalid path parameter (`UNPROCESSABLE`): `details.issues`');
 
 /** Mounted at `ROUTES.AREA_VERSIONS` (`/api/areas/:id/versions`). */
@@ -89,14 +74,14 @@ export const revert = new Hono<AppEnv>().post(
         content: json(DeletedSchema),
       },
       422: UNPROCESSABLE,
-      429: error('Over the per-user mutation budget (`RATE_LIMITED`), with `Retry-After`'),
+      429: RATE_LIMITED,
     },
   }),
   mutationGuards(),
   validate('param', RevertParamSchema),
   async (c) => {
     const { id, version } = c.req.valid('param');
-    const result = await revertAreaToVersion(c.env, id, version, actor(c, c.get('user').id));
+    const result = await revertAreaToVersion(c.env, id, version, actor(c));
     switch (result.status) {
       case 'missing':
         return apiError(c, ERROR_CODES.NOT_FOUND);
