@@ -1,8 +1,13 @@
 // Single source of truth for tunable values; docs/constants.md mirrors it. Add new values to both.
 
+/** Positions in a polygon ring, closing vertex included (spec §5). */
+const POLYGON_MAX_VERTICES = 1000;
+
 /** Input and query limits (spec §5, D13). */
 export const LIMITS = {
-  POLYGON_MAX_VERTICES: 1000,
+  POLYGON_MAX_VERTICES,
+  /** Positions minus the closing vertex: the most vertices a user can place while drawing. */
+  POLYGON_MAX_PLACED_VERTICES: POLYGON_MAX_VERTICES - 1,
   AREA_NAME_MAX: 120,
   USER_NAME_MAX: 60,
   USER_ID_MAX: 128,
@@ -122,12 +127,25 @@ export const MAP = {
   HANDLE_HIT_PX: 24,
   /** Leaflet path options for a sketch in progress (own draft now, remote ghosts in T14); design brief §4: 2 px, dashed 8/4, fill 12 %. */
   DRAFT_STYLE: { weight: 2, dashArray: '8 4', fillOpacity: 0.12 },
+  /** Area readouts switch from m² to km² at this many km². */
+  AREA_KM2_THRESHOLD: 1,
 } as const;
 
-/** Polygon draw tool: the client-side `draw:invalid` reasons. */
+/** Polygon draw tool: the client-side `draw:invalid` reasons and the draw control's copy. */
 export const DRAW = {
   SELF_INTERSECTION_REASON: 'Polygon edges must not cross or touch each other',
   MAX_VERTICES_REASON: 'Vertex limit reached',
+  TOOLBAR_LABEL: 'Drawing tools',
+  START_LABEL: 'Draw polygon',
+  PANEL_TITLE: 'New area',
+  AREA_LABEL: 'Area',
+  VERTICES_LABEL: 'Vertices',
+  FINISH_LABEL: 'Finish',
+  UNDO_LABEL: 'Undo',
+  CANCEL_LABEL: 'Cancel',
+  /** Area unit suffixes (Intl.NumberFormat has no area units). */
+  M2_UNIT: 'm²',
+  KM2_UNIT: 'km²',
 } as const;
 
 /** Every `ApiError.code` the API sends; apps/api/src/errors.ts maps each to its HTTP status. */
