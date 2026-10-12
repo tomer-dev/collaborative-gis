@@ -62,6 +62,12 @@ Coordinate order: all GeoJSON in this project is `[longitude, latitude]`; Leafle
 - `sql` is for PostGIS fragments (`ST_MakeEnvelope`, `ST_Area`, `ST_GeomFromGeoJSON`) and for the write CTEs in `apps/api/src/db/spatial.ts` that write an area and its version row in one statement (D23's exception, marked in a comment each); ESLint rejects a `sql` template starting with `SELECT` in `apps/api/src`.
 - Rows from those raw statements are Zod-parsed before they leave `spatial.ts`; the Worker reaches the database only through `withClient` (Hyperdrive), scripts and migrations through a direct URL.
 
+## Deploy
+
+One Worker, `collaborative-gis` (`env.production` in `apps/api/wrangler.jsonc`), serves the built SPA as static assets and the API, the WebSocket and both Durable Objects on one origin; Neon is reached through Hyperdrive with query caching off.
+`.github/workflows/deploy.yml` deploys on every push to `main` and on demand: it migrates Neon over the direct URL, builds the web and runs `wrangler deploy --env production`. It is skipped until the repository has the `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` and `DATABASE_URL` secrets.
+The one-time owner checklist (Hyperdrive caching, production origin, `BETTER_AUTH_SECRET`, first deploy), smoke checks and rollback: [`docs/deploy.md`](docs/deploy.md).
+
 ## Technical decisions and architecture
 
 The decision log is §10 of the design spec, [`docs/superpowers/specs/2026-10-12-collaborative-gis-design.md`](docs/superpowers/specs/2026-10-12-collaborative-gis-design.md) (D1–D25), with ADRs 0001–0004 in `docs/adr/`. The ones that shape the code most:
