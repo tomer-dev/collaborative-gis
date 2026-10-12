@@ -18,6 +18,7 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 | `USER_NAME_MAX` | `60` | Presence list and ghost labels stay short; attachments stay small. |
 | `USER_ID_MAX` | `128` | With both strings capped, a socket attachment cannot reach the runtime's 16 KiB limit. |
 | `BOUNDS_LIMIT` | `500` | Caps one viewport response. |
+| `BODY_MAX_BYTES` | `64 * 1024` | Request body cap on mutations (64 KiB): 413 `PAYLOAD_TOO_LARGE` before JSON parsing. A ring at POLYGON_MAX_VERTICES with full-precision coordinates and a maximal name is about 41 KB. |
 | `PASSWORD_MIN` | `8` | Better Auth's default `minPasswordLength`; the register form's `minlength`. |
 
 ## TIMEOUTS
@@ -100,7 +101,7 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 |---|---|---|
 | `DRAW_ACTIONS_PER_WINDOW` | `50` | D5: 50 drawing actions per user per window, one budget for REST and WS. |
 | `WINDOW_MS` | `60_000` | D5: exact sliding window over the last 60 s; the 429 `Retry-After` is at most this long. |
-| `ACTIONS` | `{ DRAW: 'draw', MUTATE: 'mutate' }` | The only labels `RateLimiter.take` accepts; every action spends the same budget. |
+| `ACTIONS` | `{ DRAW: 'draw' }` | The only labels `RateLimiter.take` accepts. REST mutations and WS draft actions both spend `DRAW`: one drawing-action budget (spec: `requireUser` then `take('draw')`). |
 
 ## AUTH
 
