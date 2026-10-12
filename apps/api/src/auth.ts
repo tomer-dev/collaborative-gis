@@ -1,3 +1,4 @@
+import { AUTH } from '@cgis/shared';
 import type { Auth } from 'better-auth';
 import type { Handler } from 'hono';
 import type pg from 'pg';
@@ -30,6 +31,9 @@ export async function createAuth(
     // `better-auth/minimal` leaves out Kysely, which only direct database connections need.
     database: drizzleAdapter(db(client), { provider: 'pg', schema }),
     emailAndPassword: { enabled: true },
+    // D24: a signed `session_data` cookie answers session checks for this long without a database
+    // read. Same-device sign-out clears it at once; a session revoked elsewhere lags up to maxAge.
+    session: { cookieCache: { enabled: true, maxAge: AUTH.COOKIE_CACHE_MAX_AGE_S } },
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
     // The SPA's origin; Better Auth also trusts its own baseURL.
@@ -49,16 +53,23 @@ export async function createAuth(
 export const authHandler: Handler<AppEnv> = (c) =>
   withClient(c.env, async (client) => (await createAuth(c.env, client)).handler(c.req.raw));
 
+/** One session check: the user (null without a session) and the cookies Better Auth set doing it. */
+export type SessionRead = { user: SessionUser | null; setCookie: string[] };
+
 /**
- * The user of the session in `headers` (only the Cookie header matters), or null. Without Better
- * Auth's session cookie (`getSessionCookie` reads its name, `__Secure-` prefix included) there is
- * no session to look up, so the database is not touched: other cookies cost nothing.
+ * The session in `headers` (only the Cookie header matters). Without Better Auth's session cookie
+ * (`getSessionCookie` reads its name, `__Secure-` prefix included) there is no session to look
+ * up, so the database is not touched: other cookies cost nothing. A valid cookie cache (D24)
+ * answers without reading the session row; when the row is read, Better Auth sets a fresh cache
+ * cookie, returned in `setCookie` for the response.
  */
-export async function getSessionUser(env: Env, headers: Headers): Promise<SessionUser | null> {
+export async function readSession(env: Env, headers: Headers): Promise<SessionRead> {
   const { getSessionCookie } = await import('better-auth/cookies');
-  if (!getSessionCookie(headers)) return null;
+  if (!getSessionCookie(headers)) return { user: null, setCookie: [] };
   return withClient(env, async (client) => {
-    const session = await (await createAuth(env, client)).api.getSession({ headers });
-    return session ? { id: session.user.id, name: session.user.name } : null;
+    const auth = await createAuth(env, client);
+    const { headers: set, response } = await auth.api.getSession({ headers, returnHeaders: true });
+    const user = response ? { id: response.user.id, name: response.user.name } : null;
+    return { user, setCookie: set.getSetCookie() };
   });
 }
