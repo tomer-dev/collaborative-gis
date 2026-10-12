@@ -12,6 +12,10 @@ export const ROUTES = {
   AREAS: '/api/areas',
   /** One area, relative to AREAS (`PUT`/`DELETE /api/areas/:id`). */
   AREA_BY_ID: '/:id',
+  /** One area's saved versions, relative to AREAS (`GET /api/areas/:id/versions`). */
+  AREA_VERSIONS: '/:id/versions',
+  /** Revert to a saved version, relative to AREAS (`POST /api/areas/:id/revert/:version`). */
+  AREA_REVERT: '/:id/revert/:version',
   /** Room WebSocket upgrade. */
   WS: '/ws',
   /** OpenAPI 3.1 document of the routes with `describeRoute` metadata. */

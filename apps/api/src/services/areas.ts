@@ -1,22 +1,37 @@
-import { AUDIT, type Area, type AreaCreate, type AreaUpdate, type Bbox } from '@cgis/shared';
+import {
+  AUDIT,
+  type Area,
+  type AreaCreate,
+  type AreaUpdate,
+  type AreaVersion,
+  type Bbox,
+} from '@cgis/shared';
 import type pg from 'pg';
 import type { Env } from '../app';
 import { db, withClient } from '../db';
 import {
   InvalidGeometryError,
   insertArea,
+  listVersions,
+  revertArea,
   selectAreasInBounds,
   softDeleteArea,
   updateAreaIfVersion,
   writeAudit,
   type AuditRow,
+  type RevertResult,
 } from '../db/spatial';
 
 // Area mutations and their audit rows (D20). Each mutation runs on one per-request client in one
 // transaction, so the area write and its `audit_log` row commit together or not at all.
 
-/** Who acted, for the audit row: the session user and the request's client hints. */
-export type Actor = { userId: string; ip: string | null; userAgent: string | null };
+/** Who acted, for the audit row: the session user, the request's client hints and its id. */
+export type Actor = {
+  userId: string;
+  ip: string | null;
+  userAgent: string | null;
+  requestId: string;
+};
 
 type AuditAction = (typeof AUDIT.ACTIONS)[keyof typeof AUDIT.ACTIONS];
 
@@ -83,9 +98,36 @@ export function deleteArea(env: Env, id: string, actor: Actor): Promise<DeleteOu
   });
 }
 
+/** A live area's saved versions, newest first; `null` when the area is missing or soft-deleted. */
+export async function listAreaVersions(env: Env, id: string): Promise<AreaVersion[] | null> {
+  const versions = await withClient(env, (client) => listVersions(client, id));
+  // A live area always has its version 1, so no rows means no live area.
+  return versions.length > 0 ? versions : null;
+}
+
+/**
+ * Reverts a live area to its saved `version` as a new version and writes the `area.revert` audit
+ * row at that new version (D20), in one transaction.
+ */
+export function revertAreaToVersion(
+  env: Env,
+  id: string,
+  version: number,
+  actor: Actor,
+): Promise<RevertResult> {
+  return inTransaction(env, async (client) => {
+    const result = await revertArea(client, id, version, actor.userId);
+    if (result.status !== 'reverted') return result;
+    const { area } = result;
+    await writeAudit(client, auditRow(actor, AUDIT.ACTIONS.AREA_REVERT, area.id, area.version));
+    return result;
+  });
+}
+
 function auditRow(actor: Actor, action: AuditAction, entityId: string, version: number): AuditRow {
-  const { userId, ip, userAgent } = actor;
-  return { userId, action, entity: AUDIT.ENTITIES.AREA, entityId, version, ip, userAgent };
+  const { userId, ip, userAgent, requestId } = actor;
+  const entity = AUDIT.ENTITIES.AREA;
+  return { userId, action, entity, entityId, version, ip, userAgent, requestId };
 }
 
 /**
