@@ -1,10 +1,19 @@
 import { ROOM, TIMEOUTS } from '@cgis/shared';
 import { SELF } from 'cloudflare:test';
-import { env } from 'cloudflare:workers';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createApp } from '../../src/app';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { createApp, type Env } from '../../src/app';
+import { laneEnv } from '../auth/lane-db';
 
 // Wire values (bodies, states, log fields) are spelled out: they are what probes and dashboards read.
+
+/**
+ * The readiness query reads `areas`, so it needs a migrated database: this file's lane database,
+ * not the shared default one another checkout may have emptied.
+ */
+let env: Env;
+beforeAll(async () => {
+  env = await laneEnv('cgis_health');
+});
 
 /** Sends `GET /readyz` to a fresh app with `bindings`, timing the answer. */
 async function readyz(bindings: object) {
@@ -63,7 +72,7 @@ describe('GET /readyz: the database and the Room', () => {
 
   it('200 { status: ready, db: up, room: up } when PostGIS and the Room answer, logging nothing', async () => {
     const log = vi.spyOn(console, 'error');
-    const res = await SELF.fetch('http://x/readyz');
+    const { res } = await readyz(env);
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ status: 'ready', db: 'up', room: 'up' });
     // Give workerd's post-end() 'socket closed' event a turn to fire: it must not be logged.
