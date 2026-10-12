@@ -61,7 +61,10 @@ export const COPY = {
     SIGN_OUT: 'Sign out',
     SIGN_OUT_ERROR: 'Could not sign out. Try again.',
   },
-  /** Saved areas on /map: the save dialog, the selected-area panel and the conflict dialog (D4). */
+  /**
+   * Saved areas on /map: the save dialog, the area panel (the areas in view, the selected area and
+   * its history) and the conflict dialog (D4).
+   */
   AREAS: {
     SAVE_TITLE: 'Save area',
     NAME_LABEL: 'Name',
@@ -95,5 +98,25 @@ export const COPY = {
     OVERWRITE_ERROR_TITLE: 'Could not overwrite the area',
     /** A failure without an API error body (network error, proxy page). */
     ERROR_GENERIC: 'Something went wrong. Try again.',
+    /** The area panel: its title, also the name of the list of the areas in the viewport. */
+    LIST_TITLE: 'Areas in view',
+    LIST_EMPTY: 'No saved areas in view.',
+    /** Under the list when more than `LIMITS.PANEL_LIST_MAX` areas are in view. */
+    LIST_MORE: (count: number) => `+${count} more`,
+    HISTORY_TITLE: 'History',
+    HISTORY_LOADING: 'Loading history…',
+    HISTORY_ERROR_TITLE: 'Could not load the history',
+    VERSION_LABEL: (version: number) => `Version ${version}`,
+    /** In place of the revert button on the version the area is at now. */
+    VERSION_CURRENT: 'Current',
+    /** Who saved a version: a user id prefix (`LIMITS.USER_ID_PREFIX`). */
+    VERSION_BY: (who: string) => `by ${who}`,
+    REVERT: 'Revert to this version',
+    REVERT_PENDING: 'Reverting…',
+    REVERT_ERROR_TITLE: 'Could not revert the area',
+    /** 409: someone deleted the area; a revert never brings it back. */
+    REVERT_DELETED: 'This area has been deleted, so it cannot be reverted.',
+    /** 404: the area or that version is gone; the lists and the history refetch. */
+    REVERT_MISSING: 'That version is no longer available. The history has been refreshed.',
   },
 } as const;

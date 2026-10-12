@@ -4,7 +4,9 @@ import {
   AreaListSchema,
   AreaSchema,
   COPY,
+  ERROR_CODES,
   QUERY,
+  VersionsResponseSchema,
   type Area,
   type AreaCreate,
   type AreaList,
@@ -25,12 +27,13 @@ import { ringAreaKm2 } from './geo/geodesic';
 import { useSession } from './session';
 
 /**
- * `[QUERY.AREAS_KEY, bbox]`: one viewport's areas, keyed by the raw debounced bbox (the server owns
- * any quantisation, spec §5). The cached value is the `GET` body as parsed, `{ areas }`; the
- * WebSocket hook (T14) patches the same key and shape.
+ * `[QUERY.AREAS_KEY, bbox, zoom]`: one viewport's areas, keyed by the raw debounced bbox and the
+ * map's integer zoom (the server owns any quantisation, spec §5, and keys its bounds cache by
+ * tile and zoom). The cached value is the `GET` body as parsed, `{ areas }`; the WebSocket hook
+ * (T14) patches the same key and shape.
  */
-export function areasKey(bbox: Bbox | null) {
-  return [QUERY.AREAS_KEY, bbox] as const;
+export function areasKey(bbox: Bbox | null, zoom: number | null) {
+  return [QUERY.AREAS_KEY, bbox, zoom] as const;
 }
 
 /** Matches every viewport's list. */
@@ -50,20 +53,22 @@ export function isQueryableBbox(bbox: Bbox | null): bbox is Bbox {
   return bbox !== null && bbox[0] < bbox[2] && bbox[1] < bbox[3];
 }
 
-async function fetchAreas(bbox: Bbox, signal: AbortSignal): Promise<AreaList> {
-  const res = await api.api.areas.$get({ query: { bbox: bbox.join(',') } }, { init: { signal } });
+async function fetchAreas(bbox: Bbox, zoom: number | null, signal: AbortSignal): Promise<AreaList> {
+  const query = { bbox: bbox.join(','), ...(zoom === null ? {} : { zoom: String(zoom) }) };
+  const res = await api.api.areas.$get({ query }, { init: { signal } });
   return readBody(res, 200, AreaListSchema);
 }
 
 /**
  * The saved areas in `bbox` (the map's debounced viewport) as `{ areas }`, parsed with the shared
- * schema in the query function, so every reader and patcher of the cache sees checked data. Off
- * for a null or degenerate bbox. While a new viewport loads, the last one's areas stay on screen.
+ * schema in the query function, so every reader and patcher of the cache sees checked data; `zoom`
+ * (the map's integer zoom) goes along as `?zoom=`. Off for a null or degenerate bbox. While a new
+ * viewport loads, the last one's areas stay on screen.
  */
-export function useAreasInBounds(bbox: Bbox | null) {
+export function useAreasInBounds(bbox: Bbox | null, zoom: number | null) {
   return useQuery({
-    queryKey: areasKey(bbox),
-    queryFn: isQueryableBbox(bbox) ? ({ signal }) => fetchAreas(bbox, signal) : skipToken,
+    queryKey: areasKey(bbox, zoom),
+    queryFn: isQueryableBbox(bbox) ? ({ signal }) => fetchAreas(bbox, zoom, signal) : skipToken,
     placeholderData: keepPreviousData,
   });
 }
@@ -73,6 +78,18 @@ export function replaceArea(queryClient: QueryClient, area: Area): void {
   queryClient.setQueriesData<AreaList>(
     ALL_AREAS,
     patchAreas((areas) => areas.map((cached) => (cached.id === area.id ? area : cached))),
+  );
+}
+
+/**
+ * `replaceArea`, deduped by version: a viewport whose copy is already at `area.version` or newer
+ * (the WebSocket's `area:updated` for the same write, or a later one) keeps it.
+ */
+function replaceOlderArea(queryClient: QueryClient, area: Area): void {
+  queryClient.setQueriesData<AreaList>(ALL_AREAS, (list) =>
+    list?.areas.some((cached) => cached.id === area.id && cached.version < area.version)
+      ? { areas: list.areas.map((cached) => (cached.id === area.id ? area : cached)) }
+      : list,
   );
 }
 
@@ -117,11 +134,11 @@ export function usePendingAreaIds(): ReadonlySet<string> {
 }
 
 /**
- * Creates an area (`POST /api/areas` → 201). Optimistic: the area joins the `bbox` viewport at once
- * under a temporary id and leaves it if the server refuses (a 422 carries `error.reason`); on
- * success the server's area takes its place. The area lists refetch afterwards either way.
+ * Creates an area (`POST /api/areas` → 201). Optimistic: the area joins the `bbox`/`zoom` viewport
+ * at once under a temporary id and leaves it if the server refuses (a 422 carries `error.reason`);
+ * on success the server's area takes its place. The area lists refetch afterwards either way.
  */
-export function useCreateArea(bbox: Bbox | null) {
+export function useCreateArea(bbox: Bbox | null, zoom: number | null) {
   const queryClient = useQueryClient();
   const userId = useSession().data?.id ?? '';
   return useMutation<Area, Error, AreaCreate, OptimisticEntry | undefined>({
@@ -130,7 +147,7 @@ export function useCreateArea(bbox: Bbox | null) {
       readBody(await api.api.areas.$post({ json: input }), 201, AreaSchema),
     onMutate: async (input) => {
       if (!isQueryableBbox(bbox)) return undefined;
-      const key = areasKey(bbox);
+      const key = areasKey(bbox, zoom);
       // An in-flight fetch for this viewport would overwrite the optimistic entry.
       await queryClient.cancelQueries({ queryKey: key });
       const optimistic = optimisticArea(input, userId);
@@ -202,6 +219,63 @@ export function useDeleteArea() {
     mutationFn: async (id) =>
       expectStatus(await api.api.areas[':id'].$delete({ param: { id } }), 204),
     onSuccess: (_result, id) => removeArea(queryClient, id),
+  });
+}
+
+/**
+ * `[QUERY.VERSIONS_KEY, id, version]`: the history of area `id` while it is at `version`. Without
+ * `version` it matches the area's history at any version (invalidation).
+ */
+export function versionsKey(id: string, version?: number) {
+  return version === undefined
+    ? ([QUERY.VERSIONS_KEY, id] as const)
+    : ([QUERY.VERSIONS_KEY, id, version] as const);
+}
+
+/**
+ * The saved versions of area `id`, newest first, as `{ versions }` (`GET /api/areas/:id/versions`).
+ * `version` is the area's current version, from the areas cache: a rename, a revert or another
+ * user's edit moves it and the history refetches, the last list staying on screen meanwhile.
+ */
+export function useAreaVersions(id: string, version: number) {
+  return useQuery({
+    queryKey: versionsKey(id, version),
+    queryFn: async ({ signal }) =>
+      readBody(
+        await api.api.areas[':id'].versions.$get({ param: { id } }, { init: { signal } }),
+        200,
+        VersionsResponseSchema,
+      ),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** One revert: the area's id and the saved version to bring back. */
+export type AreaRevert = { id: string; version: number };
+
+/**
+ * Reverts an area to a saved version (`POST /api/areas/:id/revert/:version` → 201, the area at its
+ * new version) and patches it into the cached viewports, unless the WebSocket's `area:updated`
+ * got there first. A 409 means the area is deleted (`details.reason`); a 404 means the area or the
+ * version is gone, so the area lists and that area's history refetch.
+ */
+export function useRevertArea() {
+  const queryClient = useQueryClient();
+  return useMutation<Area, Error, AreaRevert>({
+    mutationFn: async ({ id, version }) =>
+      readBody(
+        await api.api.areas[':id'].revert[':version'].$post({
+          param: { id, version: String(version) },
+        }),
+        201,
+        AreaSchema,
+      ),
+    onSuccess: (area) => replaceOlderArea(queryClient, area),
+    onError: (error, { id }) => {
+      if (!(error instanceof ApiRequestError) || error.code !== ERROR_CODES.NOT_FOUND) return;
+      void queryClient.invalidateQueries(ALL_AREAS);
+      void queryClient.invalidateQueries({ queryKey: versionsKey(id) });
+    },
   });
 }
 

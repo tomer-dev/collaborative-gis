@@ -11,8 +11,11 @@ export type MapViewProps = {
    * StrictMode (dev) mounts twice, so keep only the latest map; the previous one is removed.
    */
   onReady?: (map: L.Map) => void;
-  /** Called with the initial view on mount, then once per burst of `moveend` (debounced). */
-  onBoundsChange?: (bbox: Bbox) => void;
+  /**
+   * Called with the initial view on mount, then once per burst of `moveend` (debounced): the bbox
+   * and the map's integer zoom.
+   */
+  onBoundsChange?: (bbox: Bbox, zoom: number) => void;
 };
 
 /** Leaflet map with the OSM base layer and the `areas`/`drafts` overlay panes; fills its parent. */
@@ -39,7 +42,8 @@ export function MapView({ onReady, onBoundsChange }: MapViewProps) {
     map.createPane(MAP.AREAS_PANE).style.zIndex = String(MAP.AREAS_PANE_Z);
     map.createPane(MAP.DRAFTS_PANE).style.zIndex = String(MAP.DRAFTS_PANE_Z);
 
-    const reportBounds = () => onBoundsChangeRef.current?.(boundsToBbox(map));
+    const reportBounds = () =>
+      onBoundsChangeRef.current?.(boundsToBbox(map), Math.round(map.getZoom()));
     let debounce: ReturnType<typeof setTimeout> | undefined;
     const onMoveEnd = () => {
       clearTimeout(debounce);
