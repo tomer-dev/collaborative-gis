@@ -10,12 +10,13 @@ import {
   ROOM,
   WS,
 } from '@cgis/shared';
-import { type QueryFilters, useQueryClient } from '@tanstack/react-query';
+import { type QueryClient, type QueryFilters, useQueryClient } from '@tanstack/react-query';
 import type * as L from 'leaflet';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { isUnauthorized } from './api-client';
 import { onDraw } from './geo';
 import {
+  backoffDelay,
   createRoomConnection,
   roomUrl,
   type ConnectionState,
@@ -124,7 +125,7 @@ export class DraftSender {
     this.pump();
   }
 
-  /** The Room's copy is unknown (new socket, `DRAFT_OP_MISFIT`): clear it and send all again. */
+  /** The Room's copy is unknown (a new socket, an `error` with `resync`): clear it, send all again. */
   restart(): void {
     this.mustClear = this.sent.length > 0 || this.target.length > 0;
     this.sent = [];
@@ -204,8 +205,15 @@ export type UseRoomOptions = {
   createSocket?: SocketFactory | undefined;
 };
 
+/**
+ * The connection's state, or `resyncing` while it is open and a re-join (after a reopen, or an
+ * `error` with `resync`) waits for the Room's `draft:state`. The first join of a healthy
+ * connection is not a resync.
+ */
+export type RoomState = ConnectionState | 'resyncing';
+
 export type Room = {
-  state: ConnectionState;
+  state: RoomState;
   /** Everyone in the room (you included), each with the colour the Room assigned. Empty unless open. */
   users: PresenceUser[];
   /** The other users' drafts. Empty unless open. */
@@ -216,16 +224,28 @@ export type Room = {
   reconnect: () => void;
 };
 
+/** An areas query holds a 401: the session ended (the app's query client sends the visitor to sign in). */
+function sessionEnded(queryClient: QueryClient): boolean {
+  return queryClient
+    .getQueryCache()
+    .findAll({ queryKey: [QUERY.AREAS_KEY] })
+    .some((query) => isUnauthorized(query.state.error));
+}
+
 /**
- * The map room: one WebSocket to the Room, joined on every open. Presence and other users'
- * drafts come back as state; `area:*` events patch every cached `[QUERY.AREAS_KEY, …]` list;
- * each reopen invalidates those queries (the resync; not the first open of a healthy connection),
- * and while offline they are invalidated every `WS.OFFLINE_POLL_MS`. The map's draw events stream your draft and presence state.
+ * The map room: one WebSocket to the Room, joined on every open and again on every `error` with
+ * `resync` (the Room lost what this client relies on). Presence and other users' drafts come back
+ * as state, each `draft:state` replacing the ghosts; `area:*` events patch every cached
+ * `[QUERY.AREAS_KEY, …]` list; each reopen invalidates those queries (area events are not
+ * replayed; not on the first open of a healthy connection), and while offline they are
+ * invalidated every `WS.OFFLINE_POLL_MS`. The map's draw events stream your draft and presence
+ * state; the draft stays in memory across reconnects and is sent again after each join.
  */
 export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
   const queryClient = useQueryClient();
   const [socketFactory] = useState(() => createSocket);
   const [state, setState] = useState<ConnectionState>('connecting');
+  const [resyncing, setResyncing] = useState(false);
   const [users, setUsers] = useState<PresenceUser[]>([]);
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const connectionRef = useRef<RoomConnection | null>(null);
@@ -236,6 +256,9 @@ export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
     const connection = createRoomConnection({
       url: roomUrl(window.location),
       createSocket: socketFactory,
+      // A 401 on the upgrade reaches the page as a plain close. Once the API has answered 401,
+      // every retry would get one too, so they stop (the query client sends the visitor to sign in).
+      shouldRetry: () => !sessionEnded(queryClient),
     });
     const sender = new DraftSender(
       (op) => connection.send({ type: 'draft:update', payload: op }),
@@ -261,51 +284,92 @@ export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
     // it, so loading the map costs one GET, not two (the list was fetched moments before).
     let resyncOnOpen = false;
 
+    // The join (the Room's resync contract): `join`, answered with `presence` and the full
+    // `draft:state`; then `presence:set` when drawing; then the draft again as `clear` + one `add`
+    // per vertex (`restart`). One join at a time: the Room answers frames in order, so a `resync`
+    // error before the join's `draft:state` is about a frame sent before the join. When that
+    // answer does not come (the join itself failed), the join is sent again after a backoff delay.
+    // A `draft:state` the Room broadcasts after a departure also ends the wait; at worst that
+    // costs one extra join.
+    let joinPending = false;
+    let rejoins = 0;
+    let rejoinTimer: ReturnType<typeof setTimeout> | undefined;
+    const cancelRejoin = () => {
+      clearTimeout(rejoinTimer);
+      rejoinTimer = undefined;
+    };
+    // The join was answered, or the socket closed: nothing is pending.
+    const settle = () => {
+      cancelRejoin();
+      joinPending = false;
+      rejoins = 0;
+      setResyncing(false);
+    };
+    const join = () => {
+      cancelRejoin();
+      joinPending = true;
+      connection.send({ type: 'join', payload: { mapId: ROOM.DEFAULT_ROOM_ID } });
+      if (presenceRef.current !== 'viewing') {
+        connection.send({ type: 'presence:set', payload: { state: presenceRef.current } });
+      }
+      sender.restart();
+    };
+    const resync = () => {
+      setResyncing(true);
+      if (!joinPending) join();
+      else if (rejoinTimer === undefined) {
+        rejoins += 1;
+        rejoinTimer = setTimeout(join, backoffDelay(rejoins, Math.random));
+      }
+    };
+
     const unsubscribe = [
       connection.onState((next) => {
         setState(next);
         if (next === 'degraded' || next === 'offline') resyncOnOpen = true;
         if (next === 'open') return;
         // Nothing live arrives while closed: drop what would go stale; the next join resends it.
+        settle();
         setUsers([]);
         setDrafts([]);
       }),
       connection.onOpen(() => {
-        // presence:set first: the join then announces the user already in that state.
-        if (presenceRef.current !== 'viewing') {
-          connection.send({ type: 'presence:set', payload: { state: presenceRef.current } });
+        if (resyncOnOpen) {
+          void queryClient.invalidateQueries(areasKey);
+          setResyncing(true);
         }
-        connection.send({ type: 'join', payload: { mapId: ROOM.DEFAULT_ROOM_ID } });
-        if (resyncOnOpen) void queryClient.invalidateQueries(areasKey);
         resyncOnOpen = true;
-        sender.restart();
+        join();
       }),
       connection.on('presence', ({ payload }) => setUsers(payload.users)),
-      connection.on('draft:state', ({ payload }) =>
-        setDrafts(payload.drafts.filter((draft) => draft.userId !== selfId)),
-      ),
+      connection.on('draft:state', ({ payload }) => {
+        settle();
+        setDrafts(payload.drafts.filter((draft) => draft.userId !== selfId));
+      }),
       connection.on('draft:update', ({ payload }) =>
         setDrafts((current) => applyRemoteDraftOp(current, payload, selfId)),
       ),
       connection.on('area:created', patch),
       connection.on('area:updated', patch),
       connection.on('area:deleted', patch),
+      // Branch on the flag, not the code (CONFLICT, DRAFT_OP_MISFIT and INTERNAL carry it today).
       connection.on('error', ({ payload }) => {
-        if (payload.code === ERROR_CODES.RATE_LIMITED) {
+        if (payload.resync) resync();
+        else if (payload.code === ERROR_CODES.RATE_LIMITED) {
           sender.pause(payload.retryAfter ?? DRAFT_INTERVAL_MS);
-        } else if (payload.code === ERROR_CODES.DRAFT_OP_MISFIT) {
-          sender.restart();
         }
       }),
     ];
 
     return () => {
       for (const off of unsubscribe) off();
+      cancelRejoin();
       sender.dispose();
       connection.close();
       connectionRef.current = null;
       senderRef.current = null;
       setState('connecting');
+      setResyncing(false);
       setUsers([]);
       setDrafts([]);
     };
@@ -316,14 +380,9 @@ export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
   // query client sends the visitor to sign in).
   useEffect(() => {
     if (state !== 'offline') return;
-    const areas = { queryKey: [QUERY.AREAS_KEY] };
     const timer = setInterval(() => {
-      const signedOut = queryClient
-        .getQueryCache()
-        .findAll(areas)
-        .some((query) => isUnauthorized(query.state.error));
-      if (signedOut) clearInterval(timer);
-      else void queryClient.invalidateQueries(areas);
+      if (sessionEnded(queryClient)) clearInterval(timer);
+      else void queryClient.invalidateQueries({ queryKey: [QUERY.AREAS_KEY] });
     }, WS.OFFLINE_POLL_MS);
     return () => clearInterval(timer);
   }, [state, queryClient]);
@@ -361,5 +420,6 @@ export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
     };
   }, [map, sendDraft]);
 
-  return { state, users, drafts, sendDraft, reconnect };
+  const roomState: RoomState = state === 'open' && resyncing ? 'resyncing' : state;
+  return { state: roomState, users, drafts, sendDraft, reconnect };
 }
