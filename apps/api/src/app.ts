@@ -3,8 +3,7 @@ import { Hono } from 'hono';
 import { health } from './routes/health';
 
 export type Env = {
-  // HYPERDRIVE is added in Task 5; optional here so /readyz fails closed without it.
-  HYPERDRIVE?: Hyperdrive;
+  HYPERDRIVE: Hyperdrive;
 };
 
 export function createApp() {
