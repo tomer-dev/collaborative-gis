@@ -17,6 +17,7 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 | `BOUNDS_LIMIT` | `500` | `apps/api/src/db/spatial.ts` `selectAreasInBounds` default `limit`; `apps/api/src/services/areas.ts` `listAreas` (`GET /api/areas`) | Caps one viewport response |
 | `SIMPLIFY_ZOOM_BELOW` | `12` | Unused in M1: `GET /api/areas` validates `zoom` and ignores it (T15 ruling: no simplification); planned M2 | Fewer vertices when zoomed out |
 | `SIMPLIFY_TOLERANCE` | `0.0005` | Unused in M1 (see `SIMPLIFY_ZOOM_BELOW`); planned M2 `ST_SimplifyPreserveTopology` tolerance (degrees) | ~50 m at the equator: invisible at zoom < 12 |
+| `PASSWORD_MIN` | `8` | `apps/web/src/routes/-components/AuthForm.tsx` (register `minlength`), `COPY.AUTH.PASSWORD_HINT` | Better Auth's default `minPasswordLength`; the form rejects what the server would |
 
 ## GEO
 
@@ -88,7 +89,7 @@ The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmar
 | `AREA_BY_ID` | `'/:id'` | `apps/api/src/routes/areas.ts` (`PUT`/`DELETE`, relative to `AREAS`; `:id` validated as a UUID) | One area |
 | `WS` | `'/ws'` | `apps/api/src/app.ts` (`wsUpgrade`), `apps/web/vite.config.ts` ws proxy; planned T14 | Room WebSocket upgrade |
 | `OPENAPI` | `'/openapi.json'` | `apps/api/src/app.ts` `openAPIRouteHandler` (public; the `/docs` UI is M2) | OpenAPI 3.1 document of the routes with `describeRoute` metadata |
-| `APP` | `{ HOME: '/', LOGIN: '/login', REGISTER: '/register', MAP: '/map' }` | `apps/web/src/routes/index.tsx` (`/` → `MAP`), `apps/web/src/routes/_authed.tsx` (signed out → `LOGIN`); planned T12 login/register navigation (`REGISTER`) | SPA route targets for `redirect({ to })`, `<Link to>` and `navigate`; `createFileRoute('…')` ids stay literal because the router generates them from the file tree |
+| `APP` | `{ HOME: '/', LOGIN: '/login', REGISTER: '/register', MAP: '/map' }` | `apps/web/src/routes/index.tsx` (`/` → `MAP`), `apps/web/src/routes/_authed.tsx` (signed out → `LOGIN`), `apps/web/src/routes/-components/redirectSignedIn.ts` (signed in on `/login` or `/register` → `MAP`), `AuthForm.tsx` (links between `LOGIN` and `REGISTER`) | SPA route targets for `redirect({ to })`, `<Link to>` and `navigate`; `createFileRoute('…')` ids stay literal because the router generates them from the file tree |
 
 ## DEV
 
@@ -152,6 +153,25 @@ The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmar
 |---|---|---|---|
 | `SELF_INTERSECTION_REASON` | `'Polygon edges must not cross or touch each other'` | `draw-handler.ts` `draw:invalid` | Client mirror of the server's `ST_IsValid` rejection |
 | `MAX_VERTICES_REASON` | `'Vertex limit reached'` | `draw-handler.ts` `draw:invalid` when a click would pass `LIMITS.POLYGON_MAX_VERTICES` | The cap counts the closing vertex, so the UI should not promise a number here |
+
+## COPY
+
+User-facing text in the SPA, one group per screen. Components read it from here instead of writing literals.
+
+| Name | Value | Where used |
+|---|---|---|
+| `APP.NAME` | `'Collaborative GIS'` | `apps/web/src/routes/-components/AppFrame.tsx` header |
+| `AUTH.LOGIN_TITLE` / `AUTH.REGISTER_TITLE` | `'Sign in'` / `'Create an account'` | `AuthForm` panel heading |
+| `AUTH.LOGIN_SUBMIT` / `AUTH.REGISTER_SUBMIT` | `'Sign in'` / `'Create account'` | `AuthForm` submit button |
+| `AUTH.LOGIN_PENDING` / `AUTH.REGISTER_PENDING` | `'Signing in…'` / `'Creating account…'` | `AuthForm` submit button while the request runs |
+| `AUTH.LOGIN_ERROR_TITLE` / `AUTH.REGISTER_ERROR_TITLE` | `'Could not sign in'` / `'Could not create the account'` | `AuthForm` error banner title |
+| `AUTH.LOGIN_SWITCH_PROMPT` / `AUTH.LOGIN_SWITCH_LINK` | `'No account yet?'` / `'Create one'` | `/login` footer link to `/register` |
+| `AUTH.REGISTER_SWITCH_PROMPT` / `AUTH.REGISTER_SWITCH_LINK` | `'Already have an account?'` / `'Sign in'` | `/register` footer link to `/login` |
+| `AUTH.NAME_LABEL` / `AUTH.EMAIL_LABEL` / `AUTH.PASSWORD_LABEL` | `'Name'` / `'Email'` / `'Password'` | `AuthForm` field labels |
+| `AUTH.PASSWORD_HINT` | `` `At least ${LIMITS.PASSWORD_MIN} characters.` `` | `AuthForm` register password hint |
+| `AUTH.ERROR_GENERIC` | `'Something went wrong. Try again.'` | `apps/web/src/lib/auth.ts` (`AuthError` without a server message, `authErrorMessage` for anything else) |
+| `AUTH.SIGN_OUT` | `'Sign out'` | `AppFrame.tsx` `SessionMenu` button |
+| `AUTH.SIGN_OUT_ERROR` | `'Could not sign out. Try again.'` | `SessionMenu` alert when sign-out fails and the session is still valid |
 
 ## ERROR_CODES
 
