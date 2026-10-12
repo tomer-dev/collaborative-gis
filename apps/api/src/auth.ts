@@ -1,3 +1,4 @@
+import type { Auth } from 'better-auth';
 import type { Handler } from 'hono';
 import type pg from 'pg';
 import type { AppEnv, Env } from './app';
@@ -14,9 +15,13 @@ export type SessionUser = NonNullable<AppEnv['Variables']['user']>;
  *
  * Better Auth is imported on first use rather than with this module, so code that never
  * authenticates (Durable Objects, /healthz, and every workerd test isolate that loads the Worker)
- * does not evaluate it; it is about half of the Worker bundle.
+ * does not evaluate it; it is about half of the Worker bundle. Typed as the two members callers
+ * use: the inferred type names Better Auth internals, which the emitted declarations cannot.
  */
-export async function createAuth(env: Env, client: pg.Client) {
+export async function createAuth(
+  env: Env,
+  client: pg.Client,
+): Promise<Pick<Auth, 'handler' | 'api'>> {
   const [{ betterAuth }, { drizzleAdapter }] = await Promise.all([
     import('better-auth/minimal'),
     import('better-auth/adapters/drizzle'),
