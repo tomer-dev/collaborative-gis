@@ -1,6 +1,7 @@
 import { z } from 'zod';
+import { LIMITS } from './constants';
 
-export const POLYGON_MAX_VERTICES = 1000;
+export const POLYGON_MAX_VERTICES = LIMITS.POLYGON_MAX_VERTICES;
 
 export const PositionSchema = z.tuple([
   z.number().min(-180).max(180), // lng
