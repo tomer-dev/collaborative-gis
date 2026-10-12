@@ -1,3 +1,14 @@
 # Local Worker secrets for `wrangler dev`: copy to .dev.vars (git-ignored), never commit real values.
-# None are required yet. Locally, HYPERDRIVE uses `localConnectionString` from wrangler.jsonc
-# (the docker-compose PostGIS); deployed, it uses the Hyperdrive config backed by Neon.
+# wrangler.jsonc `secrets.required` lists them; only listed keys are loaded from .dev.vars.
+# Deployed: `wrangler secret put <NAME>`. Tests: apps/api/vitest.config.ts sets test-only values.
+#
+# Random, at least 32 characters, e.g. `openssl rand -base64 32`.
+BETTER_AUTH_SECRET=
+# Public URL of this Worker (`wrangler dev` default below).
+BETTER_AUTH_URL=http://localhost:8787
+#
+# Non-secret settings live in wrangler.jsonc `vars` (CLIENT_ORIGIN, DEBUG_STUB_AUTH); override one
+# for a single run with `wrangler dev --var NAME:value`.
+# HYPERDRIVE uses `localConnectionString` from wrangler.jsonc (the docker-compose PostGIS) locally,
+# or CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE when set (see scripts/db-lane.sh);
+# deployed, it uses the Hyperdrive config backed by Neon.
