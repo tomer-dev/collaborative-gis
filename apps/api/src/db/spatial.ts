@@ -165,18 +165,24 @@ export async function selectAreasInBounds(
 /**
  * Soft-deletes a live area in one statement: sets `deleted_at`, bumps `version` like any other
  * mutation, and records that version row as changed by `userId` (the table keeps no `deleted_by`;
- * the audit row is the caller's). False when the area is missing or already deleted.
+ * the audit row is the caller's). Returns the bumped version (the audit row's `version`), or null
+ * when the area is missing or already deleted.
  */
-export async function softDeleteArea(c: pg.Client, id: string, userId: string): Promise<boolean> {
-  const { rowCount } = await db(c).execute(sql`
+export async function softDeleteArea(
+  c: pg.Client,
+  id: string,
+  userId: string,
+): Promise<number | null> {
+  const { rows } = await db(c).execute<{ version: number }>(sql`
     WITH deleted AS (
       UPDATE areas SET deleted_at = now(), updated_at = now(), version = version + 1
       WHERE id = ${id} AND deleted_at IS NULL
       RETURNING *
     )
     INSERT INTO area_versions (area_id, version, name, geom, area_km2, changed_by)
-    SELECT id, version, name, geom, area_km2, ${userId} FROM deleted`);
-  return rowCount === 1;
+    SELECT id, version, name, geom, area_km2, ${userId} FROM deleted
+    RETURNING version`);
+  return rows[0]?.version ?? null;
 }
 
 /** Appends one `audit_log` row (`at` defaults to now()). */

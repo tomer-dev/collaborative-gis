@@ -190,7 +190,7 @@ describe('selectAreasInBounds', () => {
       geometry: box(10.5, 50.5, 10.6, 50.6),
       userId,
     });
-    expect(await softDeleteArea(client, deleted.id, userId)).toBe(true);
+    expect(await softDeleteArea(client, deleted.id, userId)).toBe(2);
 
     const found = await selectAreasInBounds(client, bbox, { limit: LIMITS.BOUNDS_LIMIT });
     expect(found).toEqual([straddling, inside]);
@@ -351,12 +351,12 @@ describe('updateAreaIfVersion', () => {
 });
 
 describe('softDeleteArea', () => {
-  it('hides the area, bumps its version by the deleting user, and is false the second time', async () => {
+  it('hides the area, bumps its version by the deleting user, and is null the second time', async () => {
     const geometry = box(26, 46, 26.01, 46.01);
     const area = await insertArea(client, { name: 'doomed', geometry, userId });
     expect(await selectAreasInBounds(client, [26, 46, 26.01, 46.01])).toEqual([area]);
 
-    expect(await softDeleteArea(client, area.id, 'deleter')).toBe(true);
+    expect(await softDeleteArea(client, area.id, 'deleter')).toBe(2);
 
     expect(await selectAreasInBounds(client, [26, 46, 26.01, 46.01])).toEqual([]);
     expect(
@@ -366,8 +366,8 @@ describe('softDeleteArea', () => {
       { version: 1, name: 'doomed', changed_by: userId },
       { version: 2, name: 'doomed', changed_by: 'deleter' },
     ]);
-    expect(await softDeleteArea(client, area.id, 'deleter')).toBe(false);
-    expect(await softDeleteArea(client, crypto.randomUUID(), 'deleter')).toBe(false);
+    expect(await softDeleteArea(client, area.id, 'deleter')).toBeNull();
+    expect(await softDeleteArea(client, crypto.randomUUID(), 'deleter')).toBeNull();
   });
 });
 
@@ -379,12 +379,13 @@ describe('writeAudit', () => {
       action: 'area.create',
       entity: 'area',
       entityId,
+      version: 1,
       ip: '203.0.113.7',
     });
     await writeAudit(client, { action: 'auth.sign_in_failed', entity: 'session' });
 
     const { rows } = await client.query(
-      'select user_id, action, entity, entity_id, ip, user_agent, payload_hash from audit_log where entity_id = $1',
+      'select user_id, action, entity, entity_id, version, ip, user_agent from audit_log where entity_id = $1',
       [entityId],
     );
     expect(rows).toEqual([
@@ -393,9 +394,9 @@ describe('writeAudit', () => {
         action: 'area.create',
         entity: 'area',
         entity_id: entityId,
+        version: 1,
         ip: '203.0.113.7',
         user_agent: null,
-        payload_hash: null,
       },
     ]);
     expect(
