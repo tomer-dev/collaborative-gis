@@ -7,6 +7,8 @@ import { appWithUser } from '../helpers';
 
 // Wire values are spelled out on purpose: they are the contract other lanes and clients rely on.
 const UPGRADE = { Upgrade: 'websocket' };
+// What the SPA's browser sends: the Worker refuses an upgrade from any other Origin (TOM-26).
+const BROWSER_UPGRADE = { ...UPGRADE, Origin: env.CLIENT_ORIGIN };
 const room = () => env.ROOM.get(env.ROOM.idFromName(ROOM.DEFAULT_ROOM_ID));
 
 /** Takes the client end of a 101 and accepts it. */
@@ -20,7 +22,9 @@ function socketOf(res: Response): WebSocket {
 
 /** Opens a socket through the Worker's `GET /ws` as a signed-in user. */
 async function connect(id: string, name: string): Promise<WebSocket> {
-  return socketOf(await appWithUser({ id, name }).request('/ws', { headers: UPGRADE }, env));
+  return socketOf(
+    await appWithUser({ id, name }).request('/ws', { headers: BROWSER_UPGRADE }, env),
+  );
 }
 
 /** Calls the Room directly, the way `wsUpgrade` does, with the trusted user headers. */
@@ -103,7 +107,7 @@ describe('GET /ws (Worker side)', () => {
   it('overwrites client-sent x-user-id / x-user-name with the session user', async () => {
     const res = await appWithUser({ id: 'u1', name: 'Alice' }).request(
       '/ws',
-      { headers: { ...UPGRADE, 'x-user-id': 'admin', 'x-user-name': 'Admin' } },
+      { headers: { ...BROWSER_UPGRADE, 'x-user-id': 'admin', 'x-user-name': 'Admin' } },
       env,
     );
     socketOf(res);

@@ -56,6 +56,11 @@ export const DEV = {
   WEB_ORIGIN: 'http://localhost:5173',
 } as const;
 
+/** Standard request headers the API reads by name (lower case, as `Headers` stores them). */
+export const HEADERS = {
+  ORIGIN: 'origin',
+} as const;
+
 /** The single shared map (D11). */
 export const ROOM = {
   DEFAULT_ROOM_ID: 'default',
@@ -121,3 +126,8 @@ export const ERROR_MESSAGES = {
   NOT_IMPLEMENTED: 'not implemented',
   UPGRADE_REQUIRED: 'websocket upgrade required',
 } as const satisfies Record<keyof typeof ERROR_CODES, string>;
+
+/** `ApiError.message`s more specific than their code's default in ERROR_MESSAGES. */
+export const ERROR_REASONS = {
+  ORIGIN_NOT_ALLOWED: 'origin not allowed',
+} as const;
