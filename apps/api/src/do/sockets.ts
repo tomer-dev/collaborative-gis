@@ -5,7 +5,7 @@ import { attachmentOf, type PresenceAttachment } from './presence';
 /** An open socket with its parsed attachment. */
 export type Socket = { ws: WebSocket; attachment: PresenceAttachment };
 
-/** Creates the table behind the outgoing `seq` (`counters`; T8 can add `mapVersion`). */
+/** Creates the table behind the outgoing `seq` and the map version (`counters`). */
 export function createSeqCounter(sql: SqlStorage): void {
   sql.exec('CREATE TABLE IF NOT EXISTS counters (name TEXT PRIMARY KEY, value INTEGER NOT NULL)');
 }
@@ -70,6 +70,25 @@ export function sendError(
   extra: { retryAfter?: number } = {},
 ): void {
   sendTo(ctx, ws, { type: 'error', payload: { code, message, ...extra } });
+}
+
+/** The next map version from the SQLite counter (1 for the first area change). */
+export function bumpMapVersion(sql: SqlStorage): number {
+  const { version } = sql
+    .exec<{ version: number }>(
+      `INSERT INTO counters (name, value) VALUES ('mapVersion', 1)
+       ON CONFLICT (name) DO UPDATE SET value = value + 1 RETURNING value AS version`,
+    )
+    .one();
+  return version;
+}
+
+/** The current map version: 0 until the first area change. */
+export function readMapVersion(sql: SqlStorage): number {
+  const [row] = sql
+    .exec<{ value: number }>(`SELECT value FROM counters WHERE name = 'mapVersion'`)
+    .toArray();
+  return row?.value ?? 0;
 }
 
 /** The wire frame: `event` with the next `seq` from the SQLite counter and `ts = Date.now()`. */
