@@ -2,6 +2,7 @@ import {
   type Area,
   type AreaEvent,
   AreaSchema,
+  LIMITS,
   type Polygon,
   RATE_LIMIT,
   ROUTES,
@@ -106,6 +107,28 @@ describe('GET /api/areas/:id/versions', () => {
       'area.update',
       'area.update',
     ]);
+  });
+
+  it('lists at most LIMITS.VERSIONS_PAGE versions: the newest ones', async () => {
+    const { api } = signedIn();
+    const created = await api.create({ name: 'long history', geometry: squareAt(randomSpot()) });
+    const area = AreaSchema.parse(await created.json());
+    // A history longer than one page, written directly: past the per-user budget through the API.
+    const newest = LIMITS.VERSIONS_PAGE + 10;
+    await withClient(env, (client) =>
+      client.query(
+        `insert into area_versions (area_id, version, name, geom, area_km2, changed_by, changed_at)
+         select area_id, g, name, geom, area_km2, changed_by, changed_at
+         from area_versions, generate_series(2, $2::int) g where area_id = $1 and version = 1`,
+        [area.id, newest],
+      ),
+    );
+
+    const versions = await versionsOf(api, area.id);
+
+    expect(versions).toHaveLength(LIMITS.VERSIONS_PAGE);
+    expect(versions[0]?.version).toBe(newest);
+    expect(versions.at(-1)?.version).toBe(newest - LIMITS.VERSIONS_PAGE + 1);
   });
 
   it('answers 404 for an unknown or deleted area and 422 for a non-UUID id', async () => {
@@ -378,6 +401,18 @@ describe('documentation and types', () => {
     const { paths } = await res.json<{ paths: Record<string, Record<string, unknown>> }>();
     expect(Object.keys(paths['/api/areas/{id}/versions'] ?? {})).toEqual(['get']);
     expect(Object.keys(paths['/api/areas/{id}/revert/{version}'] ?? {})).toEqual(['post']);
+  });
+
+  it('documents the revert’s `version` as a positive int32 integer', async () => {
+    const res = await createApp().request(ROUTES.OPENAPI, {}, env);
+    const { paths } = await res.json<{
+      paths: Record<string, { post?: { parameters?: { name: string; schema: unknown }[] } }>;
+    }>();
+    const params = paths['/api/areas/{id}/revert/{version}']?.post?.parameters ?? [];
+    expect(params.find((p) => p.name === 'version')?.schema).toMatchObject({
+      type: 'integer',
+      maximum: LIMITS.VERSION_MAX,
+    });
   });
 
   // D19: the SPA's `hc` client is typed from AppType. Compile-time checks (pnpm typecheck), plus

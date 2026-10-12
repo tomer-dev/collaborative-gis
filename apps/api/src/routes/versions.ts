@@ -4,6 +4,7 @@ import {
   ERROR_CODES,
   ERROR_MESSAGES,
   ERROR_REASONS,
+  LIMITS,
   VersionsResponseSchema,
 } from '@cgis/shared';
 import { Hono } from 'hono';
@@ -24,10 +25,11 @@ import { actor, error, json, publish, RATE_LIMITED, UNAUTHORIZED } from './commo
 
 /**
  * `:version` is an `area_versions.version`, a Postgres integer: past the int4 range the query
- * itself would fail (22003), a 500 instead of a 422.
+ * itself would fail (22003), a 500 instead of a 422. The checks sit on the coerced number itself
+ * (not a pipe), so the OpenAPI document reads them: `integer`, 1 to `LIMITS.VERSION_MAX`.
  */
 const RevertParamSchema = IdParamSchema.extend({
-  version: z.coerce.number().pipe(z.int32().positive()),
+  version: z.coerce.number().int().positive().max(LIMITS.VERSION_MAX),
 });
 
 const DeletedSchema = ApiErrorSchema.extend({ details: z.object({ reason: z.string() }) });
@@ -40,7 +42,7 @@ export const versions = new Hono<AppEnv>().use(requireUser()).get(
   describeRoute({
     summary: 'Versions of an area',
     description:
-      'Every saved version of a live area, newest first: its name, geometry and area at that version, who saved it and when.',
+      'The saved versions of a live area, newest first and at most `LIMITS.VERSIONS_PAGE` (200): its name, geometry and area at that version, who saved it and when.',
     responses: {
       200: { description: 'The versions, newest first', content: json(VersionsResponseSchema) },
       401: UNAUTHORIZED,

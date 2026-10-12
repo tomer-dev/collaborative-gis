@@ -25,6 +25,11 @@ export const LIMITS = {
    * `area_versions.version`. A larger value would fail the query (22003) as a 500, not a 422.
    */
   VERSION_MAX: 2_147_483_647,
+  /**
+   * Most versions `GET /api/areas/:id/versions` returns: the newest ones. Bounds the payload of a
+   * long-edited area (each version carries its geometry).
+   */
+  VERSIONS_PAGE: 200,
   /** Rows in the area panel's list of the areas in view; the rest show as one "+N more" line. */
   PANEL_LIST_MAX: 50,
   /**
