@@ -12,7 +12,7 @@ import {
 
 export const dialogVariants = cva(
   [
-    'inset-4 m-auto w-auto rounded-lg border border-line bg-bg-raised p-0 text-fg shadow-overlay',
+    'inset-4 m-auto w-auto overscroll-contain rounded-lg border border-line bg-bg-raised p-0 text-fg shadow-overlay',
     'transition-opacity duration-base ease-standard starting:open:opacity-0',
     'backdrop:bg-scrim',
   ],
@@ -109,7 +109,7 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
     >
       <div className="flex flex-col gap-4 p-6">
         <div className="flex flex-col gap-1">
-          <h2 id={titleId} className="text-lg font-medium text-fg">
+          <h2 id={titleId} className="text-lg font-medium text-balance text-fg">
             {title}
           </h2>
           {hasDescription ? (

@@ -5,7 +5,7 @@ import type { IconComponent } from './icons';
 
 export const buttonVariants = cva(
   [
-    'inline-flex shrink-0 items-center justify-center gap-2 rounded-md font-medium whitespace-nowrap select-none',
+    'inline-flex shrink-0 touch-manipulation items-center justify-center gap-2 rounded-md font-medium whitespace-nowrap select-none',
     'transition-colors duration-fast ease-standard',
     'disabled:cursor-not-allowed disabled:opacity-disabled',
     focusRing,

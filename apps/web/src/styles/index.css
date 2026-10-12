@@ -11,6 +11,11 @@
     height: 100%;
   }
 
+  html {
+    /* Focus rings and :active states give the tap feedback. */
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
     @apply bg-bg font-sans text-md text-fg antialiased;
   }
