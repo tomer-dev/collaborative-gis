@@ -15,8 +15,8 @@
  * - E2E_WEB_PORT (optional): Vite's port when 5173 is taken; the Worker's CLIENT_ORIGIN follows.
  */
 import { randomUUID } from 'node:crypto';
-import { COPY, DRAW, MAP, ROUTES } from '@cgis/shared';
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import { CACHE, COPY, DRAW, MAP, ROUTES } from '@cgis/shared';
+import { expect, test, type Browser, type Page, type Response } from '@playwright/test';
 
 /** Every wait in the scenario. */
 const WAIT = {
@@ -49,11 +49,17 @@ const MAP_REGION = 'Map';
 
 const RUN = Date.now();
 
-type User = { name: string; page: Page };
+/** `GET /api/areas?bbox=…`: a viewport read (not a request for one area). */
+const isAreasRead = (response: Response) =>
+  response.request().method() === 'GET' && new URL(response.url()).pathname === ROUTES.AREAS;
+
+/** `firstRead`: the map's first viewport read, answered. */
+type User = { name: string; page: Page; firstRead: Response };
 
 /** Signs a new user up in a fresh browser context; the app then opens /map. */
 async function signUp(browser: Browser, label: string): Promise<User> {
   const page = await (await browser.newContext()).newPage();
+  const firstRead = page.waitForResponse(isAreasRead, { timeout: WAIT.PAGE_MS });
   const name = `E2E ${label} ${RUN}`;
   await page.goto(ROUTES.APP.REGISTER);
   await page.getByRole('textbox', { name: COPY.AUTH.NAME_LABEL, exact: true }).fill(name);
@@ -66,7 +72,7 @@ async function signUp(browser: Browser, label: string): Promise<User> {
   await page.getByRole('button', { name: COPY.AUTH.REGISTER_SUBMIT }).click();
   await expect(page).toHaveURL(ROUTES.APP.MAP, { timeout: WAIT.PAGE_MS });
   await expect(mapRegion(page)).toBeVisible({ timeout: WAIT.PAGE_MS });
-  return { name, page };
+  return { name, page, firstRead: await firstRead };
 }
 
 const mapRegion = (page: Page) => page.getByRole('region', { name: MAP_REGION, exact: true });
@@ -93,18 +99,12 @@ async function placeVertices(page: Page): Promise<void> {
 /** The selected area's panel, named by its heading (the area's name). */
 const panel = (page: Page, name: string) => page.getByRole('region', { name, exact: true });
 
-/**
- * Selects the area at the map's centre and submits `name` in its panel with Enter. Not a click on
- * "Rename": the presence list, anchored to the same bottom-left corner and stacked above the
- * panel, covers the panel's buttons (a layout bug, reported with this spec).
- */
+/** Selects the area at the map's centre and renames it to `name` with its panel's Rename button. */
 async function rename(page: Page, from: string, name: string): Promise<void> {
   await areaPaths(page).click();
   const form = panel(page, from);
-  await expect(form.getByRole('button', { name: COPY.AREAS.RENAME_SUBMIT })).toBeEnabled();
-  const field = form.getByRole('textbox', { name: COPY.AREAS.NAME_LABEL, exact: true });
-  await field.fill(name);
-  await field.press('Enter');
+  await form.getByRole('textbox', { name: COPY.AREAS.NAME_LABEL, exact: true }).fill(name);
+  await form.getByRole('button', { name: COPY.AREAS.RENAME_SUBMIT }).click();
 }
 
 const isAreaUrl = (url: URL) => url.pathname.startsWith(`${ROUTES.AREAS}/`);
@@ -123,6 +123,15 @@ async function holdAreaUpdates(page: Page): Promise<() => void> {
 test('two users share presence, drafts, saves and a version conflict', async ({ browser }) => {
   const a = await test.step('A signs up and opens the map', () => signUp(browser, 'a'));
   const b = await test.step('B signs up and opens the map', () => signUp(browser, 'b'));
+
+  await test.step('the map reads its viewport with its zoom, through the bounds cache', async () => {
+    // The zoom is part of the cache key (`z=<zoom>`); a read without it would key on `z=`.
+    expect(new URL(a.firstRead.url()).searchParams.get('zoom')).toMatch(/^\d+$/);
+    expect(a.firstRead.status()).toBe(200);
+    expect([CACHE.STATUS.MISS, CACHE.STATUS.HIT]).toContain(
+      a.firstRead.headers()[CACHE.STATUS_HEADER],
+    );
+  });
 
   await test.step('B sees A in the presence list', async () => {
     await expect(presenceRow(b.page, a)).toBeVisible({ timeout: WAIT.REALTIME_MS });
