@@ -1,6 +1,6 @@
-import { ERROR_MESSAGES, TIMEOUTS } from '@cgis/shared';
+import { ERROR_MESSAGES, ROUTES, TIMEOUTS } from '@cgis/shared';
 import type { MiddlewareHandler } from 'hono';
-import { every } from 'hono/combine';
+import { every, except } from 'hono/combine';
 import { cors } from 'hono/cors';
 import { HTTPException } from 'hono/http-exception';
 import { requestId } from 'hono/request-id';
@@ -23,7 +23,9 @@ export { requireUser, type SignedIn } from './require-user';
  *   turns into the ApiError `{ code: 'TIMEOUT', message: 'timeout' }`.
  * - `attachUser()`: `c.get('user')` from the session cookie, else unset; never answers by itself.
  *   Last, so a preflight never reaches it, the lookup counts against the request budget, and an
- *   error it throws (database down) still leaves with the CORS and request-id headers.
+ *   error it throws (database down) still leaves with the CORS and request-id headers. Skipped on
+ *   `/api/auth/*` (Better Auth reads its own session) and on the health paths, so `/readyz`
+ *   reports a database outage as 503 whatever cookies the caller sends.
  */
 export function middleware(): MiddlewareHandler<AppEnv> {
   return every(
@@ -34,6 +36,6 @@ export function middleware(): MiddlewareHandler<AppEnv> {
     }),
     secureHeaders(),
     timeout(TIMEOUTS.REQUEST_MS, () => new HTTPException(504, { message: ERROR_MESSAGES.TIMEOUT })),
-    attachUser(),
+    except([`${ROUTES.AUTH}/*`, ROUTES.HEALTHZ, ROUTES.READYZ], attachUser()),
   );
 }

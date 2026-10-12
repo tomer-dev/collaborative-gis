@@ -45,11 +45,13 @@ export const authHandler: Handler<AppEnv> = (c) =>
   withClient(c.env, async (client) => (await createAuth(c.env, client)).handler(c.req.raw));
 
 /**
- * The user of the session in `headers` (only the Cookie header matters), or null. Without a
- * cookie there is no session to look up, so the database is not touched.
+ * The user of the session in `headers` (only the Cookie header matters), or null. Without Better
+ * Auth's session cookie (`getSessionCookie` reads its name, `__Secure-` prefix included) there is
+ * no session to look up, so the database is not touched: other cookies cost nothing.
  */
 export async function getSessionUser(env: Env, headers: Headers): Promise<SessionUser | null> {
-  if (!headers.has('cookie')) return null;
+  const { getSessionCookie } = await import('better-auth/cookies');
+  if (!getSessionCookie(headers)) return null;
   return withClient(env, async (client) => {
     const session = await (await createAuth(env, client)).api.getSession({ headers });
     return session ? { id: session.user.id, name: session.user.name } : null;

@@ -124,6 +124,23 @@ describe('attachUser() (TOM-26)', () => {
     expect(await res.json()).toEqual({ user: null });
   });
 
+  it('never touches the database for cookies that are not the session cookie', async () => {
+    const res = await get('/t/whoami', { cookie: 'theme=dark; consent=yes' }, offline());
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ user: null });
+  });
+
+  it.each(['theme=dark', `${SESSION_COOKIE}=abc.def`])(
+    'skips the session lookup on the health paths: database down + cookie %s → /readyz 503, /healthz 200',
+    async (cookie) => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      const ready = await get(ROUTES.READYZ, { cookie }, offline());
+      expect(ready.status).toBe(503);
+      expect(await ready.json()).toEqual({ code: 'NOT_READY', message: 'database unreachable' });
+      expect((await get(ROUTES.HEALTHZ, { cookie }, offline())).status).toBe(200);
+    },
+  );
+
   it('sets c.get("user") to { id, name } from a valid session cookie on any route', async () => {
     const { id, cookie } = await signUp();
     const res = await get('/t/whoami', { cookie });
