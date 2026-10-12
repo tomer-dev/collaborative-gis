@@ -26,7 +26,7 @@ type MapMode =
   | { kind: 'browse' }
   /** A finished sketch waiting for a name (SaveDialog). */
   | { kind: 'draft'; ring: LngLat[] }
-  /** An area picked on the map (AreaPanel). */
+  /** An area picked on the map or in the panel's list (AreaPanel). */
   | { kind: 'selected'; id: string }
   /** A rename the server refused with 409 (ConflictDialog). */
   | { kind: 'conflict'; edit: AreaEdit; current: Area };
@@ -73,12 +73,18 @@ function MapRoute() {
           <GhostPolygons map={map} drafts={room.drafts} users={room.users} />
         </>
       ) : null}
-      {/* One bottom-left column: the selected area's panel stacks above the presence list. */}
+      {/* One bottom-left column: the area panel stacks above the presence list. */}
       <div
         data-testid="map-corner"
         className="absolute bottom-3 left-3 z-controls flex flex-col items-start gap-2"
       >
-        <MapOverlay mode={mode} setMode={setMode} areas={areas} bbox={bbox} />
+        <MapOverlay
+          mode={mode}
+          setMode={setMode}
+          areas={areas}
+          bbox={bbox}
+          pendingIds={pendingIds}
+        />
         <PresenceList users={room.users} selfId={selfId} />
       </div>
       <ConnectionBanner state={room.state} onRetry={room.reconnect} />
@@ -91,33 +97,34 @@ type MapOverlayProps = {
   setMode: (mode: MapMode) => void;
   areas: readonly Area[];
   bbox: Bbox | null;
+  pendingIds: ReadonlySet<string>;
 };
 
 /** The one overlay for the current mode. */
-function MapOverlay({ mode, setMode, areas, bbox }: MapOverlayProps) {
+function MapOverlay({ mode, setMode, areas, bbox, pendingIds }: MapOverlayProps) {
   const select = (area: Area) => setMode({ kind: 'selected', id: area.id });
   const onConflict = (edit: AreaEdit, current: Area) =>
     setMode({ kind: 'conflict', edit, current });
 
   switch (mode.kind) {
     case 'browse':
-      return null;
-    case 'draft':
-      return <SaveDialog ring={mode.ring} bbox={bbox} onClose={() => setMode(BROWSE)} />;
-    case 'selected': {
-      // From the query, so the panel follows renames and refetches; gone from view, no panel.
-      const area = areas.find((candidate) => candidate.id === mode.id);
-      if (!area) return null;
+    case 'selected':
+      // From the query, so the panel follows renames and refetches; a selected area gone from
+      // view leaves the list of the areas in view.
       return (
         <AreaPanel
-          key={area.id}
-          area={area}
+          areas={areas}
+          bbox={bbox}
+          pendingIds={pendingIds}
+          selectedId={mode.kind === 'selected' ? mode.id : null}
+          onSelect={select}
           onClose={() => setMode(BROWSE)}
           onConflict={onConflict}
           onDeleted={() => setMode(BROWSE)}
         />
       );
-    }
+    case 'draft':
+      return <SaveDialog ring={mode.ring} bbox={bbox} onClose={() => setMode(BROWSE)} />;
     case 'conflict':
       return (
         <ConflictDialog
