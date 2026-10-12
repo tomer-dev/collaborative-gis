@@ -36,6 +36,7 @@ export const WS = {
   BAD_FRAME_STRIKES: 10,
   CLOSE_POLICY_VIOLATION: 1008,
   CLOSE_INTERNAL_ERROR: 1011,
+  CLOSE_IDLE: 1001,
   PING_INTERVAL_MS: 30_000,
   AUTO_PING: 'ping',
   AUTO_PONG: 'pong',
@@ -181,4 +182,11 @@ export const ERROR_REASONS = {
   INVALID_GEOMETRY: 'invalid geometry',
   /** 409: the area's stored `version` is not the one the client edited; `details.current` is. */
   VERSION_CONFLICT: 'version conflict',
+} as const;
+
+/** `error` frame messages the Room sends where ERROR_MESSAGES' per-code default says too little. */
+export const WS_MESSAGES = {
+  NOT_JSON: 'frames must be JSON text',
+  NOT_JOINED: 'send join first',
+  DRAFT_OP_MISFIT: 'draft op does not fit the current draft',
 } as const;
