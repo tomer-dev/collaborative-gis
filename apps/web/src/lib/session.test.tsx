@@ -58,7 +58,15 @@ it('maps a Better Auth session to { id, name } from GET /api/auth/get-session', 
     isPending: false,
   });
   expect(fetchMock).toHaveBeenCalledTimes(1);
-  expect(fetchMock).toHaveBeenCalledWith('/api/auth/get-session');
+  expect(fetchMock).toHaveBeenCalledWith('/api/auth/get-session', expect.anything());
+});
+
+it('treats a malformed session body as signed out', async () => {
+  stubFetch(async () => Response.json({ user: { id: 42 } }));
+  const { result } = renderUseSession();
+
+  await waitFor(() => expect(result.current.isPending).toBe(false));
+  expect(result.current).toEqual({ data: null, isPending: false });
 });
 
 it('maps a signed-out response (JSON null) to data: null', async () => {
