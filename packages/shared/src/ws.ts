@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AreaSchema } from './area';
+import { LIMITS } from './constants';
 import { PositionSchema } from './geo';
 
 const base = { seq: z.number().int().nonnegative(), ts: z.number().int().nonnegative() };
@@ -31,6 +32,9 @@ const presenceSet = z.object({
   payload: z.object({ state: PresenceStateSchema }),
 });
 // Both directions: the server rebroadcasts a sender's draft:update to the other sockets.
+// `userId` is the author: clients may omit it; the Room always stamps it on the frames it relays
+// and overwrites any value a client sent.
+const draftAuthor = { userId: z.string().max(LIMITS.USER_ID_MAX).optional() };
 const draftUpdate = z.object({
   type: z.literal('draft:update'),
   ...base,
@@ -39,14 +43,16 @@ const draftUpdate = z.object({
       op: z.literal('add'),
       index: z.number().int().nonnegative(),
       vertex: PositionSchema,
+      ...draftAuthor,
     }),
     z.object({
       op: z.literal('move'),
       index: z.number().int().nonnegative(),
       vertex: PositionSchema,
+      ...draftAuthor,
     }),
-    z.object({ op: z.literal('remove'), index: z.number().int().nonnegative() }),
-    z.object({ op: z.literal('clear') }),
+    z.object({ op: z.literal('remove'), index: z.number().int().nonnegative(), ...draftAuthor }),
+    z.object({ op: z.literal('clear'), ...draftAuthor }),
   ]),
 });
 
@@ -79,6 +85,7 @@ const areaDeleted = z.object({
 const error = z.object({
   type: z.literal('error'),
   ...base,
+  // retryAfter is in milliseconds (RATE_LIMITED: wait at least this long before retrying).
   payload: z.object({ code: z.string(), message: z.string(), retryAfter: z.number().optional() }),
 });
 
