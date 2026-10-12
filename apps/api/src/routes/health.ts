@@ -11,18 +11,19 @@ health.get('/readyz', async (c) => {
     await checkDatabase(c.env);
     return c.json({ ok: true, db: 'up' });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return c.json<ApiError>({ code: 'NOT_READY', message }, 503);
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(JSON.stringify({ level: 'error', msg, path: c.req.path }));
+    return c.json<ApiError>({ code: 'NOT_READY', message: 'database unreachable' }, 503);
   }
 });
 
-// ponytail: real query lands in Task 5 once HYPERDRIVE exists; until then the probe fails closed.
+// ponytail: HYPERDRIVE binding lands in Task 5; until then the probe fails closed.
 export async function checkDatabase(env: Env): Promise<void> {
   if (!env.HYPERDRIVE) throw new Error('HYPERDRIVE binding is not configured');
   const { Client } = await import('pg');
   const client = new Client({ connectionString: env.HYPERDRIVE.connectionString });
-  await client.connect();
   try {
+    await client.connect();
     await client.query('select 1');
   } finally {
     await client.end();
