@@ -117,6 +117,9 @@ export function boundsCache(): MiddlewareHandler<AppEnv, string, { out: { query:
       logRead(c, CACHE.STATUS.HIT, tile, { version: stamp(version) });
       const res = new Response(stored.body, stored);
       for (const [name, value] of Object.entries(headers)) res.headers.set(name, value);
+      // This request's own headers still reach the client: Hono copies what earlier middleware
+      // put on `c.res` (CORS, the request id) onto a returned Response, and attachUser appends a
+      // refreshed session cookie after `next()`. The stored entry carries none of them.
       return res;
     }
 
