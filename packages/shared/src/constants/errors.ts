@@ -78,6 +78,8 @@ export const ERROR_REASONS = {
   INVALID_GEOMETRY: 'invalid geometry',
   /** 409: the area's stored `version` is not the one the client edited; `details.current` is. */
   VERSION_CONFLICT: 'version conflict',
+  /** 422 on sign-up: the trimmed name is longer than `LIMITS.USER_NAME_MAX`. */
+  NAME_TOO_LONG: 'name too long',
 } as const;
 
 /**
