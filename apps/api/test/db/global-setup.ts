@@ -8,18 +8,32 @@ declare module 'vitest' {
   export interface ProvidedContext {
     /** URL of the db lane's test database, migrated from scratch for this run. */
     databaseUrl: string;
+    /**
+     * A second database, migrated the same way, for seed.test.ts alone: the seed tops up by
+     * counting `SEED.NAME_PREFIX` rows, so it needs a table no other file seeds into.
+     */
+    seedDatabaseUrl: string;
   }
 }
 
 const dbLane = fileURLToPath(new URL('../../../../scripts/db-lane.sh', import.meta.url));
 
 /**
- * Creates cgis_db on the local compose PostGIS (scripts/db-lane.sh), empties it, and runs every
- * migration once, so the migrations are proven from scratch on each run. Dropping `public` also
- * drops PostGIS, which 0000_postgis.sql must then reinstall.
+ * Creates cgis_db and cgis_db_seed on the local compose PostGIS (scripts/db-lane.sh), empties
+ * them, and runs every migration once on each, so the migrations are proven from scratch on each
+ * run. Dropping `public` also drops PostGIS, which 0000_postgis.sql must then reinstall.
  */
 export default async function setup(project: TestProject) {
-  const url = execFileSync('bash', [dbLane, 'cgis_db'], { encoding: 'utf8' }).trim();
+  const [url, seedUrl] = await Promise.all([
+    freshDatabase('cgis_db'),
+    freshDatabase('cgis_db_seed'),
+  ]);
+  project.provide('databaseUrl', url);
+  project.provide('seedDatabaseUrl', seedUrl);
+}
+
+async function freshDatabase(name: string): Promise<string> {
+  const url = execFileSync('bash', [dbLane, name], { encoding: 'utf8' }).trim();
 
   const client = new pg.Client({ connectionString: url });
   await client.connect();
@@ -36,5 +50,5 @@ export default async function setup(project: TestProject) {
   }
 
   await migrate(url);
-  project.provide('databaseUrl', url);
+  return url;
 }

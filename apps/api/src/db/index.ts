@@ -1,8 +1,11 @@
-import { TIMEOUTS } from '@cgis/shared';
+// Node also runs the db modules natively (`db:seed`, `db:explain`), so within src/db relative
+// imports name the .ts file and runtime constants come from @cgis/shared/constants (see
+// tsconfig.base.json); type-only imports are erased and may use either form.
+import { TIMEOUTS } from '@cgis/shared/constants';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import type { Env } from '../app';
-import * as schema from './schema';
+import * as schema from './schema.ts';
 
 /**
  * Runs `fn` with a fresh `pg.Client` on `env.HYPERDRIVE` and closes it afterwards.
