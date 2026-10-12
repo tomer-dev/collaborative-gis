@@ -281,13 +281,6 @@ export const ERROR_MESSAGES = {
   UPGRADE_REQUIRED: 'websocket upgrade required',
 } as const satisfies Record<keyof typeof ERROR_CODES, string>;
 
-/** `error` frame messages the Room sends where ERROR_MESSAGES' per-code default says too little. */
-export const WS_MESSAGES = {
-  NOT_JSON: 'frames must be JSON text',
-  NOT_JOINED: 'send join first',
-  DRAFT_OP_MISFIT: 'draft op does not fit the current draft',
-} as const;
-
 /** `ApiError.message`s more specific than their code's default in ERROR_MESSAGES. */
 export const ERROR_REASONS = {
   ORIGIN_NOT_ALLOWED: 'origin not allowed',
@@ -295,4 +288,11 @@ export const ERROR_REASONS = {
   INVALID_GEOMETRY: 'invalid geometry',
   /** 409: the area's stored `version` is not the one the client edited; `details.current` is. */
   VERSION_CONFLICT: 'version conflict',
+} as const;
+
+/** `error` frame messages the Room sends where ERROR_MESSAGES' per-code default says too little. */
+export const WS_MESSAGES = {
+  NOT_JSON: 'frames must be JSON text',
+  NOT_JOINED: 'send join first',
+  DRAFT_OP_MISFIT: 'draft op does not fit the current draft',
 } as const;
