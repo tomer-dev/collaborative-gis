@@ -8,7 +8,9 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
-    "test": "vitest run"
+    "test": "vitest run",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "tsc -p .storybook && storybook build"
   },
   "dependencies": {
     "@cgis/shared": "workspace:*",
