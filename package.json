@@ -9,6 +9,7 @@
   "scripts": {
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
+    "dev": "pnpm --parallel --filter @cgis/api --filter @cgis/web dev",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
