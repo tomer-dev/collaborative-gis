@@ -15,6 +15,7 @@ import { act, cleanup, renderHook } from '@testing-library/react';
 import * as L from 'leaflet';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiRequestError } from './api-client';
 import { fakeSockets, serverFrame } from './fake-websocket';
 import { createPolygonDraw } from './geo';
 import {
@@ -330,6 +331,27 @@ describe('useRoom', () => {
     const afterOpen = invalidate.mock.calls.length;
     room.advance(WS.OFFLINE_POLL_MS * 3);
     expect(invalidate).toHaveBeenCalledTimes(afterOpen);
+  });
+
+  it('stops the offline poll once the areas API answers 401 (the session ended)', async () => {
+    const room = renderRoom();
+    for (let failures = 1; failures <= WS.CLIENT_OFFLINE_AFTER; failures++) {
+      act(() => room.socket().drop(1006));
+      room.advance(backoffDelay(failures, () => 0));
+    }
+    expect(room.result.current.state).toBe('offline');
+    const signedOut = new ApiRequestError(401, {
+      code: ERROR_CODES.UNAUTHORIZED,
+      message: ERROR_MESSAGES.UNAUTHORIZED,
+    });
+    await act(() =>
+      room.queryClient
+        .fetchQuery({ queryKey: areasKey, queryFn: () => Promise.reject(signedOut) })
+        .catch(() => undefined),
+    );
+    const invalidate = vi.spyOn(room.queryClient, 'invalidateQueries');
+    room.advance(WS.OFFLINE_POLL_MS * 3);
+    expect(invalidate).not.toHaveBeenCalled();
   });
 
   it(`throttles draw:change bursts to ${WS.DRAFT_RATE_PER_SEC} draft:update/s with ops that rebuild the sketch; draw:done sends clear`, () => {

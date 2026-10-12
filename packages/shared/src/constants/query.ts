@@ -5,4 +5,6 @@
 export const QUERY = {
   /** `[AREAS_KEY, bbox]`: the areas in one viewport (`GET /api/areas?bbox=`). */
   AREAS_KEY: 'areas',
+  /** Retries of a failed query (TanStack Query's default); a 401 is never retried. */
+  RETRY_LIMIT: 3,
 } as const;

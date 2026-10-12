@@ -210,6 +210,7 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 | Name | Value | Notes |
 |---|---|---|
 | `AREAS_KEY` | `'areas'` | `[AREAS_KEY, bbox]`: the areas in one viewport (`GET /api/areas?bbox=`). |
+| `RETRY_LIMIT` | `3` | Retries of a failed query (TanStack Query's default); a 401 is never retried. |
 
 ## COPY
 

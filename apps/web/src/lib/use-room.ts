@@ -13,6 +13,7 @@ import {
 import { type QueryFilters, useQueryClient } from '@tanstack/react-query';
 import type * as L from 'leaflet';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { isUnauthorized } from './api-client';
 import { onDraw } from './geo';
 import {
   createRoomConnection,
@@ -310,13 +311,20 @@ export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
     };
   }, [queryClient, selfId, socketFactory]);
 
-  // Offline: no area events arrive, so the viewport lists are refetched on a timer instead.
+  // Offline: no area events arrive, so the viewport lists are refetched on a timer instead. The
+  // poll stops once the API answers 401: polling cannot fix a session that ended (the app's
+  // query client sends the visitor to sign in).
   useEffect(() => {
     if (state !== 'offline') return;
-    const timer = setInterval(
-      () => void queryClient.invalidateQueries({ queryKey: [QUERY.AREAS_KEY] }),
-      WS.OFFLINE_POLL_MS,
-    );
+    const areas = { queryKey: [QUERY.AREAS_KEY] };
+    const timer = setInterval(() => {
+      const signedOut = queryClient
+        .getQueryCache()
+        .findAll(areas)
+        .some((query) => isUnauthorized(query.state.error));
+      if (signedOut) clearInterval(timer);
+      else void queryClient.invalidateQueries(areas);
+    }, WS.OFFLINE_POLL_MS);
     return () => clearInterval(timer);
   }, [state, queryClient]);
 
