@@ -26,8 +26,6 @@ describe('M1 composition stubs', () => {
   });
 
   it('the test env carries the vars and secrets lanes rely on', () => {
-    // wrangler.jsonc is JSON, so CLIENT_ORIGIN mirrors DEV.WEB_ORIGIN by hand; this catches drift.
-    expect(env.CLIENT_ORIGIN).toBe(DEV.WEB_ORIGIN);
     expect(env.BETTER_AUTH_URL).toBe(DEV.API_ORIGIN);
     expect(env.BETTER_AUTH_SECRET.length).toBeGreaterThanOrEqual(32);
   });

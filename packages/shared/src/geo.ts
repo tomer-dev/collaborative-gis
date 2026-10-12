@@ -1,8 +1,6 @@
 import { z } from 'zod';
 import { LIMITS } from './constants';
 
-export const POLYGON_MAX_VERTICES = LIMITS.POLYGON_MAX_VERTICES;
-
 export const PositionSchema = z.tuple([
   z.number().min(-180).max(180), // lng
   z.number().min(-90).max(90), // lat
@@ -13,7 +11,9 @@ const RingSchema = z
   .array(PositionSchema)
   // abort: zod still runs the refinements below after a failed length check; they index r[0]
   .min(4, { error: 'A ring needs at least 3 unique vertices plus the closing vertex', abort: true })
-  .max(POLYGON_MAX_VERTICES, { error: `A ring may have at most ${POLYGON_MAX_VERTICES} vertices` })
+  .max(LIMITS.POLYGON_MAX_VERTICES, {
+    error: `A ring may have at most ${LIMITS.POLYGON_MAX_VERTICES} vertices`,
+  })
   .refine((r) => r[0]![0] === r[r.length - 1]![0] && r[0]![1] === r[r.length - 1]![1], {
     error: 'Ring must be closed: first and last vertex must be equal',
   })
