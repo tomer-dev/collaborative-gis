@@ -22,11 +22,11 @@ export function draftPathOptions(): PathOptions {
   return { pane: MAP.DRAFTS_PANE, className: MAP_CLASS.draft, ...MAP.DRAFT_STYLE };
 }
 
-/** Another user's draft in their presence hue; slots past MAP.PRESENCE_COLORS are neutral. */
-export function ghostPathOptions(slot: number | null): PathOptions {
-  const hasHue = slot !== null && slot >= 0 && slot < MAP.PRESENCE_COLORS.length;
-  return {
-    pane: MAP.DRAFTS_PANE,
-    className: hasHue ? `${MAP_CLASS.ghost} ${MAP_CLASS.ghost}-${slot + 1}` : MAP_CLASS.ghost,
-  };
+/**
+ * Another user's draft in their presence colour (`PresenceUser.color`, assigned by the server).
+ * Leaflet writes the colour as the path's stroke and fill; `.map-ghost` adds the token width and
+ * fill alpha.
+ */
+export function ghostPathOptions(color: string): PathOptions {
+  return { pane: MAP.DRAFTS_PANE, className: MAP_CLASS.ghost, color, fillColor: color };
 }
