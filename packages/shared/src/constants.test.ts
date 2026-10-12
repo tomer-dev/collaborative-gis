@@ -20,6 +20,7 @@ describe('constants', () => {
       'COPY',
       'OPENAPI',
       'AUDIT',
+      'QUERY',
     ] as const;
     for (const name of groups) {
       const group: unknown = shared[name];
@@ -47,5 +48,13 @@ describe('constants', () => {
 
   it('the password hint states LIMITS.PASSWORD_MIN', () => {
     expect(shared.COPY.AUTH.PASSWORD_HINT).toContain(String(shared.LIMITS.PASSWORD_MIN));
+  });
+
+  it('the area name hint states LIMITS.AREA_NAME_MAX; the diff note carries both values', () => {
+    expect(shared.COPY.AREAS.NAME_HINT).toContain(String(shared.LIMITS.AREA_NAME_MAX));
+    const note = shared.COPY.AREAS.AREA_DIFF_NOTE('1.240 km²', '1.234 km²');
+    expect(note).toContain('1.240 km²');
+    expect(note).toContain('1.234 km²');
+    expect(shared.MAP.AREA_DIFF_WARN_RATIO).toBe(0.005);
   });
 });

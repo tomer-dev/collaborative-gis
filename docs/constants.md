@@ -86,7 +86,7 @@ The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmar
 | `HEALTHZ` | `'/healthz'` | `apps/api/src/routes/health.ts` | Liveness |
 | `READYZ` | `'/readyz'` | `apps/api/src/routes/health.ts` | Readiness (DB reachable) |
 | `AUTH` | `'/api/auth'` | `apps/api/src/app.ts` (`${AUTH}/*` → `authHandler`); `apps/web/src/lib/auth-client.ts` (`createAuthClient({ basePath })`; `baseURL` must be an absolute origin, so it is omitted and the client uses the page origin) | Better Auth mount |
-| `AREAS` | `'/api/areas'` | `apps/api/src/app.ts` (mounts `routes/areas.ts`: `POST`, `GET ?bbox=`); planned T13 fetch wrappers | Area CRUD + bbox query |
+| `AREAS` | `'/api/areas'` | `apps/api/src/app.ts` (mounts `routes/areas.ts`: `POST`, `GET ?bbox=`); the SPA reaches it as `api.api.areas` (`apps/web/src/lib/api-client.ts`, Hono `hc` typed from `AppType`, which carries the path) | Area CRUD + bbox query |
 | `AREA_BY_ID` | `'/:id'` | `apps/api/src/routes/areas.ts` (`PUT`/`DELETE`, relative to `AREAS`; `:id` validated as a UUID) | One area |
 | `WS` | `'/ws'` | `apps/api/src/app.ts` (`wsUpgrade`), `apps/web/vite.config.ts` ws proxy; planned T14 | Room WebSocket upgrade |
 | `OPENAPI` | `'/openapi.json'` | `apps/api/src/app.ts` `openAPIRouteHandler` (public; the `/docs` UI is M2) | OpenAPI 3.1 document of the routes with `describeRoute` metadata |
@@ -141,13 +141,14 @@ The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmar
 | `OSM_TILE_URL` | `'https://tile.openstreetmap.org/{z}/{x}/{y}.png'` | Planned: T10 `L.tileLayer` | OSM standard tiles |
 | `OSM_ATTRIBUTION` | `'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'` | Planned: T10 | Required by the OSM tile usage policy |
 | `OSM_MAX_ZOOM` | `19` | Planned: T10 | Highest zoom OSM serves |
-| `AREAS_PANE` / `AREAS_PANE_Z` | `'areas'` / `450` | `apps/web/src/ui/map-styles.ts` (path options), `tokens.css` `--z-index-map-areas` (drift-tested); planned: T10 creates, T13 draws saved areas | Above tiles and Leaflet's overlay pane (400) |
+| `AREAS_PANE` / `AREAS_PANE_Z` | `'areas'` / `450` | `apps/web/src/ui/map-styles.ts` `areaPathOptions()` (pane + `.map-area` class, used by `apps/web/src/components/AreasLayer.tsx` for every saved area), `tokens.css` `--z-index-map-areas` (drift-tested), `apps/web/src/components/Map.tsx` creates the pane | Above tiles and Leaflet's overlay pane (400) |
 | `DRAFTS_PANE` / `DRAFTS_PANE_Z` | `'drafts'` / `460` | `apps/web/src/ui/map-styles.ts` (path options), `tokens.css` `--z-index-map-drafts` (drift-tested), `apps/web/src/components/DrawControl.tsx` (`PolygonDraw` pane for the own sketch); planned: T10 creates, T14 draws ghost drafts | Live drafts render above saved areas |
-| `MOVEEND_DEBOUNCE_MS` | `250` | Planned: T13 bbox query on `moveend` | One fetch per pan gesture |
+| `MOVEEND_DEBOUNCE_MS` | `250` | `apps/web/src/components/Map.tsx` (`moveend` → `onBoundsChange`), which feeds `useAreasInBounds` (`apps/web/src/lib/areas-query.ts`) | One fetch per pan gesture |
 | `PRESENCE_COLORS` | `['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948']` | `apps/api/src/do/presence.ts` `presenceColor` (SHA-256 of the user id, mod 8) and `PresenceAttachmentSchema.color`; the web takes that colour per user (`Avatar color`, `ghostPathOptions(color)`); Storybook Foundations/Colour | The 8-hue CVD-checked presence palette from the design-system brief (Grid 4) |
 | `HANDLE_HIT_PX` | `24` | `apps/web/src/lib/geo/draw-handler.ts` (vertex handle hit box, the `L.divIcon` size) | WCAG 2.5.8 target size (≥24 CSS px) for dragging a vertex. The dot's radius, ring and colours are CSS: `.cgis-draw-handle` / `.cgis-draw-handle--first` in the token stylesheet (T9b, PR #14) |
 | `DRAFT_STYLE` | `{ weight: 2, dashArray: '8 4', fillOpacity: 0.12 }` | `apps/web/src/lib/geo/draw-handler.ts` (live sketch, class `cgis-draw-sketch`), `apps/web/src/ui/map-styles.ts` `draftPathOptions()`; Storybook Foundations/Map; planned T14 ghost drafts | Dashed and faint: reads as unsaved next to solid saved areas. Dash 8/4 is the design brief's §4 value. Stroke and fill colours are CSS on `.cgis-draw-sketch` |
-| `AREA_KM2_THRESHOLD` | `1` | `apps/web/src/components/DrawControl.tsx` (area readout unit) | Below 1 km² the readout is whole m² (`12,345 m²`); from 1 km² it is km² to 3 decimals (`1.234 km²`, 1,000 m² resolution). Numbers use `Stat`'s user-locale formatter |
+| `AREA_KM2_THRESHOLD` | `1` | `apps/web/src/components/DrawControl.tsx` (area readout unit), `apps/web/src/lib/area-readout.ts` `areaReadout()` (save dialog, area panel) | Below 1 km² the readout is whole m² (`12,345 m²`); from 1 km² it is km² to 3 decimals (`1.234 km²`, 1,000 m² resolution). Numbers use `Stat`'s user-locale formatter |
+| `AREA_DIFF_WARN_RATIO` | `0.005` | `apps/web/src/components/SaveDialog.tsx` (after a save, `abs(server − estimate) / server` above this shows `COPY.AREAS.AREA_DIFF_NOTE`) | The client's sphere and PostGIS's spheroid differ by about 0.03 % at Israel's latitude and 0.45–0.56 % at the equator or 60°N (`GEO.EARTH_RADIUS_M` row); a gap past 0.5 % is worth one line next to the saved value (TOM-49) |
 
 ## DRAW
 
@@ -160,7 +161,15 @@ The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmar
 | `PANEL_TITLE` | `'New area'` | `DrawControl.tsx` (floating `Panel` heading and region name while drawing) | The sketch becomes an area when saved |
 | `AREA_LABEL` / `VERTICES_LABEL` | `'Area'` / `'Vertices'` | `DrawControl.tsx` (`Stat` labels of the live readout) | Visible labels; also the readouts' accessible names |
 | `FINISH_LABEL` / `UNDO_LABEL` / `CANCEL_LABEL` | `'Finish'` / `'Undo'` / `'Cancel'` | `DrawControl.tsx` (panel footer buttons → `finish()` / `undo()` / `cancel()`) | Pointer equivalents of Enter / Backspace / Escape |
-| `M2_UNIT` / `KM2_UNIT` | `'m²'` / `'km²'` | `DrawControl.tsx` (area `Stat` unit) | `Intl.NumberFormat` has no area units (ECMA-402 sanctions length units only) |
+| `M2_UNIT` / `KM2_UNIT` | `'m²'` / `'km²'` | `DrawControl.tsx` (area `Stat` unit), `apps/web/src/lib/area-readout.ts` | `Intl.NumberFormat` has no area units (ECMA-402 sanctions length units only) |
+
+## QUERY
+
+TanStack Query key prefixes: the first element of a key, so `{ queryKey: [prefix] }` matches every variant.
+
+| Name | Value | Where used | Why |
+|---|---|---|---|
+| `AREAS_KEY` | `'areas'` | `apps/web/src/lib/areas-query.ts` (`[AREAS_KEY, bbox]` per viewport, cached as the parsed `GET` body `{ areas }`; `replaceArea`/`removeArea` patch every cached viewport); T14 `area:*` patches (same key and shape) and reconnect `invalidateQueries` | One prefix for all viewport lists; the raw debounced bbox is the rest of the key (the server owns any quantisation, spec §5) |
 
 ## COPY
 
@@ -180,6 +189,21 @@ User-facing text in the SPA, one group per screen. Components read it from here 
 | `AUTH.ERROR_GENERIC` | `'Something went wrong. Try again.'` | `apps/web/src/lib/auth.ts` (`AuthError` without a server message, `authErrorMessage` for anything else) |
 | `AUTH.SIGN_OUT` | `'Sign out'` | `AppFrame.tsx` `SessionMenu` button |
 | `AUTH.SIGN_OUT_ERROR` | `'Could not sign out. Try again.'` | `SessionMenu` alert when sign-out fails and the session is still valid |
+| `AREAS.SAVE_TITLE` | `'Save area'` | `apps/web/src/components/SaveDialog.tsx` dialog title (after `draw:done`) |
+| `AREAS.NAME_LABEL` / `AREAS.NAME_HINT` | `'Name'` / `` `Up to ${LIMITS.AREA_NAME_MAX} characters.` `` | `SaveDialog` and `AreaPanel` name field (`maxLength` is `LIMITS.AREA_NAME_MAX`) |
+| `AREAS.NAME_REQUIRED` | `'Enter a name.'` | `SaveDialog` / `AreaPanel` field error for a name of only spaces (passes `required`, fails `AreaSchema.name`'s trim + min 1) |
+| `AREAS.ESTIMATE_LABEL` / `AREAS.AREA_LABEL` | `'Area (estimate)'` / `'Area'` | `SaveDialog` `Stat` before the save (client estimate) and after it (server value); `AreaPanel` `Stat` |
+| `AREAS.SAVE_SUBMIT` / `AREAS.SAVE_PENDING` / `AREAS.SAVE_ERROR_TITLE` | `'Save'` / `'Saving…'` / `'Could not save the area'` | `SaveDialog` submit button and error banner (the banner text is `details.reason` on a 422) |
+| `AREAS.SAVED_TITLE` | `'Area saved'` | `SaveDialog` title once the server answered 201 |
+| `AREAS.AREA_DIFF_NOTE` | `` (saved, estimate) => `The server measured ${saved}; the sketch estimate was ${estimate}.` `` | `SaveDialog` note when the values differ by more than `MAP.AREA_DIFF_WARN_RATIO` |
+| `AREAS.DONE` / `AREAS.CANCEL` / `AREAS.CLOSE` | `'Done'` / `'Cancel'` / `'Close'` | `SaveDialog` footer; `AreaPanel` close button's accessible name |
+| `AREAS.RENAME_SUBMIT` / `AREAS.RENAME_PENDING` / `AREAS.RENAME_ERROR_TITLE` | `'Rename'` / `'Renaming…'` / `'Could not rename the area'` | `apps/web/src/components/AreaPanel.tsx` (`PUT /api/areas/:id`) |
+| `AREAS.DELETE` / `AREAS.DELETE_PENDING` / `AREAS.DELETE_ERROR_TITLE` | `'Delete'` / `'Deleting…'` / `'Could not delete the area'` | `AreaPanel` (`DELETE /api/areas/:id`) |
+| `AREAS.CONFLICT_TITLE` / `AREAS.CONFLICT_DESCRIPTION` | `'Someone else changed this area'` / `'Your edit started from an older version. Keep yours or load theirs.'` | `apps/web/src/components/ConflictDialog.tsx` (`alertdialog` on a 409) |
+| `AREAS.CONFLICT_MINE_LABEL` / `AREAS.CONFLICT_THEIRS_LABEL` | `'Yours'` / `'Theirs'` | `ConflictDialog` side-by-side names |
+| `AREAS.OVERWRITE` / `AREAS.LOAD_THEIRS` | `'Overwrite with mine'` / `'Load theirs'` | `ConflictDialog` buttons (spec D4): resend with `details.current.version`, or put `details.current` in the cache |
+| `AREAS.OVERWRITE_ERROR_TITLE` | `'Could not overwrite the area'` | `ConflictDialog` banner when the resend fails with anything but another 409 |
+| `AREAS.ERROR_GENERIC` | `'Something went wrong. Try again.'` | `apps/web/src/lib/areas-query.ts` `areaErrorMessage` for a failure without an `ApiError` (network error) |
 
 ## ERROR_CODES
 
