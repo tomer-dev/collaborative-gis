@@ -43,17 +43,26 @@ The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmar
 
 | Name | Value | Where used | Why |
 |---|---|---|---|
-| `DRAFT_RATE_PER_SEC` | `10` | Planned: T7 token bucket, T14 client throttle | D13: drafts ≤ 10 msg/s per user |
+| `DRAFT_RATE_PER_SEC` | `10` | Planned: T7 token bucket; `apps/web/src/lib/use-room.ts` `DRAFT_INTERVAL_MS` (`DraftSender` sends one `draft:update` per 1000 / 10 ms) | D13: drafts ≤ 10 msg/s per user |
 | `PRESENCE_IDLE_MS` | `60_000` | Planned: T7 alarm drops idle drafts/presence | D13: presence dropped after 60 s |
 | `ALARM_INTERVAL_MS` | `30_000` | Planned: T7 `Room.alarm()` cadence | Sweeps idle state twice per idle window |
 | `BAD_FRAME_STRIKES` | `10` | Planned: T7 (strikes before closing a socket) | Tolerates a few bad frames, stops a flood |
-| `CLOSE_POLICY_VIOLATION` | `1008` | Planned: T7 close code after the strikes | RFC 6455 "policy violation" |
+| `CLOSE_POLICY_VIOLATION` | `1008` | Planned: T7 close code after the strikes; `apps/web/src/lib/ws.ts` (a 1008 close → `offline`, no automatic retry until `reconnect()`) | RFC 6455 "policy violation" |
 | `CLOSE_INTERNAL_ERROR` | `1011` | `apps/api/src/do/room.ts` closes an open socket without a valid attachment | RFC 6455 "internal error": the server cannot attribute the socket |
-| `CLOSE_IDLE` | `1001` | `apps/api/src/do/room.ts` `alarm()` closes a socket silent for `PRESENCE_IDLE_MS` (no frame and no auto-answered ping) | RFC 6455 "going away": a client that pings every `PING_INTERVAL_MS` is never reaped; one that stopped is dead, and reconnects if it is not |
-| `PING_INTERVAL_MS` | `30_000` | Planned: T14 client ping (DO auto-responds ping→pong) | Keeps idle sockets and proxies alive |
-| `AUTO_PING` / `AUTO_PONG` | `'ping'` / `'pong'` | `apps/api/src/do/room.ts` `setWebSocketAutoResponse`; planned T14 client ping | The runtime answers without waking a hibernated Room |
-| `RECONNECT_BACKOFF_MS` | `{ min: 1000, max: 30_000 }` | Planned: T14 reconnect backoff (+ jitter) | Fast first retry, bounded worst case |
-| `OFFLINE_POLL_MS` | `10_000` | Planned: T14 polling while the socket is offline | Degraded mode still converges |
+| `CLOSE_IDLE` | `1001` | `apps/api/src/do/room.ts` `alarm()` closes a socket silent for `PRESENCE_IDLE_MS` (no frame and no auto-answered ping); the web client reconnects with backoff like any other close | RFC 6455 "going away": a client that pings every `PING_INTERVAL_MS` is never reaped; one that stopped is dead, and reconnects if it is not |
+| `PING_INTERVAL_MS` | `30_000` | `apps/web/src/lib/ws.ts` (sends `AUTO_PING` this often while open, never while closed) | Below `PRESENCE_IDLE_MS`, so a live tab is never swept; keeps proxies alive |
+| `AUTO_PING` / `AUTO_PONG` | `'ping'` / `'pong'` | `apps/api/src/do/room.ts` `setWebSocketAutoResponse`; `apps/web/src/lib/ws.ts` (sends the ping, skips the pong before parsing) | The runtime answers without waking a hibernated Room |
+| `RECONNECT_BACKOFF_MS` | `{ min: 1000, max: 30_000 }` | `apps/web/src/lib/ws.ts` `backoffDelay` (min doubling per failed connect, capped at max, minus jitter) | Fast first retry, bounded worst case |
+| `OFFLINE_POLL_MS` | `10_000` | `apps/web/src/lib/use-room.ts` (invalidates the `QUERY.AREAS_KEY` queries this often while `offline`); `COPY.CONNECTION.OFFLINE_DETAIL` | Degraded mode still converges |
+| `CLIENT_BACKOFF_JITTER` | `0.5` | `apps/web/src/lib/ws.ts` `backoffDelay` (each delay shortened by a random share up to this fraction) | Clients dropped together (a deploy, a Room restart) do not all return in the same instant |
+| `CLIENT_DEGRADED_AFTER` | `2` | `apps/web/src/lib/ws.ts` `stateAfter` (failed connects in a row → `degraded`, the "Reconnecting" banner) | One quick retry after a drop stays silent; a second failure is worth telling the user |
+| `CLIENT_OFFLINE_AFTER` | `5` | `apps/web/src/lib/ws.ts` `stateAfter` (failed connects in a row → `offline`: banner with Retry, areas polled) | About 15 s of backoff (1 + 2 + 4 + 8 s) before falling back to polling |
+
+## QUERY
+
+| Name | Value | Where used | Why |
+|---|---|---|---|
+| `AREAS_KEY` | `'areas'` | `apps/web/src/lib/use-room.ts` (`area:*` events patch every `[AREAS_KEY, bbox]` list via `setQueriesData`; each socket open and the offline poll invalidate them); planned T13 `useAreasInBounds` key `[AREAS_KEY, bbox]` | One prefix for every viewport list, so realtime patches and resyncs reach all cached bboxes |
 
 ## RATE_LIMIT
 
@@ -88,7 +97,7 @@ The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmar
 | `AUTH` | `'/api/auth'` | `apps/api/src/app.ts` (`${AUTH}/*` → `authHandler`); `apps/web/src/lib/auth-client.ts` (`createAuthClient({ basePath })`; `baseURL` must be an absolute origin, so it is omitted and the client uses the page origin) | Better Auth mount |
 | `AREAS` | `'/api/areas'` | `apps/api/src/app.ts` (mounts `routes/areas.ts`: `POST`, `GET ?bbox=`); planned T13 fetch wrappers | Area CRUD + bbox query |
 | `AREA_BY_ID` | `'/:id'` | `apps/api/src/routes/areas.ts` (`PUT`/`DELETE`, relative to `AREAS`; `:id` validated as a UUID) | One area |
-| `WS` | `'/ws'` | `apps/api/src/app.ts` (`wsUpgrade`), `apps/web/vite.config.ts` ws proxy; planned T14 | Room WebSocket upgrade |
+| `WS` | `'/ws'` | `apps/api/src/app.ts` (`wsUpgrade`), `apps/web/vite.config.ts` ws proxy, `apps/web/src/lib/ws.ts` `roomUrl` (`ws:`/`wss:` on the page origin) | Room WebSocket upgrade |
 | `OPENAPI` | `'/openapi.json'` | `apps/api/src/app.ts` `openAPIRouteHandler` (public; the `/docs` UI is M2) | OpenAPI 3.1 document of the routes with `describeRoute` metadata |
 | `APP` | `{ HOME: '/', LOGIN: '/login', REGISTER: '/register', MAP: '/map' }` | `apps/web/src/routes/index.tsx` (`/` → `MAP`), `apps/web/src/routes/_authed.tsx` (signed out → `LOGIN`), `apps/web/src/routes/-components/redirectSignedIn.ts` (signed in on `/login` or `/register` → `MAP`), `AuthForm.tsx` (links between `LOGIN` and `REGISTER`) | SPA route targets for `redirect({ to })`, `<Link to>` and `navigate`; `createFileRoute('…')` ids stay literal because the router generates them from the file tree |
 
@@ -129,7 +138,7 @@ The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmar
 
 | Name | Value | Where used | Why |
 |---|---|---|---|
-| `DEFAULT_ROOM_ID` | `'default'` | `apps/api/src/ws.ts` (`GET /ws` hand-off), `apps/api/src/services/fanout.ts` (area changes → `Room.broadcast`), `apps/api/test/scaffold.test.ts` | D11: one shared map, one Room DO |
+| `DEFAULT_ROOM_ID` | `'default'` | `apps/api/src/ws.ts` (`GET /ws` hand-off), `apps/api/src/services/fanout.ts` (area changes → `Room.broadcast`), `apps/api/test/scaffold.test.ts`, `apps/web/src/lib/use-room.ts` (`join` `mapId`) | D11: one shared map, one Room DO |
 | `USER_ID_HEADER` / `USER_NAME_HEADER` | `'x-user-id'` / `'x-user-name'` | `apps/api/src/do/handoff.ts`: `withRoomUser` (used by `ws.ts`) sets them, name percent-encoded; `readRoomUser` (used by `room.ts`) validates them | The Worker hands the session user to the Room; client-sent copies are overwritten |
 
 ## MAP
@@ -142,11 +151,11 @@ The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmar
 | `OSM_ATTRIBUTION` | `'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'` | Planned: T10 | Required by the OSM tile usage policy |
 | `OSM_MAX_ZOOM` | `19` | Planned: T10 | Highest zoom OSM serves |
 | `AREAS_PANE` / `AREAS_PANE_Z` | `'areas'` / `450` | `apps/web/src/ui/map-styles.ts` (path options), `tokens.css` `--z-index-map-areas` (drift-tested); planned: T10 creates, T13 draws saved areas | Above tiles and Leaflet's overlay pane (400) |
-| `DRAFTS_PANE` / `DRAFTS_PANE_Z` | `'drafts'` / `460` | `apps/web/src/ui/map-styles.ts` (path options), `tokens.css` `--z-index-map-drafts` (drift-tested), `apps/web/src/components/DrawControl.tsx` (`createPolygonDraw` pane for the own sketch); planned: T10 creates, T14 draws ghost drafts | Live drafts render above saved areas |
+| `DRAFTS_PANE` / `DRAFTS_PANE_Z` | `'drafts'` / `460` | `apps/web/src/ui/map-styles.ts` (path options), `tokens.css` `--z-index-map-drafts` (drift-tested), `apps/web/src/components/DrawControl.tsx` (`createPolygonDraw` pane for the own sketch), `apps/web/src/components/GhostPolygons.tsx` (other users' drafts, via `ghostPathOptions`); T10 creates it | Live drafts render above saved areas |
 | `MOVEEND_DEBOUNCE_MS` | `250` | Planned: T13 bbox query on `moveend` | One fetch per pan gesture |
 | `PRESENCE_COLORS` | `['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948']` | `apps/api/src/do/presence.ts` `presenceColor` (SHA-256 of the user id, mod 8) and `PresenceAttachmentSchema.color`; the web takes that colour per user (`Avatar color`, `ghostPathOptions(color)`); Storybook Foundations/Colour | The 8-hue CVD-checked presence palette from the design-system brief (Grid 4) |
 | `HANDLE_HIT_PX` | `24` | `apps/web/src/lib/geo/draw-tool.ts` (Leaflet.Editable vertex icon size, via its `createVertexIcon` hook; the first handle also gets `cgis-draw-handle--first`) | WCAG 2.5.8 target size (≥24 CSS px) for dragging a vertex. The dot's radius, ring and colours are CSS: `.cgis-draw-handle` / `.cgis-draw-handle--first` in `apps/web/src/styles/map.css` |
-| `DRAFT_STYLE` | `{ weight: 2, dashArray: '8 4', fillOpacity: 0.12 }` | `apps/web/src/lib/geo/draw-tool.ts` (`editTools.startPolygon` options, class `cgis-draw-sketch`), `apps/web/src/ui/map-styles.ts` `draftPathOptions()`; Storybook Foundations/Map; planned T14 ghost drafts | Dashed and faint: reads as unsaved next to solid saved areas. Dash 8/4 is the design brief's §4 value. Stroke and fill colours are CSS on `.cgis-draw-sketch` |
+| `DRAFT_STYLE` | `{ weight: 2, dashArray: '8 4', fillOpacity: 0.12 }` | `apps/web/src/lib/geo/draw-tool.ts` (`editTools.startPolygon` options, class `cgis-draw-sketch`), `apps/web/src/ui/map-styles.ts` `draftPathOptions()`, `apps/web/src/components/GhostPolygons.tsx` (ghost drafts, in the author's presence colour); Storybook Foundations/Map | Dashed and faint: reads as unsaved next to solid saved areas. Dash 8/4 is the design brief's §4 value. Stroke and fill colours are CSS on `.cgis-draw-sketch` |
 | `AREA_KM2_THRESHOLD` | `1` | `apps/web/src/components/DrawControl.tsx` (area readout unit) | Below 1 km² the readout is whole m² (`12,345 m²`); from 1 km² it is km² to 3 decimals (`1.234 km²`, 1,000 m² resolution). Numbers use `Stat`'s user-locale formatter |
 
 ## DRAW
@@ -169,6 +178,10 @@ User-facing text in the SPA, one group per screen. Components read it from here 
 | Name | Value | Where used |
 |---|---|---|
 | `APP.NAME` | `'Collaborative GIS'` | `apps/web/src/routes/-components/AppFrame.tsx` header |
+| `CONNECTION.DEGRADED_TITLE` / `CONNECTION.DEGRADED_DETAIL` | `'Reconnecting'` / `'Live updates are paused. Your drawing is kept.'` | `apps/web/src/components/ConnectionBanner.tsx` (warn banner while `degraded`) |
+| `CONNECTION.OFFLINE_TITLE` / `CONNECTION.OFFLINE_DETAIL` | `'Offline'` / `` `Live updates are off. Saved areas refresh every ${WS.OFFLINE_POLL_MS / 1000} s.` `` | `ConnectionBanner.tsx` (danger banner while `offline`) |
+| `CONNECTION.RETRY` | `'Retry'` | `ConnectionBanner.tsx` offline banner button → `useRoom().reconnect` |
+| `PRESENCE.TITLE` / `PRESENCE.LABEL` | `'On this map'` / `'People on this map'` | `apps/web/src/components/PresenceList.tsx` (floating panel heading; the list's accessible name) |
 | `AUTH.LOGIN_TITLE` / `AUTH.REGISTER_TITLE` | `'Sign in'` / `'Create an account'` | `AuthForm` panel heading |
 | `AUTH.LOGIN_SUBMIT` / `AUTH.REGISTER_SUBMIT` | `'Sign in'` / `'Create account'` | `AuthForm` submit button |
 | `AUTH.LOGIN_PENDING` / `AUTH.REGISTER_PENDING` | `'Signing in…'` / `'Creating account…'` | `AuthForm` submit button while the request runs |
@@ -239,4 +252,4 @@ Default `ApiError.message` per code, same keys as `ERROR_CODES` (`satisfies` + a
 |---|---|---|---|
 | `NOT_JSON` | `'frames must be JSON text'` | `apps/api/src/do/room.ts` (binary or non-JSON frame → `BAD_REQUEST`, one strike) | Says what the Room accepts; a schema failure sends Zod's issue text instead |
 | `NOT_JOINED` | `'send join first'` | `apps/api/src/do/room.ts` (`draft:update` before `join` → `BAD_REQUEST`, no strike) | Drafts come only from users in presence |
-| `DRAFT_OP_MISFIT` | `'draft op does not fit the current draft'` | `apps/api/src/do/room.ts` (index past the end, or an `add` beyond `LIMITS.POLYGON_MAX_VERTICES` → `BAD_REQUEST`, no strike) | The client's draft and the Room's have diverged; the op is not relayed |
+| `DRAFT_OP_MISFIT` | `'draft op does not fit the current draft'` | `apps/api/src/do/room.ts` (index past the end, or an `add` beyond `LIMITS.POLYGON_MAX_VERTICES` → `BAD_REQUEST`, no strike); `apps/web/src/lib/use-room.ts` answers it with `clear` and a full re-send (the one message the client compares, because the code alone, `BAD_REQUEST`, does not say the draft diverged) | The client's draft and the Room's have diverged; the op is not relayed |
