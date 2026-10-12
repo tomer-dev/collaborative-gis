@@ -15,7 +15,7 @@ import { type Context, Hono } from 'hono';
 import { describeRoute, resolver } from 'hono-openapi';
 import { z } from 'zod';
 import type { AppEnv } from '../app';
-import { apiError, notFoundError } from '../errors';
+import { apiError } from '../errors';
 import { requireUser } from '../middleware';
 import { rateLimit } from '../middleware/rate-limit';
 import { type Actor, createArea, deleteArea, listAreas, updateArea } from '../services/areas';
@@ -133,7 +133,7 @@ export const areas = new Hono<AppEnv>()
         case 'invalid':
           return invalidGeometry(c, result.reason);
         case 'missing':
-          return notFoundError(c);
+          return apiError(c, ERROR_CODES.NOT_FOUND);
         case 'conflict':
           return apiError(c, ERROR_CODES.CONFLICT, ERROR_REASONS.VERSION_CONFLICT, {
             current: result.current,
@@ -167,7 +167,7 @@ export const areas = new Hono<AppEnv>()
     async (c) => {
       const { id } = c.req.valid('param');
       const result = await deleteArea(c.env, id, actor(c, c.get('user').id));
-      if (result.status === 'missing') return notFoundError(c);
+      if (result.status === 'missing') return apiError(c, ERROR_CODES.NOT_FOUND);
       c.executionCtx.waitUntil(
         fanout(c.env, { type: 'area:deleted', payload: { id } }, c.get('requestId')),
       );

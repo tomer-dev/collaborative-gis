@@ -1,4 +1,4 @@
-import { type ApiError, type ApiErrorCode, ERROR_CODES, ERROR_MESSAGES } from '@cgis/shared';
+import { type ApiError, type ApiErrorCode, ERROR_MESSAGES } from '@cgis/shared';
 import type { Context } from 'hono';
 import type { HTTPException } from 'hono/http-exception';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
@@ -22,25 +22,22 @@ const STATUS_BY_CODE = {
   NOT_READY: 503,
   TIMEOUT: 504,
 } as const satisfies Record<ApiErrorCode, ContentfulStatusCode>;
-export type ErrorCode = ApiErrorCode;
 
 function errorBody(code: string, message: string, details?: unknown): ApiError {
   return details === undefined ? { code, message } : { code, message, details };
 }
 
-function send(
+/**
+ * Responds with `{ code, message, details? }` and the status that belongs to `code`; the message
+ * defaults to `ERROR_MESSAGES[code]`.
+ */
+export function apiError(
   c: Context,
-  status: ContentfulStatusCode,
-  code: string,
-  message: string,
+  code: ApiErrorCode,
+  message: string = ERROR_MESSAGES[code],
   details?: unknown,
 ) {
-  return c.json(errorBody(code, message, details), status);
-}
-
-/** Responds with `{ code, message, details? }` and the status that belongs to `code`. */
-export function apiError(c: Context, code: ErrorCode, message: string, details?: unknown) {
-  return send(c, STATUS_BY_CODE[code], code, message, details);
+  return c.json(errorBody(code, message, details), STATUS_BY_CODE[code]);
 }
 
 /**
@@ -48,43 +45,22 @@ export function apiError(c: Context, code: ErrorCode, message: string, details?:
  * `fetch` (the Room Durable Object). The message defaults to `ERROR_MESSAGES[code]`.
  */
 export function apiErrorResponse(
-  code: ErrorCode,
+  code: ApiErrorCode,
   message: string = ERROR_MESSAGES[code],
   details?: unknown,
 ): Response {
   return Response.json(errorBody(code, message, details), { status: STATUS_BY_CODE[code] });
 }
 
-/** A helper for one code; the message defaults to `ERROR_MESSAGES[code]`. */
-const errorFor =
-  (code: ErrorCode) =>
-  (c: Context, message: string = ERROR_MESSAGES[code], details?: unknown) =>
-    apiError(c, code, message, details);
-
-export const badRequestError = errorFor(ERROR_CODES.BAD_REQUEST);
-export const unauthorizedError = errorFor(ERROR_CODES.UNAUTHORIZED);
-export const forbiddenError = errorFor(ERROR_CODES.FORBIDDEN);
-export const notFoundError = errorFor(ERROR_CODES.NOT_FOUND);
-export const conflictError = errorFor(ERROR_CODES.CONFLICT);
-export const payloadTooLargeError = errorFor(ERROR_CODES.PAYLOAD_TOO_LARGE);
-export const unprocessableError = errorFor(ERROR_CODES.UNPROCESSABLE);
-export const upgradeRequiredError = errorFor(ERROR_CODES.UPGRADE_REQUIRED);
-export const rateLimitedError = errorFor(ERROR_CODES.RATE_LIMITED);
-export const internalError = errorFor(ERROR_CODES.INTERNAL);
-export const notImplementedError = errorFor(ERROR_CODES.NOT_IMPLEMENTED);
-export const notReadyError = errorFor(ERROR_CODES.NOT_READY);
-export const timeoutError = errorFor(ERROR_CODES.TIMEOUT);
-
 const CODE_BY_STATUS = new Map<number, string>(
   Object.entries(STATUS_BY_CODE).map(([code, status]) => [status, code]),
 );
 
-/** The `ApiError.code` for an HTTP status: the table above, else `HTTP_<status>`. */
-export function codeFor(status: number): string {
-  return CODE_BY_STATUS.get(status) ?? `HTTP_${status}`;
-}
-
-/** A thrown `HTTPException` keeps its status and message. */
+/**
+ * A thrown `HTTPException` keeps its status and message; its code comes from the table above, or
+ * is `HTTP_<status>` for a status without one.
+ */
 export function httpExceptionError(c: Context, err: HTTPException) {
-  return send(c, err.status, codeFor(err.status), err.message);
+  const code = CODE_BY_STATUS.get(err.status) ?? `HTTP_${err.status}`;
+  return c.json(errorBody(code, err.message), err.status);
 }

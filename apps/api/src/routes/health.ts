@@ -1,8 +1,8 @@
-import { ROUTES } from '@cgis/shared';
+import { ERROR_CODES, ROUTES } from '@cgis/shared';
 import { Hono } from 'hono';
 import type { AppEnv, Env } from '../app';
 import { withClient } from '../db';
-import { notReadyError } from '../errors';
+import { apiError } from '../errors';
 import { log, requestFields } from '../log';
 
 export const health = new Hono<AppEnv>();
@@ -16,7 +16,7 @@ health.get(ROUTES.READYZ, async (c) => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     log('error', msg, requestFields(c));
-    return notReadyError(c);
+    return apiError(c, ERROR_CODES.NOT_READY);
   }
 });
 
