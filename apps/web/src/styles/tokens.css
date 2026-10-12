@@ -1,0 +1,258 @@
+/*
+ * Design tokens: "Grid 4" (decisions D15-D18, docs/design-system-brief.html).
+ *
+ * The one place a size, font, colour, radius, z-index or duration is written down. Components
+ * use the Tailwind utilities these generate (bg-bg-raised, text-fg-muted, p-4, h-10, z-dialog,
+ * duration-base, ...); a literal in a component is a review finding, and ESLint rejects
+ * arbitrary values such as w-[23px] in className.
+ *
+ * Rules:
+ * - Base unit 4 px. Every spacing step, line-height, radius, icon and control size is a whole
+ *   multiple of 4 px (sizes are in rem: 1rem = 16px). D15 allows documented exceptions; each one
+ *   carries a "grid-exception:" comment on its line, and src/styles/tokens.test.ts fails on any
+ *   other off-grid length in this file.
+ * - Components never reference a ramp step (neutral-*, primary-*); they use the semantic tokens,
+ *   which pick a step per theme. Interactive colours come as base / hover (+1 step) /
+ *   active (+2 steps); disabled is the base at 40 % (opacity-disabled).
+ * - Dark theme: the .dark class on <html> (Storybook's theme toolbar, or syncColorScheme() from
+ *   src/ui/theme.ts in the app). The dark values are in the @variant dark block at the end.
+ * - Presence hues and the map pane z-indexes mirror MAP in packages/shared/src/constants.ts;
+ *   tokens.test.ts fails when they drift.
+ */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* `static`: emit every variable even when no utility uses it (Leaflet classes, stories). */
+@theme static {
+  /* Reset Tailwind's defaults so only the tokens below generate utilities. */
+  --color-*: initial;
+  --spacing: initial;
+  --font-*: initial;
+  --text-*: initial;
+  --tracking-*: initial;
+  --leading-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --inset-shadow-*: initial;
+  --drop-shadow-*: initial;
+  --text-shadow-*: initial;
+  --blur-*: initial;
+  --ease-*: initial;
+  --animate-*: initial;
+  --perspective-*: initial;
+
+  /* Spacing: 0 · 1=4 · 2=8 · 3=12 · 4=16 · 5=20 · 6=24 · 8=32 · 10=40 · 12=48 · 16=64 · 20=80 · 24=96 px.
+     Control heights: h-8 / h-10 / h-12 (sm / md / lg). Icons: size-4 / size-5 / size-6. */
+  --spacing-0: 0rem;
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-10: 2.5rem;
+  --spacing-12: 3rem;
+  --spacing-16: 4rem;
+  --spacing-20: 5rem;
+  --spacing-24: 6rem;
+
+  /* Type: one family (Inter, self-hosted by @fontsource-variable/inter), mono for coordinates
+     and ids, weights 400/500/600. Six sizes; every line-height sits on the 4 px grid. */
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.875rem; /* grid-exception: 14 px font size; its 20 px line-height is on the grid */
+  --text-sm--line-height: 1.25rem;
+  --text-md: 1rem;
+  --text-md--line-height: 1.5rem;
+  --text-lg: 1.25rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl: 1.5rem;
+  --text-xl--line-height: 2rem;
+  --text-2xl: 2rem;
+  --text-2xl--line-height: 2.5rem;
+
+  /* Neutral ramp: warm grey, OKLCH, hue 97, lightness 98 -> 15 %. */
+  --color-neutral-50: oklch(97.9% 0.001 97);
+  --color-neutral-100: oklch(95.5% 0.003 97);
+  --color-neutral-200: oklch(91.5% 0.005 97);
+  --color-neutral-300: oklch(85.1% 0.007 97);
+  --color-neutral-400: oklch(72.7% 0.009 97);
+  --color-neutral-500: oklch(58.5% 0.009 97);
+  --color-neutral-600: oklch(47.8% 0.008 97);
+  --color-neutral-700: oklch(38.6% 0.007 97);
+  --color-neutral-800: oklch(28.9% 0.006 97);
+  --color-neutral-900: oklch(21.7% 0.004 97);
+  --color-neutral-950: oklch(15% 0 0);
+  --color-white: oklch(100% 0 0);
+
+  /* Primary ramp: blue (D17), OKLCH, hue 256, chroma tapering at both ends. */
+  --color-primary-50: oklch(96.5% 0.012 256);
+  --color-primary-100: oklch(92.1% 0.028 256);
+  --color-primary-200: oklch(84.2% 0.057 256);
+  --color-primary-300: oklch(74.4% 0.094 256);
+  --color-primary-400: oklch(64% 0.131 256);
+  --color-primary-500: oklch(57.5% 0.163 256);
+  --color-primary-600: oklch(49.1% 0.144 256);
+  --color-primary-700: oklch(41.6% 0.117 256);
+  --color-primary-800: oklch(35.6% 0.092 256);
+  --color-primary-900: oklch(30.5% 0.071 256);
+  --color-primary-950: oklch(22.5% 0.046 256);
+
+  /* Semantic tokens, light values (dark values: @variant dark below). */
+  --color-bg: var(--color-neutral-50); /* page */
+  --color-bg-raised: var(--color-white); /* panels, dialogs, popovers */
+  --color-bg-sunken: var(--color-neutral-100); /* inputs */
+  --color-bg-hover: var(--color-neutral-100); /* neutral interactive: hover */
+  --color-bg-active: var(--color-neutral-200); /* neutral interactive: active / pressed */
+  --color-fg: var(--color-neutral-950); /* body text */
+  --color-fg-muted: var(--color-neutral-600); /* secondary text, hints (>= 4.5:1 on every bg) */
+  --color-fg-subtle: var(--color-neutral-500); /* placeholders, icons, large text only (>= 3:1) */
+  --color-line: var(--color-neutral-200); /* dividers, panel borders */
+  --color-line-strong: var(--color-neutral-300); /* emphasised dividers */
+  --color-line-control: var(--color-neutral-500); /* form-control borders (>= 3:1, WCAG 1.4.11) */
+  --color-primary: var(--color-primary-600); /* primary actions, focus ring, selection */
+  --color-primary-hover: var(--color-primary-700);
+  --color-primary-active: var(--color-primary-800);
+  --color-primary-fg: var(--color-white); /* text on primary */
+  --color-accent: oklch(67.1% 0.175 40.6); /* #eb6834: the draft you are drawing */
+  --color-scrim: oklch(15% 0 0 / 40%); /* dialog backdrop */
+  --color-shadow: oklch(15% 0 0 / 12%);
+
+  /* Status: base hue (brief), -bg tint (step-100 lightness), -strong for text and icons on the
+     tint or the page (>= 4.5:1). Always paired with an icon and a label, never colour alone. */
+  --color-ok: oklch(52.9% 0.18 142.5); /* #008300 */
+  --color-ok-bg: oklch(95.5% 0.03 142.5);
+  --color-ok-strong: oklch(47% 0.13 142.5);
+  --color-warn: oklch(76.4% 0.161 75.1); /* #eda100 */
+  --color-warn-bg: oklch(95.5% 0.03 75.1);
+  --color-warn-strong: oklch(47% 0.13 75.1);
+  --color-danger: oklch(62.3% 0.191 24.9); /* #e34948 */
+  --color-danger-bg: oklch(95.5% 0.03 24.9);
+  --color-danger-strong: oklch(47% 0.13 24.9); /* also the danger action: base */
+  --color-danger-strong-hover: oklch(42% 0.14 24.9);
+  --color-danger-strong-active: oklch(37% 0.13 24.9);
+  --color-danger-strong-fg: var(--color-white);
+  --color-info: oklch(57.5% 0.163 255.5); /* #2a78d6 */
+  --color-info-bg: oklch(95.5% 0.03 255.5);
+  --color-info-strong: oklch(47% 0.13 255.5);
+
+  /* Presence: categorical hues by join order, CVD-checked (brief §3). Mirrors
+     MAP.PRESENCE_COLORS; the 9th user and later get presence-none. Same values in both themes. */
+  --color-presence-1: #2a78d6;
+  --color-presence-2: #eb6834;
+  --color-presence-3: #1baf7a;
+  --color-presence-4: #eda100;
+  --color-presence-5: #e87ba4;
+  --color-presence-6: #008300;
+  --color-presence-7: #6250d6;
+  --color-presence-8: #e34948;
+  --color-presence-none: var(--color-neutral-500);
+
+  /* Alpha steps: the only opacities in the system (utilities opacity-*, colour/* modifiers). */
+  --opacity-disabled: 40%; /* disabled = base at 40 % */
+  --opacity-tint: 16%; /* identity tints, e.g. an avatar's presence-hue fill */
+
+  /* Radius: 4 · 8 · 12 · full (rounded-full is built in). */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+
+  /* Elevation. */
+  --shadow-raised: 0 4px 12px var(--color-shadow);
+  --shadow-overlay: 0 8px 24px var(--color-shadow);
+
+  /* Stacking. Map panes mirror MAP.AREAS_PANE_Z / DRAFTS_PANE_Z (Leaflet: tiles 200, overlay
+     400, markers 600, its own controls 1000). Native <dialog> renders in the top layer;
+     dialog/toast/tooltip order the non-modal overlays above the map. */
+  --z-index-map-areas: 450;
+  --z-index-map-drafts: 460;
+  --z-index-controls: 1000;
+  --z-index-dialog: 1100;
+  --z-index-toast: 1200;
+  --z-index-tooltip: 1300;
+
+  /* Motion: 100 / 200 / 300 ms on one curve; all three drop to 0 under
+     prefers-reduced-motion (base layer below). Layer crossfade = slow. */
+  --transition-duration-fast: 100ms;
+  --transition-duration-base: 200ms;
+  --transition-duration-slow: 300ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --default-transition-duration: var(--transition-duration-base);
+  --default-transition-timing-function: var(--ease-standard);
+
+  /* Map styles (brief §4), read by the Leaflet path classes in map.css. The basemap is light
+     imagery in both UI themes, so these do not switch with .dark. Strokes are hairlines, not
+     layout, so their widths are exempt from the 4 px grid. */
+  --map-area-stroke: var(--color-primary-600);
+  --map-area-stroke-width: 2px; /* grid-exception: stroke */
+  --map-area-fill: var(--color-primary-500);
+  --map-area-fill-opacity: 0.2;
+  --map-area-selected-stroke: var(--color-primary-700);
+  --map-area-selected-stroke-width: 3px; /* grid-exception: stroke (brief §4: selected = 3 px) */
+  --map-area-selected-fill-opacity: 0.3;
+  --map-draft-stroke: var(--color-accent);
+  --map-draft-stroke-width: 2px; /* grid-exception: stroke */
+  --map-draft-dash: 8 4;
+  --map-draft-fill-opacity: 0.12;
+  --map-ghost-stroke-width: 2px; /* grid-exception: stroke */
+  --map-ghost-fill-opacity: 0.24;
+  --map-handle-size: 12px;
+  --map-handle-hit: 24px;
+  --map-handle-fill: var(--color-white);
+  --map-handle-stroke: var(--color-primary-600);
+  --map-handle-stroke-width: 2px; /* grid-exception: stroke */
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+
+    @variant dark {
+      color-scheme: dark;
+      --color-bg: var(--color-neutral-950);
+      --color-bg-raised: var(--color-neutral-900);
+      --color-bg-sunken: var(--color-neutral-950);
+      --color-bg-hover: var(--color-neutral-800);
+      --color-bg-active: var(--color-neutral-700);
+      --color-fg: var(--color-neutral-50);
+      --color-fg-muted: var(--color-neutral-400);
+      --color-fg-subtle: var(--color-neutral-500);
+      --color-line: var(--color-neutral-800);
+      --color-line-strong: var(--color-neutral-700);
+      --color-line-control: var(--color-neutral-500);
+      --color-primary: var(--color-primary-400);
+      --color-primary-hover: var(--color-primary-300);
+      --color-primary-active: var(--color-primary-200);
+      --color-primary-fg: var(--color-neutral-950);
+      --color-accent: oklch(62.2% 0.173 40.1); /* #d95926 */
+      --color-scrim: oklch(0% 0 0 / 60%);
+      --color-shadow: oklch(0% 0 0 / 48%);
+      --color-ok-bg: oklch(27% 0.06 142.5);
+      --color-ok-strong: oklch(82% 0.11 142.5);
+      --color-warn-bg: oklch(27% 0.06 75.1);
+      --color-warn-strong: oklch(82% 0.11 75.1);
+      --color-danger-bg: oklch(27% 0.06 24.9);
+      --color-danger-strong: oklch(82% 0.11 24.9);
+      --color-danger-strong-hover: oklch(87% 0.08 24.9);
+      --color-danger-strong-active: oklch(92% 0.05 24.9);
+      --color-danger-strong-fg: var(--color-neutral-950);
+      --color-info-bg: oklch(27% 0.06 255.5);
+      --color-info-strong: oklch(82% 0.11 255.5);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :root {
+      --transition-duration-fast: 0ms;
+      --transition-duration-base: 0ms;
+      --transition-duration-slow: 0ms;
+    }
+  }
+}
