@@ -1,0 +1,111 @@
+import type { PresenceState } from '@cgis/shared';
+import { cx } from 'class-variance-authority';
+import { forwardRef, type HTMLAttributes, type Ref } from 'react';
+import { Avatar } from './Avatar';
+import { IconPencil } from './icons';
+
+export interface PresenceUser {
+  id: string;
+  name: string;
+  /** Join-order slot (0-based) for the presence hue; null = neutral. */
+  colorSlot: number | null;
+  state?: PresenceState;
+  /** The signed-in user; labelled "(you)". */
+  self?: boolean;
+}
+
+export interface PresenceListProps extends Omit<HTMLAttributes<HTMLElement>, 'children'> {
+  users: PresenceUser[];
+  /** `list`: rows with names and state (side panel). `stack`: overlapping avatars (top bar). */
+  variant?: 'list' | 'stack';
+  /** Accessible name of the list. */
+  label?: string;
+  /** Stack only: avatars shown before a "+N" counter. */
+  max?: number;
+  /** List only: text when nobody is here. */
+  emptyText?: string;
+}
+
+/** Who is on the map, in join order, each with their presence hue. */
+export const PresenceList = forwardRef<HTMLElement, PresenceListProps>(function PresenceList(
+  {
+    users,
+    variant = 'list',
+    label = 'People on this map',
+    max = 4,
+    emptyText = 'Nobody else is here yet.',
+    className,
+    ...rest
+  },
+  ref,
+) {
+  if (variant === 'stack') {
+    const shown = users.slice(0, max);
+    const hidden = users.length - shown.length;
+    return (
+      <ul
+        ref={ref as Ref<HTMLUListElement>}
+        aria-label={label}
+        className={cx('flex items-center -space-x-2', className)}
+        {...rest}
+      >
+        {shown.map((user) => (
+          <li key={user.id} className="flex rounded-full ring-2 ring-bg-raised">
+            <Avatar
+              name={user.self ? `${user.name} (you)` : user.name}
+              colorSlot={user.colorSlot}
+            />
+          </li>
+        ))}
+        {hidden > 0 ? (
+          <li className="flex rounded-full ring-2 ring-bg-raised">
+            <span
+              role="img"
+              aria-label={`${hidden} more`}
+              className="inline-flex size-8 items-center justify-center rounded-full bg-bg-sunken text-xs font-semibold text-fg-muted"
+            >
+              <span aria-hidden="true">+{hidden}</span>
+            </span>
+          </li>
+        ) : null}
+      </ul>
+    );
+  }
+
+  if (users.length === 0) {
+    return (
+      <p
+        ref={ref as Ref<HTMLParagraphElement>}
+        className={cx('text-sm text-fg-muted', className)}
+        {...rest}
+      >
+        {emptyText}
+      </p>
+    );
+  }
+
+  return (
+    <ul
+      ref={ref as Ref<HTMLUListElement>}
+      aria-label={label}
+      className={cx('flex flex-col', className)}
+      {...rest}
+    >
+      {users.map((user) => (
+        <li key={user.id} className="flex h-10 items-center gap-3">
+          <Avatar name={user.name} colorSlot={user.colorSlot} decorative />
+          <span className="min-w-0 flex-1 truncate text-sm text-fg">
+            {user.name}
+            {user.self ? <span className="text-fg-muted"> (you)</span> : null}
+          </span>
+          {user.state === 'drawing' ? (
+            <span className="flex shrink-0 items-center gap-1 text-xs text-fg-muted">
+              <IconPencil className="size-4" />
+              Drawing
+            </span>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  );
+});
