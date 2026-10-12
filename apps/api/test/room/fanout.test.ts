@@ -16,15 +16,8 @@ import {
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Env } from '../../src/app';
 import { Room } from '../../src/do/room';
-import {
-  areasClient,
-  areasEnv,
-  freshUser,
-  randomSpot,
-  squareAt,
-  type TestUser,
-} from '../areas/fixtures';
-import { appWithUser } from '../helpers';
+import { areasClient, areasEnv, freshUser, randomSpot, squareAt } from '../areas/fixtures';
+import { appWithUser, type User } from '../helpers';
 
 // TOM-37: a committed area change reaches every socket in the Room, after the HTTP response.
 // Wire values (types, statuses, log fields) are spelled out: they are the contract T14 relies on.
@@ -60,7 +53,7 @@ type Socket = {
  * Opens a socket through the Worker's real `GET /ws` (session user, browser Origin), sends `join`
  * and waits for the join reply. Every frame is parsed with the shared envelope schema.
  */
-async function joined(user: TestUser): Promise<Socket> {
+async function joined(user: User): Promise<Socket> {
   const res = await appWithUser(user).request(
     ROUTES.WS,
     { headers: { Upgrade: 'websocket', Origin: env.CLIENT_ORIGIN } },
@@ -103,7 +96,7 @@ async function joined(user: TestUser): Promise<Socket> {
 const newSquare = () => ({ name: 'Fan-out field', geometry: squareAt(randomSpot()) });
 
 /** Creates an area through `POST /api/areas` as `user` and returns the 201 body. */
-async function createArea(user: TestUser) {
+async function createArea(user: User) {
   const res = await areasClient(env, user).create(newSquare());
   expect(res.status).toBe(201);
   return AreaSchema.parse(await res.json());
