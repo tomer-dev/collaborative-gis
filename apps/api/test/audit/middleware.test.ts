@@ -3,6 +3,7 @@ import { createExecutionContext, waitOnExecutionContext } from 'cloudflare:test'
 import { Hono } from 'hono';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { type AppEnv, createApp, type Env } from '../../src/app';
+import { withSignal } from '../../src/db';
 import { recordAudit } from '../../src/db/audit';
 import { freshUser, randomSpot, squareAt } from '../areas/fixtures';
 import { PASSWORD, withCookies } from '../auth/session';
@@ -256,6 +257,21 @@ describe('auditRejections', () => {
 });
 
 describe('recordAudit', () => {
+  it('a write in waitUntil lands although the request it records was aborted (client gone)', async () => {
+    const requestId = crypto.randomUUID();
+    const disconnected = new AbortController();
+    disconnected.abort(new Error('client disconnected'));
+    const logged = vi.spyOn(console, 'error');
+
+    // As the audit middleware runs it: inside the request's signal store, after the response.
+    await withSignal(disconnected.signal, () =>
+      recordAudit(env, { action: 'request.rejected', entity: 'request', requestId }),
+    );
+
+    expect(await auditRowsWhere(env, 'request_id = $1', [requestId])).toHaveLength(1);
+    expect(logged).not.toHaveBeenCalled();
+  });
+
   it('redacts LOG.REDACT_KEYS in details, any case, any depth', async () => {
     const requestId = crypto.randomUUID();
 

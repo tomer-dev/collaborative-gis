@@ -5,7 +5,7 @@ import { HTTPException } from 'hono/http-exception';
 import pg from 'pg';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { type AppEnv, createApp } from '../src/app';
-import { withClient } from '../src/db';
+import { withClient, withSignal } from '../src/db';
 import { apiError, httpExceptionError } from '../src/errors';
 import { requestTimeout } from '../src/middleware/request-timeout';
 
@@ -91,6 +91,16 @@ describe('request timeout + AbortSignal-aware withClient (2.6)', () => {
     await expect(withClient(env, fn, { signal: AbortSignal.abort(reason) })).rejects.toBe(reason);
     expect(connect).not.toHaveBeenCalled();
     expect(fn).not.toHaveBeenCalled();
+  });
+
+  it('{ signal: null } runs detached from an aborted request signal (background writers)', async () => {
+    const gone = AbortSignal.abort(new Error('request over'));
+    const rows = await withSignal(gone, () =>
+      withClient(env, async (client) => (await client.query('select 1 as one')).rows, {
+        signal: null,
+      }),
+    );
+    expect(rows).toEqual([{ one: 1 }]);
   });
 
   it('a call that finishes in time is unaffected: result returned, client ended once', async () => {
