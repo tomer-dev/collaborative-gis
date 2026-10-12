@@ -30,7 +30,7 @@ import {
   useUpdateArea,
 } from './areas-query';
 import { ringAreaKm2 } from './geo/geodesic';
-import type { Bbox } from './map';
+import type { Bbox } from '@cgis/shared';
 
 vi.mock('./auth-client', () => ({
   authClient: {

@@ -1,6 +1,7 @@
 import { RATE_LIMIT, type RateLimitAction } from '@cgis/shared';
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../app';
+import { log } from '../log';
 
 const { DRAW_ACTIONS_PER_WINDOW: LIMIT, WINDOW_MS } = RATE_LIMIT;
 const KNOWN_ACTIONS: ReadonlySet<unknown> = new Set(Object.values(RATE_LIMIT.ACTIONS));
@@ -11,7 +12,8 @@ export type TakeResult = { ok: true; remaining: number } | { ok: false; retryAft
 /**
  * Exact sliding-window limiter for one user (`idFromName(userId)`), D5: at most
  * DRAW_ACTIONS_PER_WINDOW accepted actions in any WINDOW_MS span, one budget shared by REST
- * mutations (the `rateLimit` middleware) and WS drawing actions (the Room DO calls `take`).
+ * mutations (the `rateLimit` middleware) and WS drawing actions (the Room DO's `draft:update`
+ * handler calls `take` once per frame that passes its per-socket bucket, do/handlers.ts).
  *
  * The window lives only in SQLite, so hibernation or eviction cannot reset it. Exact is cheap
  * here: `actions` holds just the accepted actions still inside the window (never more than the
@@ -26,7 +28,7 @@ export class RateLimiter extends DurableObject<Env> {
     if (!KNOWN_ACTIONS.has(action)) {
       // Caller-controlled value: log its length, never the value itself.
       const length = typeof action === 'string' ? action.length : null;
-      console.warn(JSON.stringify({ level: 'warn', msg: 'unknown rate limit action', length }));
+      log('warn', 'unknown rate limit action', { length });
       throw new Error('unknown rate limit action');
     }
 

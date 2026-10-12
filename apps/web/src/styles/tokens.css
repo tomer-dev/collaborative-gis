@@ -16,7 +16,7 @@
  *   active (+2 steps); disabled is the base at 40 % (opacity-disabled).
  * - Dark theme: the .dark class on <html> (Storybook's theme toolbar, or syncColorScheme() from
  *   src/ui/theme.ts in the app). The dark values are in the @variant dark block at the end.
- * - The map pane z-indexes mirror MAP in packages/shared/src/constants.ts;
+ * - The map pane z-indexes mirror MAP in packages/shared/src/constants/map.ts;
  *   tokens.test.ts fails when they drift.
  */
 
