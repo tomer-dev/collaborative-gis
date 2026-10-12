@@ -1,6 +1,6 @@
 # Collaborative GIS — design spec
 
-Date: 2026-10-12. Status: **approved 2026-10-12 after a section-by-section human review** (§2–§9 each acknowledged in `docs/decisions-brief.html`); decisions D1–D14 resolved (see §10). Source brief: Snapland home assignment. Roadmap: `docs/roadmap.md` (Linear P-TOM-1). Research: `docs/research-notes.md`.
+Date: 2026-10-12. Status: **approved 2026-10-12 after a section-by-section human review** (§2–§9 each acknowledged in `docs/decisions-brief.html`); decisions D1–D14 resolved (see §10). Source: the written product brief. Roadmap: `docs/roadmap.md` (Linear P-TOM-1). Research: `docs/research-notes.md`.
 
 ## 1. Goal and success criteria
 
