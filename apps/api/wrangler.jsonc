@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "collaborative-gis-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "ffdceaec4c3b4c70a324ebf9da6cb7a9",
+      "localConnectionString": "postgresql://cgis:cgis@localhost:5433/cgis",
+    },
+  ],
+}

@@ -1,0 +1,17 @@
+import js from '@eslint/js';
+import tseslint from 'typescript-eslint';
+
+export default tseslint.config(
+  {
+    ignores: [
+      '**/dist/**',
+      '**/.wrangler/**',
+      '**/node_modules/**',
+      '**/worker-configuration.d.ts',
+      '**/routeTree.gen.ts',
+      '**/coverage/**',
+    ],
+  },
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+);
