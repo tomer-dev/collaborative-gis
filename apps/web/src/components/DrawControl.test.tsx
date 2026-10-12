@@ -258,12 +258,17 @@ it('starts over on a new map: the old handler is disabled and unsubscribed', () 
 
   startDrawing();
   expect(handler()).not.toBe(first);
-  expect(other.map.getContainer().classList.contains('leaflet-crosshair')).toBe(true);
+  expect(handler().enabled()).toBe(true);
   // `fire` targets the old map, which nothing listens to any more.
   fire('draw:change', { vertices: square });
   fire('draw:done', { ring: closedSquare });
   expect(readout(DRAW.VERTICES_LABEL)).toBe('0 / 999');
   expect(onDone).not.toHaveBeenCalled();
+  // The new map's events do reach the control.
+  act(() => {
+    other.map.fire('draw:change', { vertices: triangle });
+  });
+  expect(readout(DRAW.VERTICES_LABEL)).toBe('3 / 999');
 
   other.map.remove();
   other.element.remove();
