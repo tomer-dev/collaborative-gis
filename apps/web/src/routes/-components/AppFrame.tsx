@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { signOut } from '../../lib/auth';
 import type { SessionUser } from '../../lib/session';
-import { Avatar, Button } from '../../ui';
+import { Button } from '../../ui';
 
 type AppFrameProps = {
   /** Right side of the top bar; the `_authed` layout puts `SessionMenu` here. */
@@ -39,11 +39,7 @@ export function SessionMenu({ user }: { user: SessionUser }) {
           {COPY.AUTH.SIGN_OUT_ERROR}
         </span>
       ) : null}
-      <span className="flex items-center gap-2">
-        {/* Neutral ring: the presence colour is the Room's to assign and arrives only on the map. */}
-        <Avatar name={user.name} color="var(--color-fg-subtle)" size="sm" decorative />
-        <span>{user.name}</span>
-      </span>
+      <span>{user.name}</span>
       <Button
         variant="secondary"
         size="sm"

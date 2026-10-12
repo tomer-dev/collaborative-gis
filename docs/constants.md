@@ -165,10 +165,10 @@ The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmar
 | `SELF_INTERSECTION_REASON` | `'Polygon edges must not cross or touch each other'` | `draw-handler.ts` `draw:invalid` | Client mirror of the server's `ST_IsValid` rejection |
 | `MAX_VERTICES_REASON` | `'Vertex limit reached'` | `draw-handler.ts` `draw:invalid` when a click would pass `LIMITS.POLYGON_MAX_VERTICES` | The cap counts the closing vertex, so the UI should not promise a number here |
 | `TOOLBAR_LABEL` | `'Drawing tools'` | `apps/web/src/components/DrawControl.tsx` (idle `MapControl` toolbar name) | Names the toolbar landmark around the start button |
-| `START_LABEL` | `'Draw polygon'` | `DrawControl.tsx` (icon button's tooltip and accessible name) | The one action while idle |
+| `START_LABEL` | `'Draw polygon'` | `DrawControl.tsx` (icon button's `aria-label` and `title`) | The one action while idle |
 | `PANEL_TITLE` | `'New area'` | `DrawControl.tsx` (floating `Panel` heading and region name while drawing) | The sketch becomes an area when saved |
 | `AREA_LABEL` / `VERTICES_LABEL` | `'Area'` / `'Vertices'` | `DrawControl.tsx` (`Stat` labels of the live readout) | Visible labels; also the readouts' accessible names |
-| `FINISH_LABEL` / `UNDO_LABEL` / `CANCEL_LABEL` | `'Finish'` / `'Undo'` / `'Cancel'` | `DrawControl.tsx` (panel footer buttons → `finish()` / `undo()` / `cancel()`) | Pointer equivalents of Enter / Backspace / Escape |
+| `FINISH_LABEL` / `UNDO_LABEL` / `CANCEL_LABEL` | `'Finish'` / `'Undo'` / `'Cancel'` | `DrawControl.tsx` (panel footer buttons → `finish()` / `undo()` / `cancel()`) | The handler has no keyboard shortcuts, so these buttons are the keyboard path as well as the pointer one |
 | `M2_UNIT` / `KM2_UNIT` | `'m²'` / `'km²'` | `DrawControl.tsx` (area `Stat` unit) | `Intl.NumberFormat` has no area units (ECMA-402 sanctions length units only) |
 
 ## COPY
