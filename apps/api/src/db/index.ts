@@ -46,7 +46,8 @@ export function db(client: pg.Client) {
   return drizzle(client, { schema });
 }
 
-async function withDeadline<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
+/** `promise`, or a rejection `<what> exceeded <ms> ms` once `ms` pass first. */
+export async function withDeadline<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error(`${what} exceeded ${ms} ms`)), ms);
