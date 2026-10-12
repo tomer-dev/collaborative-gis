@@ -22,12 +22,17 @@ export const LOG = {
   REDACTED: '[redacted]',
 } as const;
 
-/** The `GET /openapi.json` document's `info` (hono-openapi `openAPIRouteHandler`). */
+/** The `GET /openapi.json` document's `info` (hono-openapi `openAPIRouteHandler`) and the `/docs` UI. */
 export const OPENAPI = {
-  /** Names the `/openapi.json` document. */
+  /** Names the `/openapi.json` document and the `/docs` page. */
   TITLE: 'Collaborative GIS API',
   /** Document version; bump with breaking contract changes. */
   VERSION: '0.1.0',
+  /**
+   * The `/docs` page's Scalar script, pinned (jsDelivr versioned paths are immutable) instead of the
+   * CDN's moving latest, since it runs on the API origin. Bump with `@scalar/hono-api-reference`.
+   */
+  UI_BUNDLE: 'https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.73.1/esm.js',
 } as const;
 
 /** `GET /readyz` body values; the 503 `NOT_READY` carries the same `{ db, room }` in `details`. */
