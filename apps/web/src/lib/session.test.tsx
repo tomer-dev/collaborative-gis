@@ -1,8 +1,9 @@
+import { QUERY } from '@cgis/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { useSession } from './session';
+import { sessionQuery, useSession } from './session';
 
 // A full Better Auth get-session payload: the hook keeps only the user's id and name.
 const betterAuthSession = {
@@ -85,4 +86,8 @@ it('treats a failed session check as signed out', async () => {
 
   await waitFor(() => expect(result.current.isPending).toBe(false));
   expect(result.current).toEqual({ data: null, isPending: false });
+});
+
+it('does not retry a failed session check (QUERY.SESSION_RETRY), so guards redirect at once', () => {
+  expect(sessionQuery.retry).toBe(QUERY.SESSION_RETRY);
 });
