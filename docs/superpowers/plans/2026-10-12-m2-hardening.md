@@ -15,7 +15,7 @@
 - Rate limit: `RATE_LIMIT.DRAW_ACTIONS_PER_WINDOW = 50` per `RATE_LIMIT.WINDOW_MS = 60_000`, one `RateLimiter` DO per user shared by REST mutations and WS draft actions; 429 + `Retry-After` on REST, `error RATE_LIMITED` with `retryAfter` on WS.
 - Cache: Workers Cache API keyed by `(quantized tile, zoom, mapVersion)`; `mapVersion` bumped by the Room DO on every write and read via DO RPC `getVersion()`; `s-maxage` = `CACHE.BOUNDS_TTL_S`; ETag; Hyperdrive config caching disabled (ADR-0004; 7.2 applies it).
 - Retention: soft-deleted areas purged after `RETENTION.DAYS = 7` (D8) by a Cron Trigger `scheduled` handler; versions pruned with the parent; idempotent.
-- Audit: one row per mutation and per WS draw session; payload hash, ip (`cf-connecting-ip`), user agent.
+- Audit (D20): one row per user action (mutations, auth events, WS draw sessions, rejections); ip (`cf-connecting-ip`), user agent; area events reference `(entity_id, version)`, no payload hash.
 
 ## Review Focus
 1. Toggle to govmap after panning/zooming: centre stays within 1 px and a drawn polygon stays on the same ground features (headless Chromium test with the research fixtures; pitfalls: inherited `wrapLng`, zoom index mapping).
@@ -46,7 +46,7 @@ Ownership follows M1's table; new exclusive files: db `apps/api/src/db/{seed.ts,
 `GET /api/areas/:id/versions` → `{ versions: AreaVersion[] }` newest first; `POST /api/areas/:id/revert/:version` → creates a NEW version from the old row (geometry, name), bumps `version`, audit `area.revert`, fan-out `area:updated`, 404 for unknown, 409 if the area is deleted. Tests: three edits → three versions; revert to 1 → version 4 with v1 geometry.
 
 ### H4 (api): audit middleware — TOM-60 (3.7)
-`audit(action)` middleware writing one `audit_log` row after a successful mutation (user, action, entity, entity id from the response, ip from `cf-connecting-ip`, user agent, sha-256 of the request body); mounted by H15 on create/update/delete/revert; the Room DO writes one `draw.session` row per completed draft via a small RPC to the Worker (or direct `withClient` in the DO — brief chooses after checking DO→Hyperdrive access; research says DOs can use bindings). Tests: a create writes a row with matching hash; a 422 writes none.
+`audit(action)` middleware writing one `audit_log` row after a successful mutation (user, action, entity, entity id and version from the response, ip from `cf-connecting-ip`, user agent; D20: no payload hash) plus rows for sign-in/sign-out/failed sign-in, 422/429 rejections; mounted by H15 on create/update/delete/revert; the Room DO writes one `draw.session` row per completed draft via a small RPC to the Worker (or direct `withClient` in the DO — brief chooses after checking DO→Hyperdrive access; research says DOs can use bindings). Tests: a create writes a row whose `(entity_id, version)` matches the new version row; a 422 writes a rejection row with no entity id.
 
 ### H5 (api): REST rate limit + AbortSignal timeouts — TOM-29 (REST half), TOM-30 (2.6)
 Mount `rateLimit('draw')` on POST/PUT/DELETE/revert (H15 wires; H5 ships the composition helper + tests); pass `c.req.raw.signal` / the timeout's `AbortSignal` into `withClient` so a timed-out request ends its DB client; test: a stalled query (pg `pg_sleep`) → 504 and the client is ended.
