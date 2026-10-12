@@ -20,10 +20,8 @@ export const ROUTES = {
   APP: { HOME: '/', LOGIN: '/login', REGISTER: '/register', MAP: '/map' },
 } as const;
 
-/** Local dev origins: `wrangler dev` (API) and `vite` (SPA); wrangler.jsonc CLIENT_ORIGIN mirrors WEB_ORIGIN. */
+/** Local dev origins. */
 export const DEV = {
-  /** `wrangler dev` default port. */
+  /** `wrangler dev` default port: the Vite proxy target and the tests' `BETTER_AUTH_URL`. */
   API_ORIGIN: 'http://localhost:8787',
-  /** `vite` default port; CORS and Better Auth trusted origin. */
-  WEB_ORIGIN: 'http://localhost:5173',
 } as const;

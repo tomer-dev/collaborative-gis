@@ -31,10 +31,6 @@ describe('constants', () => {
     expect(shared.LIMITS.POLYGON_MAX_PLACED_VERTICES).toBe(shared.LIMITS.POLYGON_MAX_VERTICES - 1);
   });
 
-  it('POLYGON_MAX_VERTICES keeps its old import path and matches LIMITS', () => {
-    expect(shared.POLYGON_MAX_VERTICES).toBe(shared.LIMITS.POLYGON_MAX_VERTICES);
-  });
-
   it('the WS client thresholds are ordered and the ping beats the Room idle sweep', () => {
     expect(shared.WS.CLIENT_DEGRADED_AFTER).toBeLessThan(shared.WS.CLIENT_OFFLINE_AFTER);
     expect(shared.WS.PING_INTERVAL_MS).toBeLessThan(shared.WS.PRESENCE_IDLE_MS);

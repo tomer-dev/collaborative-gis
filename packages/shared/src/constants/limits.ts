@@ -15,10 +15,6 @@ export const LIMITS = {
   USER_ID_MAX: 128,
   /** Caps one viewport response. */
   BOUNDS_LIMIT: 500,
-  /** Fewer vertices when zoomed out. */
-  SIMPLIFY_ZOOM_BELOW: 12,
-  /** ~50 m at the equator: invisible at zoom < 12. */
-  SIMPLIFY_TOLERANCE: 0.0005,
   /** Better Auth's default `minPasswordLength`; the register form's `minlength`. */
   PASSWORD_MIN: 8,
 } as const;
