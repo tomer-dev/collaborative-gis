@@ -21,6 +21,12 @@ export const WS = {
   OFFLINE_POLL_MS: 10_000,
 } as const;
 
+/** Per-user budget shared by REST mutations and WS drawing actions (D5): an exact sliding window. */
+export const RATE_LIMIT = {
+  DRAW_ACTIONS_PER_WINDOW: 50,
+  WINDOW_MS: 60_000,
+} as const;
+
 /** Time budgets for the database and for a whole request. */
 export const TIMEOUTS = {
   DB_CONNECT_MS: 3000,
