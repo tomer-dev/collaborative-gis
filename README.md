@@ -70,9 +70,9 @@ The one-time owner checklist (Hyperdrive caching, production origin, `BETTER_AUT
 
 ## Technical decisions and architecture
 
-The decision log is §10 of the design spec, [`docs/superpowers/specs/2026-10-12-collaborative-gis-design.md`](docs/superpowers/specs/2026-10-12-collaborative-gis-design.md) (D1–D25), with ADRs 0001–0004 in `docs/adr/`. The ones that shape the code most:
+The decision log is §10 of the design spec, [`docs/superpowers/specs/2026-10-12-collaborative-gis-design.md`](docs/superpowers/specs/2026-10-12-collaborative-gis-design.md) (D1–D25), with ADRs 0001–0005 in `docs/adr/` (0003 superseded by 0005). The ones that shape the code most:
 
-- Cloudflare Workers + Durable Objects (ADR-0001), Hono (ADR-0002), Leaflet 1.9.4 with Proj4Leaflet for the EPSG:2039 layer (ADR-0003, D22).
+- Cloudflare Workers + Durable Objects (ADR-0001), Hono (ADR-0002), Leaflet 1.9.4 with Proj4Leaflet for the EPSG:2039 aerial layer, swapped in with the map's CRS (ADR-0005, D3, D22).
 - One `Room` Durable Object per map (D7, D11): presence, live drafts and area fan-out over the WebSocket Hibernation API. The realtime protocol is our own code.
 - Optimistic concurrency: `PUT /api/areas/:id` carries the version the edit started from; a stale one is 409 with the stored area, and the client asks the user (D4).
 - An `audit_log` row is written in the same transaction as each area mutation (D20); every query goes through the Drizzle builder, with `sql` only for PostGIS fragments and the atomic write CTEs (D23).
