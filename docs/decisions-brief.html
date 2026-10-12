@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Collaborative GIS Decisions</title>
+<style>
+/* Layout: one reading column, decision cards with a left severity stripe; charts inline as figures. */
+:root{
+  --bg:#f7f6f2; --fg:#15171a; --muted:#5b5f66; --line:#d9d6cd; --card:#ffffff;
+  --accent:#1f5f8b; --accent-ink:#ffffff; --chip:#e8eef4;
+  --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --critical:#d03b3b;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --body:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+  --bg:#17191c; --fg:#ecebe6; --muted:#a6a9ad; --line:#33373d; --card:#1f2227;
+  --accent:#6fb1e3; --accent-ink:#0b1420; --chip:#26303a;
+  --good:#3ccf3c; --warn:#f0b53a; --serious:#f0906c; --critical:#ee6b6b; color-scheme:dark; } }
+:root[data-theme="dark"]{
+  --bg:#17191c; --fg:#ecebe6; --muted:#a6a9ad; --line:#33373d; --card:#1f2227;
+  --accent:#6fb1e3; --accent-ink:#0b1420; --chip:#26303a;
+  --good:#3ccf3c; --warn:#f0b53a; --serious:#f0906c; --critical:#ee6b6b; color-scheme:dark; }
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px;line-height:1.55;padding-block:32px 64px;padding-inline:16px}
+.wrap{max-width:860px;margin:0 auto}
+h1,h2,h3{font-family:var(--ui);text-wrap:balance;line-height:1.2;margin:0}
+h1{font-size:2rem;font-weight:650}
+h2{font-size:1.35rem;font-weight:600;margin-top:2.5rem;padding-top:1rem;border-top:1px solid var(--line)}
+h3{font-size:1.1rem;font-weight:600}
+p{margin:.6rem 0}
+.eyebrow{font-family:var(--ui);font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.lede{font-size:1.05rem;color:var(--muted);max-width:62ch}
+.locked{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:12px}
+.locked div{font-family:var(--ui);font-size:.9rem;background:var(--chip);border-radius:6px;padding:10px 12px}
+.locked b{display:block;font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+
+.card{background:var(--card);border:1px solid var(--line);border-left-width:6px;border-radius:8px;padding:18px 20px;margin-top:18px}
+.card.high{border-left-color:var(--critical)}
+.card.medium{border-left-color:var(--warn)}
+.card header{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline}
+.sev{font-family:var(--ui);font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:999px;background:var(--chip);color:var(--fg)}
+.sev::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.high .sev::before{background:var(--critical)} .medium .sev::before{background:var(--warn)}
+.affects{font-family:var(--mono);font-size:.78rem;color:var(--muted)}
+.kid{font-family:var(--ui);font-size:.95rem;background:var(--chip);border-radius:6px;padding:10px 12px;margin:10px 0}
+.kid b{color:var(--accent)}
+.opts{display:grid;gap:8px;margin:10px 0 4px}
+.opt{display:grid;grid-template-columns:22px 1fr;gap:10px;align-items:start;font-family:var(--ui);font-size:.95rem;padding:10px 12px;border:1px solid var(--line);border-radius:6px;cursor:pointer}
+.opt input{margin-top:3px;accent-color:var(--accent)}
+.opt:has(input:checked){border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.opt:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.rec{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-left:6px}
+.note{font-family:var(--ui);font-size:.85rem;color:var(--muted);margin-top:6px}
+textarea{width:100%;min-height:52px;font-family:var(--ui);font-size:.9rem;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);margin-top:8px}
+
+figure{margin:16px 0 0;border:1px solid var(--line);border-radius:8px;padding:14px;background:var(--card);overflow-x:auto}
+figcaption{font-family:var(--ui);font-size:.85rem;color:var(--muted);margin-top:8px}
+.chain{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-family:var(--ui);font-size:.82rem}
+.chain span{background:var(--chip);border-radius:4px;padding:6px 9px;white-space:nowrap}
+.chain span.hot{background:var(--accent);color:var(--accent-ink)}
+.chain i{color:var(--muted);font-style:normal}
+svg text{font-family:var(--ui)}
+
+.bar{position:sticky;bottom:0;background:var(--card);border-top:1px solid var(--line);margin:32px -16px 0;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-family:var(--ui);font-size:.9rem}
+button{font-family:var(--ui);font-size:.9rem;padding:8px 14px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);cursor:pointer}
+button.ghost{background:transparent;color:var(--fg);border-color:var(--line)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#count{color:var(--muted)}
+pre#out{display:none;white-space:pre-wrap;font-family:var(--mono);font-size:.8rem;background:var(--chip);padding:12px;border-radius:6px;margin-top:12px}
+@media (prefers-reduced-motion:no-preference){.opt{transition:border-color .15s}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Snapland home assignment · 12 Oct 2026</div>
+  <h1>Decisions waiting on you</h1>
+  <p class="lede">Ten calls of medium or high weight that change what gets built. Each one has the context, the choices, my recommendation, and the ticket numbers it touches. Pick one per card; the page remembers your picks and gives you a summary to paste back to me.</p>
+
+  <h2>Already locked (your earlier calls)</h2>
+  <div class="locked">
+    <div><b>Platform</b>Cloudflare Workers + Durable Objects (not Vercel: WebSocket duration cap)</div>
+    <div><b>Backend</b>Hono (Workers are fetch runtimes; runs on Node too)</div>
+    <div><b>Auth</b>Better Auth, email + password</div>
+    <div><b>Database</b>PostGIS on Neon via Hyperdrive, Drizzle</div>
+    <div><b>Frontend</b>React + Vite + TanStack Router/Query + Leaflet</div>
+    <div><b>Scope</b>Core + all "additional backend challenges"; advanced items as design docs</div>
+  </div>
+
+  <h2>Plan overview (where we are)</h2>
+  <p>We are in the overview phase: research done, roadmap in Linear, design spec drafted, no code yet. This section is the plan as a human would present it.</p>
+
+  <h3 style="margin-top:1rem">What we are building</h3>
+  <p>A web map where several signed-in people draw areas at the same time and see each other draw live. The map switches between OpenStreetMap and Israel's govmap aerial photos without the drawings moving. Every area gets an accurate size in km², a history of edits, and a conflict check when two people edit at once.</p>
+  <div class="kid"><b>Like you're 5:</b> a shared colouring book on the internet. Everyone colours the same page at the same time, you can swap the paper for a photo from the sky, and the book tells you how big each shape is.</div>
+
+  <h3 style="margin-top:1.25rem">How it is built</h3>
+  <figure>
+    <svg viewBox="0 0 640 250" width="100%" style="max-width:640px;display:block" role="img" aria-label="Architecture: browser talks to a Cloudflare Worker over HTTPS and WebSocket; the Worker uses a Room Durable Object per map and reaches PostGIS on Neon through Hyperdrive">
+      <g font-size="12" fill="var(--fg)">
+        <rect x="10" y="90" width="150" height="70" rx="6" fill="var(--chip)" stroke="var(--line)"/>
+        <text x="85" y="118" text-anchor="middle" font-weight="600">Browser</text>
+        <text x="85" y="136" text-anchor="middle" font-size="11" fill="var(--muted)">React · Leaflet · TanStack</text>
+        <rect x="230" y="40" width="170" height="70" rx="6" fill="var(--chip)" stroke="var(--line)"/>
+        <text x="315" y="68" text-anchor="middle" font-weight="600">Worker (Hono)</text>
+        <text x="315" y="86" text-anchor="middle" font-size="11" fill="var(--muted)">REST · auth · cache · limits</text>
+        <rect x="230" y="150" width="170" height="70" rx="6" fill="var(--accent)" stroke="var(--accent)"/>
+        <text x="315" y="178" text-anchor="middle" font-weight="600" fill="var(--accent-ink)">Room Durable Object</text>
+        <text x="315" y="196" text-anchor="middle" font-size="11" fill="var(--accent-ink)">one per map · live drawing · presence</text>
+        <rect x="470" y="90" width="160" height="70" rx="6" fill="var(--chip)" stroke="var(--line)"/>
+        <text x="550" y="118" text-anchor="middle" font-weight="600">PostGIS on Neon</text>
+        <text x="550" y="136" text-anchor="middle" font-size="11" fill="var(--muted)">areas · versions · audit</text>
+      </g>
+      <g stroke="var(--muted)" stroke-width="1.5" fill="none">
+        <path d="M160 110 L230 80"/><path d="M160 140 L230 180"/><path d="M400 75 L470 110"/><path d="M400 185 L430 185 L430 125 L470 125" stroke-dasharray="4 3"/>
+      </g>
+      <g font-size="10.5" fill="var(--muted)">
+        <text x="172" y="88">HTTPS /api</text><text x="166" y="172">WebSocket /ws</text><text x="418" y="88">Hyperdrive</text><text x="402" y="150">audit only</text>
+      </g>
+    </svg>
+    <figcaption>One deployable unit on Cloudflare. The Worker answers normal requests; each map has its own Durable Object that holds the live connections, so there is no separate message broker to run. Data lives in PostGIS.</figcaption>
+  </figure>
+
+  <h3 style="margin-top:1.25rem">The work, in lanes</h3>
+  <p>61 tickets in eight groups, each group one concern. After the first two tickets (scaffold + shared contracts) four lanes run at once; the frontend works against a mock until the API lands.</p>
+  <figure>
+    <svg viewBox="0 0 640 230" width="100%" style="max-width:640px;display:block" role="img" aria-label="Lanes over time: foundation first, then database, security, realtime and frontend in parallel, then API, then quality, then deploy">
+      <g font-size="11.5" fill="var(--fg)">
+        <!-- columns: M0 0-80, M1 80-280, M2 280-440, M3 440-540, M4 540-640 -->
+        <g fill="var(--muted)" font-size="10.5">
+          <text x="40" y="14" text-anchor="middle">M0</text><text x="180" y="14" text-anchor="middle">M1 vertical slice</text><text x="360" y="14" text-anchor="middle">M2 hardening</text><text x="490" y="14" text-anchor="middle">M3 delivery</text><text x="590" y="14" text-anchor="middle">M4 deploy</text>
+        </g>
+        <g stroke="var(--line)" stroke-dasharray="2 4"><line x1="80" y1="20" x2="80" y2="225"/><line x1="280" y1="20" x2="280" y2="225"/><line x1="440" y1="20" x2="440" y2="225"/><line x1="540" y1="20" x2="540" y2="225"/></g>
+        <rect x="2" y="26" width="76" height="18" rx="3" fill="var(--accent)"/><text x="40" y="39" text-anchor="middle" fill="var(--accent-ink)">E0 contracts · 5</text>
+        <rect x="82" y="50" width="300" height="18" rx="3" fill="var(--chip)" stroke="var(--line)"/><text x="90" y="63">E1 database &amp; spatial · 7</text>
+        <rect x="82" y="74" width="330" height="18" rx="3" fill="var(--chip)" stroke="var(--line)"/><text x="90" y="87">E2 auth &amp; security · 8</text>
+        <rect x="100" y="98" width="330" height="18" rx="3" fill="var(--chip)" stroke="var(--line)"/><text x="108" y="111">E4 realtime (Durable Objects) · 9</text>
+        <rect x="82" y="122" width="420" height="18" rx="3" fill="var(--chip)" stroke="var(--line)"/><text x="90" y="135">E5 frontend map · 12</text>
+        <rect x="160" y="146" width="320" height="18" rx="3" fill="var(--chip)" stroke="var(--line)"/><text x="168" y="159">E3 areas API · 8</text>
+        <rect x="430" y="170" width="110" height="18" rx="3" fill="var(--chip)" stroke="var(--line)"/><text x="438" y="183">E6 quality · 7</text>
+        <rect x="542" y="194" width="96" height="18" rx="3" fill="var(--chip)" stroke="var(--line)"/><text x="550" y="207">E7 deploy · 5</text>
+      </g>
+    </svg>
+    <figcaption>Lane placement by milestone; the number after each lane is its ticket count. Widths show when a lane is active, not effort.</figcaption>
+  </figure>
+
+  <h3 style="margin-top:1.25rem">Milestones, in one line each</h3>
+  <div class="locked">
+    <div><b>M0 Foundation</b>Repo, shared contracts, local + Neon PostGIS, CI.</div>
+    <div><b>M1 Vertical slice</b>Log in, draw, save with size, see it in view, see others live.</div>
+    <div><b>M2 Hardening</b>Limits, cache, conflicts, audit, soft delete, health, offline fallback, aerial layer.</div>
+    <div><b>M3 Delivery</b>Tests, docker parity, README + decision records, benchmarks, load test.</div>
+    <div><b>M4 Deploy</b>Cloudflare production, secrets, previews per pull request, hardening.</div>
+  </div>
+
+  <h3 style="margin-top:1.25rem">What is done, what is next</h3>
+  <p>Done: brief read, technologies researched from primary docs, decisions on platform and framework, Linear project P-TOM-1 with 61 tickets, design spec drafted, seven agent skills installed for execution. Next: your answers below, then a written implementation plan for M0 and M1, then the first two tickets.</p>
+
+  <h2>Why some of these are urgent</h2>
+  <p>The schedule is driven by one long chain, and the biggest unknown sits on a short side chain. Both are shown below.</p>
+  <figure>
+    <div class="chain">
+      <span>0.1 scaffold</span><i>→</i><span>0.3 databases</span><i>→</i><span>1.1 schema</span><i>→</i><span class="hot">2.1 Better Auth</span><i>→</i><span class="hot">2.2 session guard</span><i>→</i><span class="hot">4.1 Room DO</span><i>→</i><span>4.2 protocol</span><i>→</i><span>4.5 fan-out</span><i>→</i><span>4.7 degradation</span><i>→</i><span>5.10 WS client</span><i>→</i><span>6.x tests</span><i>→</i><span>6.4 parity</span><i>→</i><span>7.1 deploy</span><i>→</i><span>7.2 secrets</span><i>→</i><span>7.4 DO prod</span><i>→</i><span>7.5 hardening</span>
+    </div>
+    <figcaption>Longest dependency chain, 16 tickets deep. Highlighted: the auth → Durable Object handoff, where a slip delays every realtime ticket. The map work runs in parallel and never sits on this chain.</figcaption>
+  </figure>
+
+  <figure>
+    <svg viewBox="0 0 560 300" width="100%" style="max-width:560px;display:block" role="img" aria-label="Risk matrix: uncertainty on the horizontal axis, impact on the vertical axis, four risks plotted">
+      <defs><marker id="arr" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="var(--muted)"/></marker></defs>
+      <line x1="70" y1="250" x2="530" y2="250" stroke="var(--line)" stroke-width="1" marker-end="url(#arr)"/>
+      <line x1="70" y1="250" x2="70" y2="30" stroke="var(--line)" stroke-width="1" marker-end="url(#arr)"/>
+      <line x1="300" y1="30" x2="300" y2="250" stroke="var(--line)" stroke-dasharray="3 4"/>
+      <line x1="70" y1="140" x2="530" y2="140" stroke="var(--line)" stroke-dasharray="3 4"/>
+      <text x="300" y="275" text-anchor="middle" font-size="12" fill="var(--muted)">Uncertainty (how little we know today) →</text>
+      <text x="22" y="140" text-anchor="middle" font-size="12" fill="var(--muted)" transform="rotate(-90 22 140)">Impact if it goes wrong →</text>
+      <text x="76" y="44" font-size="11" fill="var(--muted)">known · high impact</text>
+      <text x="306" y="44" font-size="11" fill="var(--muted)">unknown · high impact</text>
+      <!-- points: x = uncertainty 70..530, y = impact 250..30 -->
+      <circle cx="470" cy="70" r="9" fill="var(--critical)" stroke="var(--card)" stroke-width="2"/>
+      <text x="486" y="66" font-size="12" fill="var(--fg)">⚠ 5.4 govmap tiles + licence</text>
+      <text x="486" y="82" font-size="11" fill="var(--muted)">critical · decision D3</text>
+      <circle cx="250" cy="95" r="9" fill="var(--serious)" stroke="var(--card)" stroke-width="2"/>
+      <text x="266" y="91" font-size="12" fill="var(--fg)">▲ 2.1 Better Auth on Workers + Hyperdrive</text>
+      <text x="266" y="107" font-size="11" fill="var(--muted)">serious · on the long chain</text>
+      <circle cx="190" cy="160" r="9" fill="var(--serious)" stroke="var(--card)" stroke-width="2"/>
+      <text x="206" y="156" font-size="12" fill="var(--fg)">▲ 4.1 DO hibernation resets memory</text>
+      <text x="206" y="172" font-size="11" fill="var(--muted)">serious · covered by durable-objects skill</text>
+      <circle cx="110" cy="215" r="9" fill="var(--warn)" stroke="var(--card)" stroke-width="2"/>
+      <text x="126" y="211" font-size="12" fill="var(--fg)">● 1.2 migrations through pooling</text>
+      <text x="126" y="227" font-size="11" fill="var(--muted)">warning · fails loudly, cheap fix</text>
+    </svg>
+    <figcaption>Risk matrix. Positions are my judgement, not measurements. The one item in the top-right corner is the only ticket whose outcome nobody knows yet.</figcaption>
+  </figure>
+
+  <h2>Decisions</h2>
+
+  <section class="card high" data-id="D1">
+    <header><h3>D1 · Approve the design spec</h3><span class="sev">High</span><span class="affects">gates writing-plans → every ticket</span></header>
+    <p>The spec at <code>docs/superpowers/specs/2026-10-12-collaborative-gis-design.md</code> fixes the architecture, components, data model, flows, error handling and testing. Nothing gets planned in detail until it is approved.</p>
+    <div class="kid"><b>Like you're 5:</b> before we build the Lego castle we drew a picture of it. You have to say "yes, that castle" before we open the box.</div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="D1" value="approve"><span>Approve as written <span class="rec">recommended</span></span></label>
+      <label class="opt"><input type="radio" name="D1" value="changes"><span>Approve with changes (write them in the note)</span></label>
+      <label class="opt"><input type="radio" name="D1" value="hold"><span>Hold, I want to read it first</span></label>
+    </div>
+    <textarea placeholder="Notes for D1 (optional)"></textarea>
+  </section>
+
+  <section class="card high" data-id="D3">
+    <header><h3>D3 · What happens if the govmap spike fails</h3><span class="sev">High</span><span class="affects">TOM-45, 46, 47 · may add a backend ticket</span></header>
+    <p>govmap serves aerial tiles on Israel's own grid (EPSG:2039), not the web-standard one, and its licence is unverified. The spike (one day) tries three routes: swap the whole map's projection when you toggle (A), build a server proxy that re-warps tiles (B, about two extra days), or fall back to another imagery provider (C). You decide now which fallback is acceptable so the day ends with a decision, not a question.</p>
+    <div class="kid"><b>Like you're 5:</b> the satellite photos are cut into puzzle pieces of a different shape than our puzzle board. We'll try to make them fit. If we can't, do you want us to build a machine that reshapes them, or use a different photo book?</div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="D3" value="A-then-B"><span>Try A; if it fails, build the proxy (B) even at +2 days <span class="rec">recommended</span></span></label>
+      <label class="opt"><input type="radio" name="D3" value="A-then-C"><span>Try A; if it fails, use fallback imagery (C) and document the gap</span></label>
+      <label class="opt"><input type="radio" name="D3" value="B-direct"><span>Skip A, go straight to the proxy (B)</span></label>
+    </div>
+    <p class="note">Licence: if govmap's terms forbid use, C is forced regardless of the technical result.</p>
+    <textarea placeholder="Notes for D3 (optional)"></textarea>
+  </section>
+
+  <section class="card high" data-id="D4">
+    <header><h3>D4 · How two people editing the same area is resolved</h3><span class="sev">High</span><span class="affects">TOM-56, 50, 58 · README "technical decisions"</span></header>
+    <p>The brief asks for conflict resolution. The plan uses a version number on each area: an update carrying a stale version gets a 409 with the server's copy, and the person is asked to keep theirs, take the other, or just rename. The alternatives are last-writer-wins (simplest, loses work silently) or automatic merging (a CRDT, much more code).</p>
+    <div class="kid"><b>Like you're 5:</b> two kids colour the same drawing at once. We can let the last crayon win, ask them to agree, or try to be a magic crayon that blends both. We suggest asking them.</div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="D4" value="409-choice"><span>Version check + 409 + user chooses <span class="rec">recommended</span></span></label>
+      <label class="opt"><input type="radio" name="D4" value="lww"><span>Last-writer-wins with a toast</span></label>
+      <label class="opt"><input type="radio" name="D4" value="crdt"><span>Automatic merge (CRDT) — adds roughly a week</span></label>
+    </div>
+    <textarea placeholder="Notes for D4 (optional)"></textarea>
+  </section>
+
+  <section class="card medium" data-id="D2">
+    <header><h3>D2 · Leaflet 1.9.4 or 2.0 alpha</h3><span class="sev">Medium</span><span class="affects">TOM-44, 45, 46, 47, 48</span></header>
+    <p>Leaflet 2.0 is modern (ES modules, no global) but still alpha with breaking changes, and the projection plugin we would lean on has not been updated since 2017. 1.9.4 is stable and every example on the web matches it. Either way we write our own projection code on proj4, which ports to 2.0 later.</p>
+    <div class="kid"><b>Like you're 5:</b> there is a shiny new bike with no training wheels yet. The old bike works everywhere. We can ride the old one now and switch later.</div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="D2" value="1.9.4"><span>Leaflet 1.9.4 stable <span class="rec">recommended</span></span></label>
+      <label class="opt"><input type="radio" name="D2" value="2.0"><span>Leaflet 2.0 alpha (shows modern stack, accepts breakage risk)</span></label>
+    </div>
+    <textarea placeholder="Notes for D2 (optional)"></textarea>
+  </section>
+
+  <section class="card medium" data-id="D5">
+    <header><h3>D5 · How exact the 50-per-minute limit must be</h3><span class="sev">Medium</span><span class="affects">TOM-29, 40</span></header>
+    <p>Cloudflare's built-in rate limiter is fast but approximate (per location, eventually consistent). A tiny Durable Object per user counts exactly. The brief states a precise number, so I lean exact; the binding can still sit in front as a cheap filter.</p>
+    <div class="kid"><b>Like you're 5:</b> you may draw 50 lines a minute. One counter guesses, the other counts every line. The brief gave an exact number, so we count.</div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="D5" value="exact-do"><span>Exact per-user Durable Object <span class="rec">recommended</span></span></label>
+      <label class="opt"><input type="radio" name="D5" value="binding"><span>Cloudflare rate-limit binding only (approximate, documented)</span></label>
+    </div>
+    <textarea placeholder="Notes for D5 (optional)"></textarea>
+  </section>
+
+  <section class="card medium" data-id="D6">
+    <header><h3>D6 · Cache freshness for the map viewport</h3><span class="sev">Medium</span><span class="affects">TOM-59</span></header>
+    <p>Viewport queries are cached per map tile. Keeping an index of which tiles each write touches gives instant correctness but more code. A short time-to-live (about 10 seconds) plus a version stamp is far simpler, and realtime events already deliver changes instantly to open clients.</p>
+    <div class="kid"><b>Like you're 5:</b> we keep a photo of the map so we don't redraw it every second. Do we erase the photo the moment anything changes, or just take a new photo every ten seconds?</div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="D6" value="ttl"><span>Short TTL + version stamp <span class="rec">recommended</span></span></label>
+      <label class="opt"><input type="radio" name="D6" value="purge-index"><span>Tile index with purge on write (exact, more code)</span></label>
+    </div>
+    <textarea placeholder="Notes for D6 (optional)"></textarea>
+  </section>
+
+  <section class="card medium" data-id="D7">
+    <header><h3>D7 · One room per map, or sharded by area</h3><span class="sev">Medium</span><span class="affects">TOM-33, 41</span></header>
+    <p>A Durable Object is single-threaded with a soft limit of about 1,000 requests per second. One room per map is simplest and ample for this assignment; sharding by map tile is the documented growth path. The choice decides whether sharding is built now or only designed.</p>
+    <div class="kid"><b>Like you're 5:</b> everyone drawing on one map sits in one room with one teacher. If the room gets too full we can split into smaller rooms later. Do we build the extra rooms now or just draw the plan?</div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="D7" value="per-map"><span>One room per map; sharding as an ADR only <span class="rec">recommended</span></span></label>
+      <label class="opt"><input type="radio" name="D7" value="shard-now"><span>Implement tile sharding now</span></label>
+    </div>
+    <textarea placeholder="Notes for D7 (optional)"></textarea>
+  </section>
+
+  <section class="card medium" data-id="D8">
+    <header><h3>D8 · How long deleted areas are kept</h3><span class="sev">Medium</span><span class="affects">TOM-23 · README "retention policy"</span></header>
+    <p>Deletes are soft; a scheduled job purges old ones. The number is a policy, not a technical fact. It appears in the README and in the cron.</p>
+    <div class="kid"><b>Like you're 5:</b> when you throw a drawing in the bin, we keep the bin for a while in case you want it back. How long before we empty it?</div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="D8" value="30"><span>30 days <span class="rec">recommended</span></span></label>
+      <label class="opt"><input type="radio" name="D8" value="7"><span>7 days</span></label>
+      <label class="opt"><input type="radio" name="D8" value="90"><span>90 days</span></label>
+    </div>
+    <textarea placeholder="Notes for D8 (optional)"></textarea>
+  </section>
+
+  <section class="card medium" data-id="D9">
+    <header><h3>D9 · Keep the docker-compose Node path</h3><span class="sev">Medium</span><span class="affects">TOM-65, 69</span></header>
+    <p>The brief lists docker-compose as a bonus. On Cloudflare the faithful local path is <code>wrangler dev</code>; a Node container means a second WebSocket adapter and an in-process room stand-in, roughly a day. It also makes the reviewer's first run trivial.</p>
+    <div class="kid"><b>Like you're 5:</b> the reviewer wants to press one button and see it run. We can build that button, but it costs a day of extra wiring.</div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="D9" value="keep"><span>Keep it (bonus points, one extra day) <span class="rec">recommended</span></span></label>
+      <label class="opt"><input type="radio" name="D9" value="drop"><span>Drop it; document the wrangler path only</span></label>
+    </div>
+    <textarea placeholder="Notes for D9 (optional)"></textarea>
+  </section>
+
+  <section class="card medium" data-id="D10">
+    <header><h3>D10 · Two-browser end-to-end test</h3><span class="sev">Medium</span><span class="affects">TOM-64</span></header>
+    <p>Unit and integration tests are in scope regardless. A Playwright test that drives two browsers and watches one see the other draw is the strongest proof of the core feature, at about a day.</p>
+    <div class="kid"><b>Like you're 5:</b> we can have a robot open two windows, draw in one, and check the other sees it. It takes a day to teach the robot.</div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="D10" value="include"><span>Include it <span class="rec">recommended</span></span></label>
+      <label class="opt"><input type="radio" name="D10" value="skip"><span>Skip; rely on integration tests and a recorded demo</span></label>
+    </div>
+    <textarea placeholder="Notes for D10 (optional)"></textarea>
+  </section>
+
+  <div class="bar">
+    <span id="count">0 of 10 decided</span>
+    <button id="copy">Copy decisions summary</button>
+    <button id="show" class="ghost">Show summary</button>
+    <button id="reset" class="ghost">Reset</button>
+  </div>
+  <pre id="out"></pre>
+</div>
+
+<script>
+(function(){
+  const KEY='cgis-decisions-v1';
+  const cards=[...document.querySelectorAll('.card')];
+  let state={};
+  try{ state=JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ state={}; }
+  function restore(){
+    cards.forEach(c=>{
+      const id=c.dataset.id, s=state[id]||{};
+      if(s.value){ const r=c.querySelector(`input[value="${s.value}"]`); if(r) r.checked=true; }
+      if(s.note){ c.querySelector('textarea').value=s.note; }
+    });
+  }
+  function save(){
+    cards.forEach(c=>{
+      const id=c.dataset.id;
+      const r=c.querySelector('input:checked');
+      state[id]={ value:r?r.value:'', label:r?r.closest('.opt').textContent.replace(/\s*recommended\s*$/i,'').trim():'', note:c.querySelector('textarea').value.trim() };
+    });
+    try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
+    const n=Object.values(state).filter(s=>s.value).length;
+    document.getElementById('count').textContent=`${n} of ${cards.length} decided`;
+  }
+  function summary(){
+    return cards.map(c=>{
+      const id=c.dataset.id, title=c.querySelector('h3').textContent, s=state[id]||{};
+      return `${title}\n  → ${s.value?s.label:'(undecided)'}${s.note?'\n  note: '+s.note:''}`;
+    }).join('\n\n');
+  }
+  document.addEventListener('change',save);
+  document.addEventListener('input',e=>{ if(e.target.tagName==='TEXTAREA') save(); });
+  document.getElementById('show').onclick=()=>{ const o=document.getElementById('out'); o.textContent=summary(); o.style.display='block'; };
+  document.getElementById('copy').onclick=async(e)=>{
+    const txt=summary(); const o=document.getElementById('out'); o.textContent=txt; o.style.display='block';
+    try{ await navigator.clipboard.writeText(txt); e.target.textContent='Copied'; setTimeout(()=>e.target.textContent='Copy decisions summary',1500); }
+    catch(err){ const r=document.createRange(); r.selectNodeContents(o); const sel=getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+  };
+  document.getElementById('reset').onclick=()=>{ state={}; try{localStorage.removeItem(KEY);}catch(e){} cards.forEach(c=>{ c.querySelectorAll('input').forEach(i=>i.checked=false); c.querySelector('textarea').value=''; }); save(); };
+  restore(); save();
+})();
+</script>
+</body>
+</html>
