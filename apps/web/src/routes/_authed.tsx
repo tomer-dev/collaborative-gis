@@ -22,7 +22,7 @@ function AuthedLayout() {
           {/* No-op until T12 wires Better Auth's signOut. */}
           <button
             type="button"
-            className="rounded border border-current/30 px-3 py-1 focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="rounded-md border border-line-control px-3 py-1 focus-visible:outline-2 focus-visible:outline-offset-2"
           >
             Sign out
           </button>
