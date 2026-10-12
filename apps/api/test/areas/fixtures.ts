@@ -31,9 +31,9 @@ export function randomSpot(): [lng: number, lat: number] {
  */
 const r6 = (x: number) => Math.round(x * 1e6) / 1e6;
 
-/** The rectangle [w, s, e, n] as a closed GeoJSON polygon (counter-clockwise). */
-export function box(w: number, s: number, e: number, n: number): Polygon {
-  [w, s, e, n] = [r6(w), r6(s), r6(e), r6(n)];
+/** A `size`° square with its south-west corner at `[lng, lat]`: a closed, counter-clockwise ring. */
+export function squareAt([lng, lat]: [number, number], size = 0.01): Polygon {
+  const [w, s, e, n] = [r6(lng), r6(lat), r6(lng + size), r6(lat + size)];
   return {
     type: 'Polygon',
     coordinates: [
@@ -48,41 +48,16 @@ export function box(w: number, s: number, e: number, n: number): Polygon {
   };
 }
 
-/** A 0.01° square with its south-west corner at `[lng, lat]`. */
-export const squareAt = ([lng, lat]: [number, number], size = 0.01): Polygon =>
-  box(lng, lat, lng + size, lat + size);
-
 /** Two triangles crossing at the centre: passes the Zod ring rules, fails `ST_IsValid`. */
-export function bowtieAt([lng, lat]: [number, number]): Polygon {
-  const [e, n] = [r6(lng + 0.01), r6(lat + 0.01)];
-  return {
-    type: 'Polygon',
-    coordinates: [
-      [
-        [lng, lat],
-        [e, n],
-        [e, lat],
-        [lng, n],
-        [lng, lat],
-      ],
-    ],
-  };
+export function bowtieAt(spot: [number, number]): Polygon {
+  const [a, b, c, d] = squareAt(spot).coordinates[0];
+  return { type: 'Polygon', coordinates: [[a!, c!, b!, d!, a!]] };
 }
 
 /** A ring whose last vertex is not its first: Zod rejects it. */
-export function openRingAt([lng, lat]: [number, number]): Polygon {
-  const [e, n] = [r6(lng + 0.01), r6(lat + 0.01)];
-  return {
-    type: 'Polygon',
-    coordinates: [
-      [
-        [lng, lat],
-        [e, lat],
-        [e, n],
-        [lng, n],
-      ],
-    ],
-  };
+export function openRingAt(spot: [number, number]): Polygon {
+  const [a, b, c, d] = squareAt(spot).coordinates[0];
+  return { type: 'Polygon', coordinates: [[a!, b!, c!, d!]] };
 }
 
 /** `bbox=w,s,e,n` around a spot, wide enough to hold `squareAt(spot)`. */
