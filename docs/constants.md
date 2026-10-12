@@ -15,7 +15,7 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 | `AREA_NAME_MAX` | `120` | `packages/shared/src/area.ts` (`AreaSchema.name`) | D13 name length cap |
 | `USER_NAME_MAX` | `60` | `apps/api/src/do/handoff.ts` (Room trims and caps the user name), `apps/api/src/do/presence.ts` `PresenceAttachmentSchema.name` | Presence list and ghost labels stay short; attachments stay small |
 | `USER_ID_MAX` | `128` | `apps/api/src/do/handoff.ts` (Room rejects longer ids with 400), `PresenceAttachmentSchema.userId`, `packages/shared/src/ws.ts` `draft:update` `payload.userId` (the author the Room stamps) | With both strings capped, a socket attachment cannot reach the runtime's 16 KiB limit |
-| `BOUNDS_LIMIT` | `500` | `apps/api/src/db/spatial.ts` `selectAreasInBounds` default `limit`; `apps/api/src/services/areas.ts` `listAreas` (`GET /api/areas`) | Caps one viewport response |
+| `BOUNDS_LIMIT` | `500` | `apps/api/src/db/spatial.ts` `selectAreasInBounds` default `limit`, which `apps/api/src/services/areas.ts` `listAreas` (`GET /api/areas`) relies on | Caps one viewport response |
 | `SIMPLIFY_ZOOM_BELOW` | `12` | Unused in M1: `GET /api/areas` validates `zoom` and ignores it (T15 ruling: no simplification); planned M2 | Fewer vertices when zoomed out |
 | `SIMPLIFY_TOLERANCE` | `0.0005` | Unused in M1 (see `SIMPLIFY_ZOOM_BELOW`); planned M2 `ST_SimplifyPreserveTopology` tolerance (degrees) | ~50 m at the equator: invisible at zoom < 12 |
 | `PASSWORD_MIN` | `8` | `apps/web/src/routes/-components/AuthForm.tsx` (register `minlength`), `COPY.AUTH.PASSWORD_HINT` | Better Auth's default `minPasswordLength`; the form rejects what the server would |
