@@ -22,10 +22,6 @@ afterEach(() => {
 });
 
 const click = (lat: number, lng: number) => map.fire('click', { latlng: L.latLng(lat, lng) });
-const key = (k: string) =>
-  container.dispatchEvent(
-    new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }),
-  );
 const triangle = () => {
   click(32, 35);
   click(32, 35.05);
@@ -39,18 +35,28 @@ const record = <K extends keyof DrawEventMap>(type: K) => {
 const handles = () => container.querySelectorAll<HTMLElement>('.cgis-draw-handle');
 
 describe('PolygonDraw', () => {
-  it('makes the map container an accessible, focused application while enabled', () => {
+  it('suspends double-click zoom and shows a crosshair while enabled, and restores both', () => {
     const draw = new PolygonDraw(map).enable();
-    expect(container.getAttribute('role')).toBe('application');
-    expect(container.getAttribute('aria-label')).toBe(DRAW.ARIA_LABEL);
-    expect(container.tabIndex).toBeGreaterThanOrEqual(0);
-    expect(document.activeElement).toBe(container);
     expect(map.doubleClickZoom.enabled()).toBe(false);
+    expect(container.classList.contains('leaflet-crosshair')).toBe(true);
 
     draw.disable();
-    expect(container.hasAttribute('role')).toBe(false);
-    expect(container.hasAttribute('aria-label')).toBe(false);
     expect(map.doubleClickZoom.enabled()).toBe(true);
+    expect(container.classList.contains('leaflet-crosshair')).toBe(false);
+  });
+
+  it('styles through CSS classes only: handle hit box from MAP.HANDLE_HIT_PX, first handle marked', () => {
+    new PolygonDraw(map).enable();
+    triangle();
+    const [first, second] = handles();
+    expect(first!.classList.contains('cgis-draw-handle--first')).toBe(true);
+    expect(second!.classList.contains('cgis-draw-handle--first')).toBe(false);
+    expect(first!.style.width).toBe(`${MAP.HANDLE_HIT_PX}px`);
+    expect(first!.style.height).toBe(`${MAP.HANDLE_HIT_PX}px`);
+    expect(first!.innerHTML).toBe('');
+    const sketch = map.getPane('overlayPane')!.querySelector('path.cgis-draw-sketch');
+    expect(sketch).not.toBeNull();
+    expect(sketch!.getAttribute('stroke-width')).toBe(String(MAP.DRAFT_STYLE.weight));
   });
 
   it('adds a vertex per click and reports [lng, lat] vertices on draw:change', () => {
@@ -72,11 +78,11 @@ describe('PolygonDraw', () => {
     expect(draw.getAreaKm2()).toBeGreaterThan(0);
   });
 
-  it('Enter closes 3 vertices into a closed GeoJSON ring on draw:done and stops drawing', () => {
+  it('finish() closes 3 vertices into a closed GeoJSON ring on draw:done and stops drawing', () => {
     const done = record('draw:done');
     const draw = new PolygonDraw(map).enable();
     triangle();
-    key('Enter');
+    draw.finish();
     expect(done).toHaveLength(1);
     const { ring } = done[0]!;
     expect(ring).toHaveLength(4);
@@ -107,11 +113,11 @@ describe('PolygonDraw', () => {
     expect(done).toHaveLength(1);
   });
 
-  it('Backspace removes the last vertex', () => {
+  it('undo() removes the last vertex', () => {
     const changes = record('draw:change');
     const draw = new PolygonDraw(map).enable();
     triangle();
-    key('Backspace');
+    draw.undo();
     expect(draw.getVertices()).toEqual([
       [35, 32],
       [35.05, 32],
@@ -120,12 +126,12 @@ describe('PolygonDraw', () => {
     expect(handles()).toHaveLength(2);
   });
 
-  it('Escape cancels: draw:cancel, layers removed, handler disabled', () => {
+  it('cancel(): draw:cancel, layers removed, handler disabled', () => {
     const cancels = record('draw:cancel');
     const done = record('draw:done');
     const draw = new PolygonDraw(map).enable();
     triangle();
-    key('Escape');
+    draw.cancel();
     expect(cancels).toHaveLength(1);
     expect(done).toHaveLength(0);
     expect(draw.enabled()).toBe(false);
@@ -142,7 +148,7 @@ describe('PolygonDraw', () => {
     click(32.05, 35.05);
     click(32, 35.05);
     click(32.05, 35);
-    key('Enter');
+    draw.finish();
     expect(done).toHaveLength(0);
     expect(invalid).toHaveLength(1);
     expect(invalid[0]!.reason).toBe(DRAW.SELF_INTERSECTION_REASON);
@@ -152,10 +158,10 @@ describe('PolygonDraw', () => {
 
   it('fewer than 3 vertices does not close: draw:invalid with the PolygonSchema reason', () => {
     const invalid = record('draw:invalid');
-    new PolygonDraw(map).enable();
+    const draw = new PolygonDraw(map).enable();
     click(32, 35);
     click(32, 35.05);
-    key('Enter');
+    draw.finish();
     expect(invalid).toHaveLength(1);
     expect(invalid[0]!.reason).toMatch(/at least 3 unique vertices/);
   });
