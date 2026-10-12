@@ -10,7 +10,7 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, presence
 
 | Name | Value | Where used | Why |
 |---|---|---|---|
-| `POLYGON_MAX_VERTICES` | `1000` | `packages/shared/src/geo.ts` (ring max; re-exported under the old name), `apps/web/src/App.tsx` | Spec §5 polygon rule; bounds payload and `ST_IsValid` cost |
+| `POLYGON_MAX_VERTICES` | `1000` | `packages/shared/src/geo.ts` (ring max; re-exported under the old name), `apps/web/src/App.tsx`, `apps/web/src/components/DrawControl.tsx` (`n / 1000` vertex readout) | Spec §5 polygon rule; bounds payload and `ST_IsValid` cost |
 | `AREA_NAME_MAX` | `120` | `packages/shared/src/area.ts` (`AreaSchema.name`) | D13 name length cap |
 | `BOUNDS_LIMIT` | `500` | Planned: T15 `GET /api/areas` row limit | Caps one viewport response |
 | `SIMPLIFY_ZOOM_BELOW` | `12` | Planned: T15 (zoom below this gets simplified geometry) | Fewer vertices when zoomed out |
@@ -72,7 +72,7 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, presence
 | `OSM_ATTRIBUTION` | `'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'` | Planned: T10 | Required by the OSM tile usage policy |
 | `OSM_MAX_ZOOM` | `19` | Planned: T10 | Highest zoom OSM serves |
 | `AREAS_PANE` / `AREAS_PANE_Z` | `'areas'` / `450` | `apps/web/src/ui/map-styles.ts` (path options), `tokens.css` `--z-index-map-areas` (drift-tested); planned: T10 creates, T13 draws saved areas | Above tiles and Leaflet's overlay pane (400) |
-| `DRAFTS_PANE` / `DRAFTS_PANE_Z` | `'drafts'` / `460` | `apps/web/src/ui/map-styles.ts` (path options), `tokens.css` `--z-index-map-drafts` (drift-tested); planned: T10 creates, T14 draws ghost drafts | Live drafts render above saved areas |
+| `DRAFTS_PANE` / `DRAFTS_PANE_Z` | `'drafts'` / `460` | `apps/web/src/ui/map-styles.ts` (path options), `tokens.css` `--z-index-map-drafts` (drift-tested), `apps/web/src/components/DrawControl.tsx` (`PolygonDraw` pane for the own sketch); planned: T10 creates, T14 draws ghost drafts | Live drafts render above saved areas |
 | `MOVEEND_DEBOUNCE_MS` | `250` | Planned: T13 bbox query on `moveend` | One fetch per pan gesture |
 | `HANDLE_RADIUS_PX` | `6` | `apps/web/src/lib/geo/draw-handler.ts` (visible vertex dot radius) | Small enough not to hide the edge, big enough to see |
 | `HANDLE_HIT_PX` | `24` | `apps/web/src/lib/geo/draw-handler.ts` (vertex handle hit box, the marker icon size) | WCAG 2.5.8 target size (≥24 CSS px) for dragging a vertex |
@@ -93,6 +93,22 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, presence
 | `ARIA_LABEL` | `'Polygon drawing. Click to add a vertex, …, Escape to cancel.'` | `apps/web/src/lib/geo/draw-handler.ts` (map container `aria-label` while drawing) | The container is `role="application"`; the label announces the gestures and keys |
 | `SELF_INTERSECTION_REASON` | `'Polygon edges must not cross or touch each other'` | `draw-handler.ts` `draw:invalid` | Client mirror of the server's `ST_IsValid` rejection |
 | `MAX_VERTICES_REASON` | `'Vertex limit reached'` | `draw-handler.ts` `draw:invalid` when a click would pass `LIMITS.POLYGON_MAX_VERTICES` | The cap counts the closing vertex, so the UI should not promise a number here |
+| `TOOLBAR_LABEL` | `'Drawing tools'` | `apps/web/src/components/DrawControl.tsx` (idle `MapControl` toolbar name) | Names the toolbar landmark around the start button |
+| `START_LABEL` | `'Draw polygon'` | `DrawControl.tsx` (icon button's tooltip and accessible name) | The one action while idle |
+| `PANEL_TITLE` | `'New area'` | `DrawControl.tsx` (floating `Panel` heading and region name while drawing) | The sketch becomes an area when saved |
+| `AREA_LABEL` / `VERTICES_LABEL` | `'Area'` / `'Vertices'` | `DrawControl.tsx` (`Stat` labels of the live readout) | Visible labels; also the readouts' accessible names |
+| `FINISH_LABEL` / `UNDO_LABEL` / `CANCEL_LABEL` | `'Finish'` / `'Undo'` / `'Cancel'` | `DrawControl.tsx` (panel footer buttons → `finish()` / `undo()` / `cancel()`) | Pointer equivalents of Enter / Backspace / Escape |
+
+## AREA_FORMAT
+
+| Name | Value | Where used | Why |
+|---|---|---|---|
+| `LOCALE` | `'en-US'` | `apps/web/src/components/DrawControl.tsx` (`formatArea`'s `Intl.NumberFormat`) | Matches the English UI copy and keeps the readout deterministic (`12,345 m²`); `Stat`'s default formatter uses the browser locale instead |
+| `KM2_THRESHOLD` | `1` | `DrawControl.tsx` `formatArea` | Below 1 km² the readout switches to m²: `0.012 km²` hides the size people think in |
+| `M2_DECIMALS` | `0` | `DrawControl.tsx` `formatArea` | Whole m²: below a square metre is noise for hand-drawn polygons |
+| `KM2_DECIMALS` | `3` | `DrawControl.tsx` `formatArea` | 0.001 km² = 1,000 m², the same resolution as the m² readout near the threshold |
+| `M2_PER_KM2` | `1_000_000` | `DrawControl.tsx` `formatArea` (km² → m²) | Unit conversion, named rather than a bare `1e6` |
+| `M2_UNIT` / `KM2_UNIT` | `'m²'` / `'km²'` | `DrawControl.tsx` `formatArea` (suffix after the number) | `Intl.NumberFormat` has no area units (ECMA-402 sanctions length units only) |
 
 ## ERROR_CODES
 
