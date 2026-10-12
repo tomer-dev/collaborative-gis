@@ -1,93 +1,45 @@
-import { QUERY } from '@cgis/shared';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, renderHook, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { cleanup, renderHook } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { sessionQuery, useSession } from './session';
+import { useSession } from './session';
 
-// A full Better Auth get-session payload: the hook keeps only the user's id and name.
-const betterAuthSession = {
-  session: {
-    id: 'sess_1',
-    token: 'tok_1',
-    userId: 'user_1',
-    expiresAt: '2026-10-19T00:00:00.000Z',
-    createdAt: '2026-10-12T00:00:00.000Z',
-    updatedAt: '2026-10-12T00:00:00.000Z',
-    ipAddress: null,
-    userAgent: null,
-  },
-  user: {
-    id: 'user_1',
-    name: 'Ada Lovelace',
-    email: 'ada@example.com',
-    emailVerified: false,
-    image: null,
-    createdAt: '2026-10-12T00:00:00.000Z',
-    updatedAt: '2026-10-12T00:00:00.000Z',
-  },
+// What Better Auth's authClient.useSession() returns (only the fields useSession reads).
+type BetterAuthSessionState = {
+  data: { user: { id: string; name: string; email: string } } | null;
+  isPending: boolean;
 };
 
-function stubFetch(response: () => Promise<Response>) {
-  const fetchMock = vi.fn(response);
-  vi.stubGlobal('fetch', fetchMock);
-  return fetchMock;
-}
-
-function renderUseSession() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const wrapper = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-  );
-  return renderHook(() => useSession(), { wrapper });
-}
-
-afterEach(() => {
-  cleanup();
-  vi.unstubAllGlobals();
+const auth = vi.hoisted(() => {
+  const state: { current: BetterAuthSessionState } = {
+    current: { data: null, isPending: true },
+  };
+  return state;
 });
 
-it('maps a Better Auth session to { id, name } from GET /api/auth/get-session', async () => {
-  const fetchMock = stubFetch(async () => Response.json(betterAuthSession));
-  const { result } = renderUseSession();
+vi.mock('./auth-client', () => ({ authClient: { useSession: () => auth.current } }));
+
+afterEach(cleanup);
+
+it('is pending with no user until Better Auth answers', () => {
+  auth.current = { data: null, isPending: true };
+  const { result } = renderHook(() => useSession());
 
   expect(result.current).toEqual({ data: null, isPending: true });
-  await waitFor(() => expect(result.current.isPending).toBe(false));
+});
 
-  expect(result.current).toEqual({
-    data: { id: 'user_1', name: 'Ada Lovelace' },
+it("exposes Better Auth's session user as data", () => {
+  auth.current = {
+    data: { user: { id: 'user_1', name: 'Ada Lovelace', email: 'ada@example.com' } },
     isPending: false,
-  });
-  expect(fetchMock).toHaveBeenCalledTimes(1);
-  expect(fetchMock).toHaveBeenCalledWith('/api/auth/get-session', expect.anything());
+  };
+  const { result } = renderHook(() => useSession());
+
+  expect(result.current.isPending).toBe(false);
+  expect(result.current.data).toMatchObject({ id: 'user_1', name: 'Ada Lovelace' });
 });
 
-it('treats a malformed session body as signed out', async () => {
-  stubFetch(async () => Response.json({ user: { id: 42 } }));
-  const { result } = renderUseSession();
+it('maps a signed-out (or failed) session to data: null', () => {
+  auth.current = { data: null, isPending: false };
+  const { result } = renderHook(() => useSession());
 
-  await waitFor(() => expect(result.current.isPending).toBe(false));
   expect(result.current).toEqual({ data: null, isPending: false });
-});
-
-it('maps a signed-out response (JSON null) to data: null', async () => {
-  stubFetch(async () => Response.json(null));
-  const { result } = renderUseSession();
-
-  await waitFor(() => expect(result.current.isPending).toBe(false));
-  expect(result.current).toEqual({ data: null, isPending: false });
-});
-
-it('treats a failed session check as signed out', async () => {
-  stubFetch(async () =>
-    Response.json({ code: 'NOT_IMPLEMENTED', message: 'not implemented' }, { status: 501 }),
-  );
-  const { result } = renderUseSession();
-
-  await waitFor(() => expect(result.current.isPending).toBe(false));
-  expect(result.current).toEqual({ data: null, isPending: false });
-});
-
-it('does not retry a failed session check (QUERY.SESSION_RETRY), so guards redirect at once', () => {
-  expect(sessionQuery.retry).toBe(QUERY.SESSION_RETRY);
 });
