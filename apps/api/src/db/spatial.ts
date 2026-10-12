@@ -299,7 +299,8 @@ export async function revertArea(
   expected: number,
   userId: string,
 ): Promise<RevertResult> {
-  const { rows } = await db(c).execute<AreaRow>(sql`
+  // D23 exception: a write CTE (the revert and its version row in one statement).
+  const { rows } = await db(c).execute(sql`
     WITH target AS (
       SELECT name, geom, area_km2 FROM area_versions
       WHERE area_id = ${id} AND version = ${version}
@@ -317,8 +318,8 @@ export async function revertArea(
       SELECT id, version, name, geom, area_km2, ${userId} FROM reverted
     )
     SELECT ${AREA_COLUMNS} FROM reverted`);
-  const area = rows[0];
-  if (area) return { status: 'reverted', area };
+  const [row] = rows;
+  if (row) return { status: 'reverted', area: AreaSchema.parse(row) };
   const [stored] = await db(c)
     .select({ deletedAt: areas.deletedAt, version: areas.version })
     .from(areas)
