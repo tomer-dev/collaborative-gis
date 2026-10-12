@@ -2,8 +2,7 @@ import { DRAW, LIMITS, MAP } from '@cgis/shared';
 import * as L from 'leaflet';
 import { useEffect, useEffectEvent, useRef, useState, type Ref } from 'react';
 import { flushSync } from 'react-dom';
-import { onDraw, PolygonDraw } from '../lib/geo/draw-handler';
-import { ringAreaKm2, ringAreaM2, type LngLat } from '../lib/geo/geodesic';
+import { createPolygonDraw, onDraw, ringAreaKm2, ringAreaM2, type LngLat } from '../lib/geo';
 import {
   Banner,
   Button,
@@ -50,7 +49,7 @@ const EMPTY_SKETCH: Sketch = { vertices: [], invalidReason: '' };
 
 function MapDrawControl({ map, onDone }: DrawControlProps) {
   // One handler per map: this component lives for exactly one map (the key above).
-  const [handler] = useState(() => new PolygonDraw(map, { pane: MAP.DRAFTS_PANE }));
+  const [handler] = useState(() => createPolygonDraw(map, { pane: MAP.DRAFTS_PANE }));
   const [drawing, setDrawing] = useState(false);
   const [sketch, setSketch] = useState(EMPTY_SKETCH);
   const startButton = useRef<HTMLButtonElement>(null);

@@ -11,11 +11,13 @@ describe('constants', () => {
       'TIMEOUTS',
       'ROUTES',
       'DEV',
+      'HEADERS',
       'ROOM',
       'MAP',
       'DRAW',
       'ERROR_CODES',
       'ERROR_MESSAGES',
+      'ERROR_REASONS',
       'WS_MESSAGES',
       'COPY',
       'OPENAPI',
@@ -40,6 +42,10 @@ describe('constants', () => {
     expect(Object.keys(shared.DRAW)).not.toContain('ARIA_LABEL');
     expect(shared.GEO.EARTH_RADIUS_M).toBe(6371008.8);
     expect(shared.MAP.DRAFT_STYLE.weight).toBeGreaterThan(0);
+  });
+
+  it('POLYGON_MAX_PLACED_VERTICES is the ring cap minus the closing vertex', () => {
+    expect(shared.LIMITS.POLYGON_MAX_PLACED_VERTICES).toBe(shared.LIMITS.POLYGON_MAX_VERTICES - 1);
   });
 
   it('POLYGON_MAX_VERTICES keeps its old import path and matches LIMITS', () => {
