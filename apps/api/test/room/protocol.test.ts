@@ -234,13 +234,14 @@ describe('draft:update', () => {
     expect(a.of('error')).toEqual([]);
   });
 
-  it('answers an op that does not fit the draft with DRAFT_OP_MISFIT and relays nothing', async () => {
+  it('answers an op that does not fit the draft with DRAFT_OP_MISFIT (resync) and relays nothing', async () => {
     const a = await join('a');
     const b = await join('b');
     a.send('draft:update', add(3));
     expect((await a.waitFor('error')).payload).toEqual({
       code: 'DRAFT_OP_MISFIT',
       message: 'draft op does not fit the current draft',
+      resync: true,
     });
     await barrier(b);
     expect(b.of('draft:update')).toEqual([]);

@@ -23,6 +23,11 @@ export const PresenceAttachmentSchema = z.object({
   refilledAt: z.number().int().nonnegative(),
   /** The `seq` of the last accepted `draft:update`; older or repeated frames are dropped. */
   lastSeq: z.number().int().nonnegative().nullable(),
+  /**
+   * The Room's storage epoch (epoch.ts) at this socket's last `join`; null before its first. A
+   * joined socket whose epoch is not the stored one is told to resync.
+   */
+  epoch: z.uuid().nullable(),
 });
 export type PresenceAttachment = z.infer<typeof PresenceAttachmentSchema>;
 type PresenceColor = PresenceAttachment['color'];
