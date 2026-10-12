@@ -48,6 +48,7 @@ describe('attachmentOf', () => {
     tokens: 9.5,
     refilledAt: 1_700_000_000_000,
     lastSeq: 7,
+    epoch: '3f8b6c1e-2a4d-4e5f-9a7b-1c2d3e4f5a6b',
   };
 
   it('returns a valid attachment', () => {
@@ -64,6 +65,8 @@ describe('attachmentOf', () => {
     ['negative strikes', { ...valid, strikes: -1 }],
     ['negative tokens', { ...valid, tokens: -0.5 }],
     ['a fractional lastSeq', { ...valid, lastSeq: 1.5 }],
+    ['an epoch that is not a UUID', { ...valid, epoch: 'epoch-1' }],
+    ['no epoch field', { ...valid, epoch: undefined }],
   ])('returns undefined for %s', (_label, attachment) => {
     expect(attachmentOf(socketWith(attachment))).toBeUndefined();
   });
@@ -81,6 +84,7 @@ describe('presenceOf', () => {
     tokens: 0,
     refilledAt: 0,
     lastSeq: null,
+    epoch: null,
   };
   const user = (over: Partial<PresenceAttachment>): PresenceAttachment => ({ ...base, ...over });
 
