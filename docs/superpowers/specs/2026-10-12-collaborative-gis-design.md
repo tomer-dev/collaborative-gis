@@ -1,6 +1,6 @@
 # Collaborative GIS — design spec
 
-Date: 2026-10-12. Status: **approval reopened 2026-10-12** pending a section-by-section human review and decisions D11 (single vs multiple maps), D12 (who may edit), D13 (default numbers), D14 (out-of-scope list) in `docs/decisions-brief.html`. Decisions D2–D10 resolved (see §10). Source brief: Snapland home assignment. Roadmap: `docs/roadmap.md` (Linear P-TOM-1). Research: `docs/research-notes.md`.
+Date: 2026-10-12. Status: **approved 2026-10-12 after a section-by-section human review** (§2–§9 each acknowledged in `docs/decisions-brief.html`); decisions D1–D14 resolved (see §10). Source brief: Snapland home assignment. Roadmap: `docs/roadmap.md` (Linear P-TOM-1). Research: `docs/research-notes.md`.
 
 ## 1. Goal and success criteria
 
@@ -91,6 +91,10 @@ In: everything in the brief's sections 1–6, bonus Docker/tests/OpenAPI/benchma
 
 ## 10. Decisions log
 
+- Single shared map; room id `default`; no map entity or picker (D11).
+- Any signed-in user may edit or delete any area (D12).
+- Defaults accepted: draft updates ≤10/s per user, offline polling every 10 s, presence dropped after 60 s, ≤1,000 vertices, names ≤120 chars (D13).
+- Out of scope as design notes only: multi-region room sharding, Queues for audit batching, OpenTelemetry export, geometry merge beyond rename, restore-from-trash UI (D14).
 - Retention: soft-deleted areas purged after 7 days (D8).
 - Rate limiting: exact per-user Durable Object (D5).
 - Rooms: one Durable Object per map; sharding by tile documented as an ADR only (D7).
