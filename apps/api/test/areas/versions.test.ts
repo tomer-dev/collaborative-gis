@@ -74,12 +74,13 @@ async function versionsOf(api: Api, id: string) {
 }
 
 /**
- * `env` with a stand-in `ROOM` for the two namespace calls `fanout` makes (`idFromName`, then
- * `get(...).broadcast`), as in test/room/fanout.test.ts. Test-only: production code has no switch.
+ * `env` with a stand-in `ROOM` for the namespace calls a mutation makes (`idFromName`, then
+ * `get(...).bumpVersion` before the response and `get(...).broadcast` after it), as in
+ * test/room/fanout.test.ts. Test-only: production code has no switch.
  */
 const withBroadcast = (broadcast: (event: AreaEvent) => Promise<void>) => ({
   ...env,
-  ROOM: { idFromName: () => ({}), get: () => ({ broadcast }) },
+  ROOM: { idFromName: () => ({}), get: () => ({ broadcast, bumpVersion: async () => 1 }) },
 });
 
 describe('GET /api/areas/:id/versions', () => {
