@@ -160,6 +160,9 @@
   /* Elevation. */
   --shadow-raised: 0 4px 12px var(--color-shadow);
   --shadow-overlay: 0 8px 24px var(--color-shadow);
+  /* A floating map panel stops growing here and scrolls its body (the area panel's list and
+     history), leaving the map's corner column room for the presence list below it. */
+  --max-height-panel: 60dvh;
 
   /* Stacking. Map panes mirror MAP.AREAS_PANE_Z / DRAFTS_PANE_Z (Leaflet: tiles 200, overlay
      400, markers 600, its own controls 1000). Native <dialog> renders in the top layer;
