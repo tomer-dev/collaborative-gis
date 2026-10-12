@@ -1,4 +1,3 @@
-import { cx } from 'class-variance-authority';
 import {
   createContext,
   forwardRef,
@@ -7,6 +6,7 @@ import {
   type HTMLAttributes,
   type ReactNode,
 } from 'react';
+import { cx } from './cx';
 import { IconError } from './icons';
 
 interface FieldControl {
@@ -72,7 +72,7 @@ export const Field = forwardRef<HTMLDivElement, FieldProps>(function Field(
         ) : null}
         {hasError ? (
           <p id={errorId} className="flex items-center gap-1 text-xs text-danger-strong">
-            <IconError className="size-4" />
+            <IconError className="size-4 shrink-0" />
             {error}
           </p>
         ) : null}

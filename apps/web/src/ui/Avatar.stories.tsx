@@ -2,14 +2,14 @@ import { MAP } from '@cgis/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Avatar } from './Avatar';
 
-/** A user's initials in their presence hue (join-order slot), matching their ghost polygon. */
+/** A user's initials in their presence colour (server-assigned), matching their ghost polygon. */
 const meta = {
   title: 'Components/Avatar',
   component: Avatar,
-  args: { name: 'Ada Lovelace', colorSlot: 0 },
+  args: { name: 'Ada Lovelace', color: MAP.PRESENCE_COLORS[0] },
   argTypes: {
     size: { control: 'inline-radio', options: ['sm', 'md', 'lg'] },
-    colorSlot: { control: { type: 'number', min: 0, max: MAP.PRESENCE_COLORS.length } },
+    color: { control: 'select', options: [...MAP.PRESENCE_COLORS] },
   },
 } satisfies Meta<typeof Avatar>;
 
@@ -37,20 +37,19 @@ const NAMES = [
   'Barbara Liskov',
   'Donald Knuth',
   'Margaret Hamilton',
-  'Ninth Visitor',
 ];
 
-/** Slots 1–8 get the presence hues; the ninth user gets the neutral. */
-export const AllSlots: Story = {
+/** Every colour of MAP.PRESENCE_COLORS, the palette the server hashes user ids into. */
+export const Palette: Story = {
   render: (args) => (
-    <ul className="flex flex-wrap gap-3" aria-label="Presence hues">
-      {NAMES.map((name, slot) => (
-        <li key={name}>
-          <Avatar {...args} name={name} colorSlot={slot} />
+    <ul className="flex flex-wrap gap-3" aria-label="Presence colours">
+      {MAP.PRESENCE_COLORS.map((color, index) => (
+        <li key={color}>
+          <Avatar {...args} name={NAMES[index] ?? args.name} color={color} />
         </li>
       ))}
     </ul>
   ),
 };
 
-export const SingleName: Story = { args: { name: 'Hypatia', colorSlot: 6 } };
+export const SingleName: Story = { args: { name: 'Hypatia', color: MAP.PRESENCE_COLORS[6] } };

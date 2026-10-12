@@ -4,8 +4,9 @@ import { IconLayers, IconMinus, IconPencil, IconPlus, IconPointer } from './icon
 import { MapControl, MapControlButton } from './MapControl';
 
 /**
- * Map toolbar. With `map` it mounts inside a Leaflet control at `position`; these stories render
- * it inline. One Tab stop; arrows move between buttons; mode buttons use `pressed`.
+ * Map toolbar: a labelled group of icon buttons, each its own Tab stop, named by `label`
+ * (aria-label + native title). Mode buttons use `pressed`. The map component places it in a
+ * Leaflet control container.
  */
 const meta = {
   title: 'Components/MapControl',
@@ -23,7 +24,6 @@ const meta = {
   argTypes: {
     orientation: { control: 'inline-radio', options: ['vertical', 'horizontal'] },
     children: { control: false },
-    map: { control: false },
   },
   parameters: { layout: 'padded' },
 } satisfies Meta<typeof MapControl>;
@@ -36,19 +36,16 @@ export const Vertical: Story = {
     const pan = canvas.getByRole('button', { name: 'Pan the map' });
     const draw = canvas.getByRole('button', { name: 'Draw an area' });
     const layers = canvas.getByRole('button', { name: 'Map layers' });
-    await step('Tab enters the toolbar once', async () => {
+    await step('Tab visits each button in order', async () => {
       await userEvent.tab();
       await expect(pan).toHaveFocus();
-    });
-    await step('Arrow keys move along it, wrapping at the ends', async () => {
-      await userEvent.keyboard('{ArrowDown}');
+      await userEvent.tab();
       await expect(draw).toHaveFocus();
-      await userEvent.keyboard('{End}');
+      await userEvent.tab();
       await expect(layers).toHaveFocus();
-      await userEvent.keyboard('{ArrowDown}');
-      await expect(pan).toHaveFocus();
     });
-    await step('The pressed mode is exposed', async () => {
+    await step('Labels double as the native title; the pressed mode is exposed', async () => {
+      await expect(draw).toHaveAttribute('title', 'Draw an area');
       await expect(draw).toHaveAttribute('aria-pressed', 'true');
     });
   },
@@ -60,8 +57,8 @@ export const Horizontal: Story = {
     label: 'Zoom',
     children: (
       <>
-        <MapControlButton label="Zoom in" icon={IconPlus} tooltipSide="bottom" />
-        <MapControlButton label="Zoom out" icon={IconMinus} tooltipSide="bottom" />
+        <MapControlButton label="Zoom in" icon={IconPlus} />
+        <MapControlButton label="Zoom out" icon={IconMinus} />
       </>
     ),
   },
