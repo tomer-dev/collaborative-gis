@@ -129,7 +129,7 @@ The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmar
 
 | Name | Value | Where used | Why |
 |---|---|---|---|
-| `DEFAULT_ROOM_ID` | `'default'` | `apps/api/test/scaffold.test.ts`; planned T6 `ROOM.idFromName`, T8 fan-out | D11: one shared map, one Room DO |
+| `DEFAULT_ROOM_ID` | `'default'` | `apps/api/src/ws.ts` (`GET /ws` hand-off), `apps/api/src/services/fanout.ts` (area changes → `Room.broadcast`), `apps/api/test/scaffold.test.ts` | D11: one shared map, one Room DO |
 | `USER_ID_HEADER` / `USER_NAME_HEADER` | `'x-user-id'` / `'x-user-name'` | `apps/api/src/do/handoff.ts`: `withRoomUser` (used by `ws.ts`) sets them, name percent-encoded; `readRoomUser` (used by `room.ts`) validates them | The Worker hands the session user to the Room; client-sent copies are overwritten |
 
 ## MAP
@@ -221,15 +221,6 @@ Default `ApiError.message` per code, same keys as `ERROR_CODES` (`satisfies` + a
 | `NOT_IMPLEMENTED` | `'not implemented'` | T0 stubs `auth.ts`, `ws.ts` | 501 until the lane fills the stub |
 | `UPGRADE_REQUIRED` | `'websocket upgrade required'` | Planned: T6 | 426 body |
 
-## WS_MESSAGES
-
-`error` frame messages the Room sends beside the `ERROR_CODES` code, where the `ERROR_MESSAGES` default says too little. Clients branch on the code, never on the message.
-
-| Name | Value | Where used | Why |
-|---|---|---|---|
-| `NOT_JSON` | `'frames must be JSON text'` | `apps/api/src/do/room.ts` (binary or non-JSON frame → `BAD_REQUEST`, one strike) | Says what the Room accepts; a schema failure sends Zod's issue text instead |
-| `NOT_JOINED` | `'send join first'` | `apps/api/src/do/room.ts` (`draft:update` before `join` → `BAD_REQUEST`, no strike) | Drafts come only from users in presence |
-| `DRAFT_OP_MISFIT` | `'draft op does not fit the current draft'` | `apps/api/src/do/room.ts` (index past the end, or an `add` beyond `LIMITS.POLYGON_MAX_VERTICES` → `BAD_REQUEST`, no strike) | The client's draft and the Room's have diverged; the op is not relayed |
 ## ERROR_REASONS
 
 `ApiError.message`s more specific than their code's default; `ERROR_MESSAGES` keeps exactly the `ERROR_CODES` keys, so route-specific text lives here.
@@ -239,3 +230,13 @@ Default `ApiError.message` per code, same keys as `ERROR_CODES` (`satisfies` + a
 | `ORIGIN_NOT_ALLOWED` | `'origin not allowed'` | `FORBIDDEN` (403) | `apps/api/src/ws.ts` `wsGate()`: a `GET /ws` upgrade whose Origin is missing or is not `env.CLIENT_ORIGIN` | Cross-site WebSocket hijacking: Better Auth's `getSession` ignores Origin, so without this a foreign page could open a socket with the victim's cookie |
 | `INVALID_GEOMETRY` | `'invalid geometry'` | `UNPROCESSABLE` (422) | `apps/api/src/routes/areas.ts`: `POST`/`PUT` whose polygon passed Zod but failed `ST_IsValid`; `details.reason` is the `ST_IsValidReason` text | Tells the client the geometry, not the request shape, is at fault |
 | `VERSION_CONFLICT` | `'version conflict'` | `CONFLICT` (409) | `apps/api/src/routes/areas.ts` `PUT`: the stored `version` is not the one sent; `details.current` is the stored area | The client can show the current area and let the user re-apply |
+
+## WS_MESSAGES
+
+`error` frame messages the Room sends beside the `ERROR_CODES` code, where the `ERROR_MESSAGES` default says too little. Clients branch on the code, never on the message.
+
+| Name | Value | Where used | Why |
+|---|---|---|---|
+| `NOT_JSON` | `'frames must be JSON text'` | `apps/api/src/do/room.ts` (binary or non-JSON frame → `BAD_REQUEST`, one strike) | Says what the Room accepts; a schema failure sends Zod's issue text instead |
+| `NOT_JOINED` | `'send join first'` | `apps/api/src/do/room.ts` (`draft:update` before `join` → `BAD_REQUEST`, no strike) | Drafts come only from users in presence |
+| `DRAFT_OP_MISFIT` | `'draft op does not fit the current draft'` | `apps/api/src/do/room.ts` (index past the end, or an `add` beyond `LIMITS.POLYGON_MAX_VERTICES` → `BAD_REQUEST`, no strike) | The client's draft and the Room's have diverged; the op is not relayed |

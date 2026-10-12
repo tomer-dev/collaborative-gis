@@ -1,22 +1,26 @@
-import type { WsEvent } from '@cgis/shared';
+import { type AreaEvent, ROOM } from '@cgis/shared';
 import type { Env } from '../app';
 
-type AreaEventType = 'area:created' | 'area:updated' | 'area:deleted';
-
 /**
- * An area change for the Room's sockets: a server-sent `WsEvent` without `seq`/`ts`, which the
- * Room stamps when it broadcasts (each socket has its own sequence).
+ * Hands a committed area change to the single Room (`ROOM.DEFAULT_ROOM_ID`, D11) over Durable
+ * Object RPC: `Room.broadcast` validates it, bumps the map version and sends it to every socket.
+ *
+ * The routes run this inside `c.executionCtx.waitUntil` after the commit, when the response is
+ * already sent, so it never throws: a failure (Room unreachable, RPC error) is logged as one
+ * `fanout failed` JSON line and dropped. Clients that miss a change resync on reconnect.
  */
-export type AreaEvent = WsEvent extends infer E
-  ? E extends { type: AreaEventType }
-    ? Omit<E, 'seq' | 'ts'>
-    : never
-  : never;
-
-/**
- * Broadcasts a committed area change to everyone in the Room. No-op until T8 (TOM-37) forwards it
- * to `env.ROOM`; the routes already call it through `c.executionCtx.waitUntil`, after the commit,
- * so the response never waits on the broadcast.
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function fanout(env: Env, event: AreaEvent): Promise<void> {}
+export async function fanout(env: Env, event: AreaEvent): Promise<void> {
+  try {
+    await env.ROOM.get(env.ROOM.idFromName(ROOM.DEFAULT_ROOM_ID)).broadcast(event);
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        msg: 'fanout failed',
+        type: event.type,
+        areaId: event.type === 'area:deleted' ? event.payload.id : event.payload.area.id,
+        error: err instanceof Error ? (err.stack ?? err.message) : String(err),
+      }),
+    );
+  }
+}
