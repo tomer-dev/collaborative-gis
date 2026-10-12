@@ -151,3 +151,19 @@ describe('area events and mapVersion', () => {
     for (const event of invalid) expect(AreaEventSchema.safeParse(event).success).toBe(false);
   });
 });
+
+describe('error events and resync', () => {
+  const error = (payload: object) => JSON.stringify({ type: 'error', seq: 9, ts: 1, payload });
+  const base = { code: 'CONFLICT', message: 'room state lost; join again' };
+
+  it('an error event may carry resync: true (the Room lost what the client relies on)', () => {
+    const ev = parseWsMessage(error({ ...base, resync: true }));
+    expect(ev.type === 'error' && ev.payload).toEqual({ ...base, resync: true });
+  });
+
+  it('resync is optional (additive) and must be a boolean', () => {
+    const ev = parseWsMessage(error(base));
+    expect(ev.type === 'error' && ev.payload).toEqual(base);
+    expect(() => parseWsMessage(error({ ...base, resync: 'yes' }))).toThrow();
+  });
+});
