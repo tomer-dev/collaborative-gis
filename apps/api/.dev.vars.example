@@ -1,6 +1,9 @@
 # Local Worker secrets for `wrangler dev`: copy to .dev.vars (git-ignored), never commit real values.
 # wrangler.jsonc `secrets.required` lists them; only listed keys are loaded from .dev.vars.
-# Deployed: `wrangler secret put <NAME>`. Tests: apps/api/vitest.config.ts sets test-only values.
+# Tests: apps/api/vitest.config.ts sets test-only values.
+# Production (`env.production` in wrangler.jsonc) has one secret, BETTER_AUTH_SECRET, set with
+# `wrangler secret put BETTER_AUTH_SECRET --env production`; its BETTER_AUTH_URL and CLIENT_ORIGIN
+# are vars in wrangler.jsonc. Never put a production value in this file. See docs/deploy.md.
 #
 # Better Auth signs session cookies with it. Random, at least 32 characters; generate one with
 #   openssl rand -base64 32

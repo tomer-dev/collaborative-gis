@@ -1,9 +1,12 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
+  // Top level = local development and tests (`wrangler dev`, vitest, `hono batch`). Production is
+  // `env.production` below, deployed with `wrangler deploy --env production` (docs/deploy.md).
   "name": "collaborative-gis-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
-  "compatibility_flags": ["nodejs_compat"],
+  // enable_request_signal: `c.req.raw.signal` aborts when the client disconnects.
+  "compatibility_flags": ["nodejs_compat", "enable_request_signal"],
   "observability": { "enabled": true },
   "hyperdrive": [
     {
@@ -25,6 +28,36 @@
   "vars": {
     "CLIENT_ORIGIN": "http://localhost:5173",
   },
-  // Values live in .dev.vars locally and in `wrangler secret put` deployed; see .dev.vars.example.
+  // Values live in .dev.vars locally; see .dev.vars.example.
   "secrets": { "required": ["BETTER_AUTH_SECRET", "BETTER_AUTH_URL"] },
+  "env": {
+    // One Worker serves the SPA (apps/web/dist, built first) and the API on one origin. It inherits
+    // main, compatibility flags, observability and the DO `migrations` (and any `triggers`) from
+    // the top level; bindings, vars and secrets are never inherited, so they are repeated here.
+    "production": {
+      "name": "collaborative-gis",
+      // Only here: `wrangler dev` and the tests run without a web build (Vite serves the SPA).
+      "assets": {
+        "directory": "../web/dist",
+        "not_found_handling": "single-page-application",
+        // These paths always reach the Worker; every other path is a file or the SPA's index.html.
+        "run_worker_first": ["/api/*", "/ws", "/healthz", "/readyz", "/docs", "/openapi.json"],
+      },
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "ffdceaec4c3b4c70a324ebf9da6cb7a9" }],
+      "durable_objects": {
+        "bindings": [
+          { "name": "ROOM", "class_name": "Room" },
+          { "name": "RATE_LIMITER", "class_name": "RateLimiter" },
+        ],
+      },
+      // Placeholders: the owner sets the deployed origin once (docs/deploy.md); the deploy workflow
+      // refuses to run while REPLACE-WITH- is still here. SPA and API share it, so both are equal.
+      "vars": {
+        "CLIENT_ORIGIN": "https://collaborative-gis.REPLACE-WITH-ACCOUNT-SUBDOMAIN.workers.dev",
+        "BETTER_AUTH_URL": "https://collaborative-gis.REPLACE-WITH-ACCOUNT-SUBDOMAIN.workers.dev",
+      },
+      // Set with `wrangler secret put BETTER_AUTH_SECRET --env production`, never in this file.
+      "secrets": { "required": ["BETTER_AUTH_SECRET"] },
+    },
+  },
 }
