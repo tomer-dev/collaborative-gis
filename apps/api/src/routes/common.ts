@@ -1,6 +1,6 @@
 import { ApiErrorSchema, type AreaEvent, HEADERS } from '@cgis/shared';
 import type { Context } from 'hono';
-import { resolver } from 'hono-openapi';
+import { type ContentWithResolver, resolver, type ResponsesWithResolver } from 'hono-openapi';
 import type { AppEnv } from '../app';
 import type { SignedIn } from '../middleware';
 import type { Actor } from '../services/areas';
@@ -29,15 +29,24 @@ export async function publish(c: Context<AppEnv & SignedIn>, event: AreaEvent): 
   c.executionCtx.waitUntil(fanout(c.env, event, requestId, mapVersion));
 }
 
+// Annotated with hono-openapi's exported types: apps/web reads these modules' declarations
+// (tsconfig.types.json), and the inferred types name modules it cannot reach.
+
 /** OpenAPI `content` for a JSON body described by `schema`. */
-export const json = (schema: Parameters<typeof resolver>[0]) => ({
+export const json = (schema: Parameters<typeof resolver>[0]): ContentWithResolver => ({
   'application/json': { schema: resolver(schema) },
 });
 
 /** An OpenAPI error response: the `ApiError` body, with `description`. */
-export const error = (description: string) => ({ description, content: json(ApiErrorSchema) });
+export const error = (description: string): ResponseDoc => ({
+  description,
+  content: json(ApiErrorSchema),
+});
 
-export const UNAUTHORIZED = error('No session (`UNAUTHORIZED`)');
-export const RATE_LIMITED = error(
+/** One documented response (status → this, in `describeRoute({ responses })`). */
+type ResponseDoc = ResponsesWithResolver[string];
+
+export const UNAUTHORIZED: ResponseDoc = error('No session (`UNAUTHORIZED`)');
+export const RATE_LIMITED: ResponseDoc = error(
   'Over the per-user mutation budget (`RATE_LIMITED`), with `Retry-After`',
 );
