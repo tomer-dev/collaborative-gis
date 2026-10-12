@@ -11,7 +11,7 @@ import {
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { polygon } from './geometry';
+import { polygon } from './geometry.ts';
 
 // Column names are spelled out in snake_case: the Drizzle client (./index.ts) and drizzle-kit
 // (../../drizzle.config.ts) set no `casing`, so a bare `areaId: uuid()` would become "areaId".

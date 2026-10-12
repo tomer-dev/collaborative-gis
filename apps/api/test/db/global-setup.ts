@@ -9,19 +9,33 @@ declare module 'vitest' {
   export interface ProvidedContext {
     /** URL of the db lane's test database, migrated from scratch for this run. */
     databaseUrl: string;
+    /**
+     * A second database, migrated the same way, for seed.test.ts alone: the seed tops up by
+     * counting `SEED.NAME_PREFIX` rows, so it needs a table no other file seeds into.
+     */
+    seedDatabaseUrl: string;
   }
 }
 
 const dbLane = fileURLToPath(new URL('../../../../scripts/db-lane.sh', import.meta.url));
 
 /**
- * Creates the db lane's database (`cgis_db_<lane>`: test/lane.ts; apps/api/vitest.config.ts sets
- * the lane) on the local compose PostGIS (scripts/db-lane.sh), empties it, and runs every
- * migration once, so the migrations are proven from scratch on each run. Dropping `public` also
- * drops PostGIS, which 0000_postgis.sql must then reinstall.
+ * Creates the db lane's two databases (`cgis_db_<lane>` and `cgis_db_seed_<lane>`: test/lane.ts;
+ * apps/api/vitest.config.ts sets the lane) on the local compose PostGIS (scripts/db-lane.sh),
+ * empties them, and runs every migration once on each, so the migrations are proven from scratch
+ * on each run. Dropping `public` also drops PostGIS, which 0000_postgis.sql must then reinstall.
  */
 export default async function setup(project: TestProject) {
-  const name = laneDatabase('cgis_db', process.env[LANE_ENV] ?? '');
+  const lane = process.env[LANE_ENV] ?? '';
+  const [url, seedUrl] = await Promise.all([
+    freshDatabase(laneDatabase('cgis_db', lane)),
+    freshDatabase(laneDatabase('cgis_db_seed', lane)),
+  ]);
+  project.provide('databaseUrl', url);
+  project.provide('seedDatabaseUrl', seedUrl);
+}
+
+async function freshDatabase(name: string): Promise<string> {
   const url = execFileSync('bash', [dbLane, name], { encoding: 'utf8' }).trim();
 
   const client = new pg.Client({ connectionString: url });
@@ -39,5 +53,5 @@ export default async function setup(project: TestProject) {
   }
 
   await migrate(url);
-  project.provide('databaseUrl', url);
+  return url;
 }

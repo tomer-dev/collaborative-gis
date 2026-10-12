@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { AreaSchema } from './area';
-import { LIMITS } from './constants';
-import { PositionSchema } from './geo';
+import { AreaSchema } from './area.ts';
+import { LIMITS } from './constants/index.ts';
+import { PositionSchema } from './geo.ts';
 
 const base = { seq: z.number().int().nonnegative(), ts: z.number().int().nonnegative() };
 
