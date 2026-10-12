@@ -10,9 +10,28 @@ Import from `@cgis/shared` in app code (`@cgis/shared/constants` in Node-side co
 |---|---|---|---|
 | `POLYGON_MAX_VERTICES` | `1000` | `packages/shared/src/geo.ts` (ring max; re-exported under the old name), `apps/web/src/App.tsx` | Spec §5 polygon rule; bounds payload and `ST_IsValid` cost |
 | `AREA_NAME_MAX` | `120` | `packages/shared/src/area.ts` (`AreaSchema.name`) | D13 name length cap |
-| `BOUNDS_LIMIT` | `500` | Planned: T15 `GET /api/areas` row limit | Caps one viewport response |
+| `BOUNDS_LIMIT` | `500` | `apps/api/src/db/spatial.ts` `selectAreasInBounds` default `limit`; planned: T15 `GET /api/areas` | Caps one viewport response |
 | `SIMPLIFY_ZOOM_BELOW` | `12` | Planned: T15 (zoom below this gets simplified geometry) | Fewer vertices when zoomed out |
 | `SIMPLIFY_TOLERANCE` | `0.0005` | Planned: T15 / T2 `ST_SimplifyPreserveTopology` tolerance (degrees) | ~50 m at the equator: invisible at zoom < 12 |
+
+## GEO
+
+| Name | Value | Where used | Why |
+|---|---|---|---|
+| `SRID` | `4326` | `apps/api/src/db/geometry.ts` (`geometry(Polygon,4326)` column type), `apps/api/src/db/spatial.ts` (`ST_MakeEnvelope(w, s, e, n, SRID)`) | WGS 84 lng/lat: what the map and GeoJSON use (`ST_GeomFromGeoJSON` defaults to it) |
+| `EARTH_RADIUS_M` | `6371008.8` | `apps/web/src/lib/geo/geodesic.test.ts` (exact-sphere and L'Huilier references); equals `earthRadius` in `@turf/helpers`, which `@turf/area` uses in `ringAreaM2` | WGS84 mean radius R1 = (2a + b) / 3. Versus the server's spheroidal `ST_Area(geography)` the sphere reads +0.13% at 29°N, +0.07% at 32°N, +0.03% at 34°N (Israel), +0.45% at the equator, −0.56% at 60°N (T11a report) |
+
+## SEED
+
+The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmark seed is M2.
+
+| Name | Value | Where used | Why |
+|---|---|---|---|
+| `COUNT` | `50` | `seedAreas` default; `apps/api/test/db/spatial.test.ts` (rows before `ANALYZE` + `EXPLAIN`) | Enough rows for the planner to have statistics, fast to insert |
+| `BBOX` | `[34.27, 29.49, 35.9, 33.34]` | `seedAreas` default | Israel as `[w, s, e, n]`, the demo region |
+| `MAX_RADIUS_DEG` | `0.02` | `seedAreas` | Polygons up to ~4 km across: viewport-sized at city zoom |
+| `VERTICES` | `{ min: 4, max: 8 }` | `seedAreas` | Small, varied rings |
+| `USER_ID` | `'seed'` | `seedAreas` default `created_by` | Seeded rows are recognisable |
 
 ## WS
 
@@ -26,6 +45,14 @@ Import from `@cgis/shared` in app code (`@cgis/shared/constants` in Node-side co
 | `PING_INTERVAL_MS` | `30_000` | Planned: T14 client ping (DO auto-responds ping→pong) | Keeps idle sockets and proxies alive |
 | `RECONNECT_BACKOFF_MS` | `{ min: 1000, max: 30_000 }` | Planned: T14 reconnect backoff (+ jitter) | Fast first retry, bounded worst case |
 | `OFFLINE_POLL_MS` | `10_000` | Planned: T14 polling while the socket is offline | Degraded mode still converges |
+
+## RATE_LIMIT
+
+| Name | Value | Where used | Why |
+|---|---|---|---|
+| `DRAW_ACTIONS_PER_WINDOW` | `50` | `apps/api/src/do/rate-limiter.ts` `RateLimiter.take` (actions allowed per window); planned: api lane mounts `rateLimit(action)` on mutations, T7/T8 Room calls `take` for WS drawing actions | D5: 50 drawing actions per user per window, one budget for REST and WS |
+| `WINDOW_MS` | `60_000` | `apps/api/src/do/rate-limiter.ts` (sliding window length, prune cutoff, idle alarm) | D5: exact sliding window over the last 60 s; the 429 `Retry-After` is at most this long |
+| `ACTIONS` | `{ DRAW: 'draw', MUTATE: 'mutate' }` | `apps/api/src/do/rate-limiter.ts` (`take` rejects any other value at runtime), type `RateLimitAction`; planned: api lane `rateLimit(ACTIONS.MUTATE)` on area mutations, T7/T8 Room `take(ACTIONS.DRAW)` per WS drawing action | RPC does not enforce TS types, so the limiter only stores known labels; both spend the one D5 budget |
 
 ## TIMEOUTS
 
@@ -76,12 +103,6 @@ Import from `@cgis/shared` in app code (`@cgis/shared/constants` in Node-side co
 | `HANDLE_HIT_PX` | `24` | `apps/web/src/lib/geo/draw-handler.ts` (vertex handle hit box, the marker icon size) | WCAG 2.5.8 target size (≥24 CSS px) for dragging a vertex |
 | `HANDLE_BORDER_PX` | `2` | `apps/web/src/lib/geo/draw-handler.ts` (vertex dot ring) | Ring stays visible over busy tiles |
 | `DRAFT_STYLE` | `{ weight: 2, dashArray: '6 4', fillOpacity: 0.12 }` | `apps/web/src/lib/geo/draw-handler.ts` (live sketch); planned T14 ghost drafts | Dashed and faint: reads as unsaved next to solid saved areas |
-
-## GEO
-
-| Name | Value | Where used | Why |
-|---|---|---|---|
-| `EARTH_RADIUS_M` | `6371008.8` | `apps/web/src/lib/geo/geodesic.test.ts` (exact-sphere and L'Huilier references); equals `earthRadius` in `@turf/helpers`, which `@turf/area` uses in `ringAreaM2` | WGS84 mean radius R1 = (2a + b) / 3. Versus the server's spheroidal `ST_Area(geography)` the sphere reads +0.13% at 29°N, +0.07% at 32°N, +0.03% at 34°N (Israel), +0.45% at the equator, −0.56% at 60°N (T11a report) |
 
 ## DRAW
 
