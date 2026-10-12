@@ -1,3 +1,4 @@
+import { ROUTES } from '@cgis/shared/constants';
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 import { AppFrame, SessionMenu } from './-components/AppFrame';
 
@@ -5,7 +6,7 @@ import { AppFrame, SessionMenu } from './-components/AppFrame';
 export const Route = createFileRoute('/_authed')({
   // Signed-out visitors go to /login; the API still enforces auth on every call.
   beforeLoad: ({ context }) => {
-    if (context.session === null) throw redirect({ to: '/login' });
+    if (context.session === null) throw redirect({ to: ROUTES.APP.LOGIN });
     return { user: context.session };
   },
   component: AuthedLayout,
