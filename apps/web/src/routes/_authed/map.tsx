@@ -29,7 +29,7 @@ type MapMode =
   | { kind: 'draft'; ring: LngLat[] }
   /** An area picked on the map or in the panel's list (AreaPanel). */
   | { kind: 'selected'; id: string }
-  /** A rename the server refused with 409 (ConflictDialog). */
+  /** A rename or a revert the server refused with 409 (ConflictDialog). */
   | { kind: 'conflict'; edit: AreaEdit; current: Area };
 
 const BROWSE: MapMode = { kind: 'browse' };

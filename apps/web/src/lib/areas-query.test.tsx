@@ -341,11 +341,15 @@ describe('useRevertArea', () => {
   it('posts the version and patches the 201 area into every viewport that has it', async () => {
     const { result, requests, queryClient } = renderRevert(() => jsonResponse(201, reverted));
 
-    act(() => result.current.mutate({ id: AREA_ID, version: 1 }));
+    act(() => result.current.mutate({ id: AREA_ID, version: 1, expected: 3 }));
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(requests).toEqual([
-      expect.objectContaining({ method: 'POST', path: `/api/areas/${AREA_ID}/revert/1` }),
+      expect.objectContaining({
+        method: 'POST',
+        path: `/api/areas/${AREA_ID}/revert/1`,
+        body: { version: 3 },
+      }),
     ]);
     expect(queryClient.getQueryData(areasKey(ISRAEL, ZOOM))).toEqual({
       areas: [reverted, vineyard],
@@ -358,7 +362,7 @@ describe('useRevertArea', () => {
     const { result, queryClient } = renderRevert(() => jsonResponse(201, reverted), newer);
     const before = queryClient.getQueryData(areasKey(ISRAEL, ZOOM));
 
-    act(() => result.current.mutate({ id: AREA_ID, version: 1 }));
+    act(() => result.current.mutate({ id: AREA_ID, version: 1, expected: 3 }));
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(queryClient.getQueryData(areasKey(ISRAEL, ZOOM))).toBe(before);
@@ -374,11 +378,28 @@ describe('useRevertArea', () => {
     );
     const before = queryClient.getQueryData(areasKey(ISRAEL, ZOOM));
 
-    act(() => result.current.mutate({ id: AREA_ID, version: 1 }));
+    act(() => result.current.mutate({ id: AREA_ID, version: 1, expected: 3 }));
 
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(result.current.error).toMatchObject({ status: 409, code: ERROR_CODES.CONFLICT });
     expect(queryClient.getQueryData(areasKey(ISRAEL, ZOOM))).toBe(before);
+  });
+
+  it('rejects a 409 with details.current (the area moved on) as AreaConflictError', async () => {
+    const theirs = makeArea(AREA_ID, { name: 'Renamed since', version: 4 });
+    const { result } = renderRevert(() =>
+      jsonResponse(409, {
+        code: ERROR_CODES.CONFLICT,
+        message: ERROR_REASONS.VERSION_CONFLICT,
+        details: { current: theirs },
+      }),
+    );
+
+    act(() => result.current.mutate({ id: AREA_ID, version: 1, expected: 3 }));
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error).toBeInstanceOf(AreaConflictError);
+    expect(result.current.error).toMatchObject({ current: theirs });
   });
 
   it("refreshes the area lists and the area's history on a 404", async () => {
@@ -388,7 +409,7 @@ describe('useRevertArea', () => {
     queryClient.setQueryData(versionsKey(AREA_ID, 3), { versions: [] });
     queryClient.setQueryData(versionsKey(OTHER_ID, 1), { versions: [] });
 
-    act(() => result.current.mutate({ id: AREA_ID, version: 1 }));
+    act(() => result.current.mutate({ id: AREA_ID, version: 1, expected: 3 }));
 
     await waitFor(() => expect(result.current.isError).toBe(true));
     const stale = (key: readonly unknown[]) => queryClient.getQueryState(key)?.isInvalidated;

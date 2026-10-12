@@ -10,7 +10,13 @@ import type { UseQueryResult } from '@tanstack/react-query';
 import { useId } from 'react';
 import { ApiRequestError } from '../lib/api-client';
 import { formatArea } from '../lib/area-readout';
-import { areaErrorMessage, useAreaVersions, useRevertArea } from '../lib/areas-query';
+import {
+  AreaConflictError,
+  areaErrorMessage,
+  useAreaVersions,
+  useRevertArea,
+  type AreaEdit,
+} from '../lib/areas-query';
 import { Banner, Button } from '../ui';
 
 const MS_PER_SECOND = 1000;
@@ -56,24 +62,46 @@ function revertErrorMessage(error: Error): string {
 export type AreaHistoryProps = {
   /** The selected area as the areas cache has it now; its version keys the history. */
   area: Area;
+  /**
+   * A revert met a newer version (409, D4): the parent asks the user (ConflictDialog). The edit is
+   * the reverted version's name and geometry on top of the version this panel showed, so
+   * "Overwrite with mine" saves the revert's result over theirs.
+   */
+  onConflict: (edit: AreaEdit, current: Area) => void;
 };
 
 /**
  * The selected area's saved versions, newest first: number, name, area, who saved it and when.
  * Any version but the area's own can be brought back, one revert at a time; the reverted area
- * lands in the areas cache, and its new version refetches this history.
+ * lands in the areas cache, and its new version refetches this history. A revert names the
+ * version shown here, so another user's newer edit is a conflict, not silently undone.
  */
-export function AreaHistory({ area }: AreaHistoryProps) {
+export function AreaHistory({ area, onConflict }: AreaHistoryProps) {
   const titleId = useId();
   const history = useAreaVersions(area.id, area.version);
   const revert = useRevertArea();
+  // A conflict is the parent's to show; any other failure is shown here.
+  const failed = revert.isError && !(revert.error instanceof AreaConflictError);
+
+  function revertTo({ version, name, geometry }: AreaVersion) {
+    const expected = area.version;
+    revert.mutate(
+      { id: area.id, version, expected },
+      {
+        onError: (error) => {
+          if (!(error instanceof AreaConflictError)) return;
+          onConflict({ id: area.id, body: { name, geometry, version: expected } }, error.current);
+        },
+      },
+    );
+  }
 
   return (
     <section aria-labelledby={titleId} className="flex flex-col gap-2 border-t border-line pt-4">
       <h3 id={titleId} className="text-sm font-semibold">
         {COPY.AREAS.HISTORY_TITLE}
       </h3>
-      {revert.isError ? (
+      {failed ? (
         <Banner tone="danger" title={COPY.AREAS.REVERT_ERROR_TITLE}>
           {revertErrorMessage(revert.error)}
         </Banner>
@@ -82,7 +110,7 @@ export function AreaHistory({ area }: AreaHistoryProps) {
         history={history}
         current={area.version}
         reverting={revert.isPending ? revert.variables.version : null}
-        onRevert={(version) => revert.mutate({ id: area.id, version })}
+        onRevert={revertTo}
       />
     </section>
   );
@@ -94,7 +122,7 @@ type VersionListProps = {
   current: number;
   /** The version a revert is in flight for, or null. */
   reverting: number | null;
-  onRevert: (version: number) => void;
+  onRevert: (version: AreaVersion) => void;
 };
 
 function VersionList({ history, current, reverting, onRevert }: VersionListProps) {
@@ -127,7 +155,7 @@ type VersionRowProps = {
   version: AreaVersion;
   isCurrent: boolean;
   reverting: number | null;
-  onRevert: (version: number) => void;
+  onRevert: (version: AreaVersion) => void;
 };
 
 function VersionRow({ version, isCurrent, reverting, onRevert }: VersionRowProps) {
@@ -156,7 +184,7 @@ function VersionRow({ version, isCurrent, reverting, onRevert }: VersionRowProps
           className="self-start"
           aria-describedby={labelId}
           disabled={reverting !== null}
-          onClick={() => onRevert(version.version)}
+          onClick={() => onRevert(version)}
         >
           {reverting === version.version ? COPY.AREAS.REVERT_PENDING : COPY.AREAS.REVERT}
         </Button>

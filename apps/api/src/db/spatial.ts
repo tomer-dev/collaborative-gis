@@ -31,7 +31,10 @@ export type AuditRow = Omit<typeof auditLog.$inferInsert, 'id' | 'at'>;
 
 /** A revert's result: the reverted area, or why nothing was written. */
 export type RevertResult =
-  { status: 'reverted'; area: AreaRow } | { status: 'missing' } | { status: 'deleted' };
+  | { status: 'reverted'; area: AreaRow }
+  | { status: 'conflict'; current: AreaRow }
+  | { status: 'missing' }
+  | { status: 'deleted' };
 
 /**
  * PostGIS rejected a polygon that passed Zod (e.g. a self-intersection). `reason` is the
@@ -278,19 +281,22 @@ export async function listVersions(c: pg.Client, areaId: string): Promise<AreaVe
 }
 
 /**
- * Reverts a live area to its saved `version` in one statement (a data-modifying CTE, the D23
- * exception): copies that version's name, geometry and area onto the area, bumps `version`, and
- * records the result as a new version row changed by `userId`; history is never rewritten. The
- * saved geometry passed `ST_IsValid` when it was written, so it is not checked again.
+ * Reverts a live area at version `expected` to its saved `version` in one statement (a
+ * data-modifying CTE, the D23 exception): copies that version's name, geometry and area onto the
+ * area, bumps `version`, and records the result as a new version row changed by `userId`; history
+ * is never rewritten. The saved geometry passed `ST_IsValid` when it was written, so it is not
+ * checked again.
  *
- * When nothing was written, a second statement says why: `deleted` (the area is soft-deleted) or
- * `missing` (no such area, or no such version of a live one). Under READ COMMITTED (the default)
- * it sees a delete that committed while the UPDATE waited for the row.
+ * When nothing was written, a second statement says why: `deleted` (the area is soft-deleted),
+ * `conflict` (it is no longer at `expected`: `current` is what is stored, D4), or `missing` (no
+ * such area, or no such version of a live one). Under READ COMMITTED (the default) it sees a
+ * write that committed while the UPDATE waited for the row.
  */
 export async function revertArea(
   c: pg.Client,
   id: string,
   version: number,
+  expected: number,
   userId: string,
 ): Promise<RevertResult> {
   const { rows } = await db(c).execute<AreaRow>(sql`
@@ -303,7 +309,7 @@ export async function revertArea(
       SET name = target.name, geom = target.geom, area_km2 = target.area_km2,
           version = areas.version + 1, updated_at = now()
       FROM target
-      WHERE areas.id = ${id} AND areas.deleted_at IS NULL
+      WHERE areas.id = ${id} AND areas.deleted_at IS NULL AND areas.version = ${expected}
       RETURNING areas.*
     ),
     next_version AS (
@@ -313,11 +319,15 @@ export async function revertArea(
     SELECT ${AREA_COLUMNS} FROM reverted`);
   const area = rows[0];
   if (area) return { status: 'reverted', area };
-  const [current] = await db(c)
-    .select({ deletedAt: areas.deletedAt })
+  const [stored] = await db(c)
+    .select({ deletedAt: areas.deletedAt, version: areas.version })
     .from(areas)
     .where(eq(areas.id, id));
-  return current?.deletedAt ? { status: 'deleted' } : { status: 'missing' };
+  if (!stored) return { status: 'missing' };
+  if (stored.deletedAt) return { status: 'deleted' };
+  if (stored.version === expected) return { status: 'missing' };
+  const current = await selectLiveArea(c, id);
+  return current ? { status: 'conflict', current } : { status: 'deleted' };
 }
 
 /** Appends one `audit_log` row (`at` defaults to now()). */

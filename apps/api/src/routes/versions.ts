@@ -5,6 +5,7 @@ import {
   ERROR_MESSAGES,
   ERROR_REASONS,
   LIMITS,
+  RevertRequestSchema,
   VersionsResponseSchema,
 } from '@cgis/shared';
 import { Hono } from 'hono';
@@ -20,8 +21,9 @@ import { actor, error, json, publish, RATE_LIMITED, UNAUTHORIZED } from './commo
 // An area's saved versions, and the revert to one of them; routes/areas.ts mounts both. Same
 // guards as the area routes: a session first (401); the revert, like every mutation, mounts
 // `mutationGuards()` (session, then the user's D5 budget (429) and the body cap (413)) before
-// validation (422). services/areas.ts owns the transaction and the audit row; a committed revert
-// bumps the map version before the response and is broadcast after it (`publish`).
+// validation (422). A revert names the version it is based on and meets the same 409 as a `PUT`
+// when the area moved on (D4). services/areas.ts owns the transaction and the audit row; a
+// committed revert bumps the map version before the response and is broadcast after it.
 
 /**
  * `:version` is an `area_versions.version`, a Postgres integer: past the int4 range the query
@@ -32,7 +34,11 @@ const RevertParamSchema = IdParamSchema.extend({
   version: z.coerce.number().int().positive().max(LIMITS.VERSION_MAX),
 });
 
-const DeletedSchema = ApiErrorSchema.extend({ details: z.object({ reason: z.string() }) });
+/** The two 409s: the area is deleted (`details.reason`), or it moved on (`details.current`, D4). */
+const RevertConflictSchema = z.union([
+  ApiErrorSchema.extend({ details: z.object({ reason: z.string() }) }),
+  ApiErrorSchema.extend({ details: z.object({ current: AreaSchema }) }),
+]);
 
 const UNPROCESSABLE = error('Invalid path parameter (`UNPROCESSABLE`): `details.issues`');
 
@@ -65,14 +71,15 @@ export const revert = new Hono<AppEnv>().post(
   describeRoute({
     summary: 'Revert an area to a saved version',
     description:
-      'Saves that version’s name and geometry as a new version (the history is kept), bumps `version`, and audits `area.revert`.',
+      'Saves that version’s name and geometry as a new version (the history is kept), bumps `version`, and audits `area.revert`. The body’s `version` is the area’s version the client was showing: optimistic concurrency like `PUT` (D4).',
     responses: {
       201: { description: 'The area at its new version', content: json(AreaSchema) },
       401: UNAUTHORIZED,
       404: error('No such area, or no such version of it (`NOT_FOUND`)'),
       409: {
-        description: 'The area is deleted (`CONFLICT`): `details.reason` says so',
-        content: json(DeletedSchema),
+        description:
+          'The area is deleted (`CONFLICT`, `details.reason`), or it is no longer at the body’s `version` (`CONFLICT`, `details.current` is the stored area)',
+        content: json(RevertConflictSchema),
       },
       422: UNPROCESSABLE,
       429: RATE_LIMITED,
@@ -80,15 +87,21 @@ export const revert = new Hono<AppEnv>().post(
   }),
   mutationGuards(),
   validate('param', RevertParamSchema),
+  validate('json', RevertRequestSchema),
   async (c) => {
     const { id, version } = c.req.valid('param');
-    const result = await revertAreaToVersion(c.env, id, version, actor(c));
+    const expected = c.req.valid('json').version;
+    const result = await revertAreaToVersion(c.env, id, { version, expected }, actor(c));
     switch (result.status) {
       case 'missing':
         return apiError(c, ERROR_CODES.NOT_FOUND);
       case 'deleted':
         return apiError(c, ERROR_CODES.CONFLICT, ERROR_MESSAGES.CONFLICT, {
           reason: ERROR_REASONS.AREA_DELETED,
+        });
+      case 'conflict':
+        return apiError(c, ERROR_CODES.CONFLICT, ERROR_REASONS.VERSION_CONFLICT, {
+          current: result.current,
         });
       case 'reverted': {
         const { area } = result;

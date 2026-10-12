@@ -184,7 +184,7 @@ export type AreaEdit = { id: string; body: AreaUpdate };
 
 const ConflictSchema = ApiErrorSchema.extend({ details: z.object({ current: AreaSchema }) });
 
-/** A 409 from `PUT /api/areas/:id`: someone saved a newer version, which is `current`. */
+/** A 409 from `PUT /api/areas/:id` or a revert: someone saved a newer version, `current`. */
 export class AreaConflictError extends ApiRequestError {
   readonly current: Area;
 
@@ -250,26 +250,34 @@ export function useAreaVersions(id: string, version: number) {
   });
 }
 
-/** One revert: the area's id and the saved version to bring back. */
-export type AreaRevert = { id: string; version: number };
+/**
+ * One revert: the area's id, the saved version to bring back, and `expected`, the area's version
+ * the panel shows (D4: a newer one stored is a 409 with that area).
+ */
+export type AreaRevert = { id: string; version: number; expected: number };
 
 /**
  * Reverts an area to a saved version (`POST /api/areas/:id/revert/:version` → 201, the area at its
  * new version) and patches it into the cached viewports, unless the WebSocket's `area:updated`
- * got there first. A 409 means the area is deleted (`details.reason`); a 404 means the area or the
- * version is gone, so the area lists and that area's history refetch.
+ * got there first. A 409 with `details.current` (the area moved on since `expected`) rejects with
+ * `AreaConflictError`, as a rename does; any other 409 means the area is deleted
+ * (`details.reason`); a 404 means the area or the version is gone, so the area lists and that
+ * area's history refetch.
  */
 export function useRevertArea() {
   const queryClient = useQueryClient();
   return useMutation<Area, Error, AreaRevert>({
-    mutationFn: async ({ id, version }) =>
-      readBody(
-        await api.api.areas[':id'].revert[':version'].$post({
-          param: { id, version: String(version) },
-        }),
-        201,
-        AreaSchema,
-      ),
+    mutationFn: async ({ id, version, expected }) => {
+      const res = await api.api.areas[':id'].revert[':version'].$post({
+        param: { id, version: String(version) },
+        json: { version: expected },
+      });
+      if (res.status === 409) {
+        const conflict = ConflictSchema.safeParse(await res.clone().json());
+        if (conflict.success) throw new AreaConflictError(conflict.data);
+      }
+      return readBody(res, 201, AreaSchema);
+    },
     onSuccess: (area) => replaceOlderArea(queryClient, area),
     onError: (error, { id }) => {
       if (!(error instanceof ApiRequestError) || error.code !== ERROR_CODES.NOT_FOUND) return;
