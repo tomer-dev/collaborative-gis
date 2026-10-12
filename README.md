@@ -55,6 +55,12 @@ Migrations always run against a **direct** database URL, never through Hyperdriv
 
 Coordinate order: all GeoJSON in this project is `[longitude, latitude]`; Leaflet's own API is `[lat, lng]`. The shared schema cannot detect a swap when both values are in range.
 
+## Deploy
+
+One Worker, `collaborative-gis` (`env.production` in `apps/api/wrangler.jsonc`), serves the built SPA as static assets and the API, the WebSocket and both Durable Objects on one origin; Neon is reached through Hyperdrive with query caching off.
+`.github/workflows/deploy.yml` deploys on every push to `main` and on demand: it migrates Neon over the direct URL, builds the web and runs `wrangler deploy --env production`. It is skipped until the repository has the `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` and `DATABASE_URL` secrets.
+The one-time owner checklist (Hyperdrive caching, production origin, `BETTER_AUTH_SECRET`, first deploy), smoke checks and rollback: [`docs/deploy.md`](docs/deploy.md).
+
 ## Technical decisions and architecture
 
 The decision log is §10 of the design spec, [`docs/superpowers/specs/2026-10-12-collaborative-gis-design.md`](docs/superpowers/specs/2026-10-12-collaborative-gis-design.md) (D1–D25), with ADRs 0001–0004 in `docs/adr/`. The ones that shape the code most:
