@@ -17,16 +17,16 @@ import { boundsCache, tileOf } from '../cache/bounds';
 import { apiError } from '../errors';
 import { mutationGuards, requireUser } from '../middleware';
 import { createArea, deleteArea, listAreas, updateArea } from '../services/areas';
-import { fanout } from '../services/fanout';
 import { IdParamSchema, validate } from '../validate';
-import { actor, error, json, RATE_LIMITED, UNAUTHORIZED } from './common';
+import { actor, error, json, publish, RATE_LIMITED, UNAUTHORIZED } from './common';
 import { revert, versions } from './versions';
 
 // Every path under /api/areas needs a session (401 first, from the one `use` below; an unrouted
 // path answers 401, not 404, to an anonymous caller); mutations then mount `mutationGuards()`:
 // they spend the user's D5 budget (429) and cap the body (413) before validation (422), so
 // rejected attempts count too. Handlers stay thin: services/areas.ts owns the transaction and the
-// audit row, and a committed change is broadcast after the response.
+// audit row; a committed change bumps the map version before the response and is broadcast
+// after it (`publish`).
 
 /** 422 for a polygon PostGIS rejected: `details.reason` is the `ST_IsValidReason` text. */
 const invalidGeometry = (c: Context, reason: string) =>
@@ -63,9 +63,7 @@ export const areas = new Hono<AppEnv>()
       const result = await createArea(c.env, c.req.valid('json'), actor(c));
       if (result.status === 'invalid') return invalidGeometry(c, result.reason);
       const { area } = result;
-      c.executionCtx.waitUntil(
-        fanout(c.env, { type: 'area:created', payload: { area } }, c.get('requestId')),
-      );
+      await publish(c, { type: 'area:created', payload: { area } });
       return c.json(area, 201);
     },
   )
@@ -126,9 +124,7 @@ export const areas = new Hono<AppEnv>()
           });
         case 'updated': {
           const { area } = result;
-          c.executionCtx.waitUntil(
-            fanout(c.env, { type: 'area:updated', payload: { area } }, c.get('requestId')),
-          );
+          await publish(c, { type: 'area:updated', payload: { area } });
           return c.json(area, 200);
         }
       }
@@ -154,9 +150,7 @@ export const areas = new Hono<AppEnv>()
       const { id } = c.req.valid('param');
       const result = await deleteArea(c.env, id, actor(c));
       if (result.status === 'missing') return apiError(c, ERROR_CODES.NOT_FOUND);
-      c.executionCtx.waitUntil(
-        fanout(c.env, { type: 'area:deleted', payload: { id } }, c.get('requestId')),
-      );
+      await publish(c, { type: 'area:deleted', payload: { id } });
       return c.body(null, 204);
     },
   )

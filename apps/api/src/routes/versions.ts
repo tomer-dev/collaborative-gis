@@ -13,15 +13,14 @@ import type { AppEnv } from '../app';
 import { apiError } from '../errors';
 import { mutationGuards, requireUser } from '../middleware';
 import { listAreaVersions, revertAreaToVersion } from '../services/areas';
-import { fanout } from '../services/fanout';
 import { IdParamSchema, validate } from '../validate';
-import { actor, error, json, RATE_LIMITED, UNAUTHORIZED } from './common';
+import { actor, error, json, publish, RATE_LIMITED, UNAUTHORIZED } from './common';
 
 // An area's saved versions, and the revert to one of them; routes/areas.ts mounts both. Same
 // guards as the area routes: a session first (401); the revert, like every mutation, mounts
 // `mutationGuards()` (session, then the user's D5 budget (429) and the body cap (413)) before
-// validation (422). services/areas.ts owns the transaction and the audit row, and a committed
-// revert is broadcast after the response.
+// validation (422). services/areas.ts owns the transaction and the audit row; a committed revert
+// bumps the map version before the response and is broadcast after it (`publish`).
 
 /**
  * `:version` is an `area_versions.version`, a Postgres integer: past the int4 range the query
@@ -91,9 +90,7 @@ export const revert = new Hono<AppEnv>().post(
         });
       case 'reverted': {
         const { area } = result;
-        c.executionCtx.waitUntil(
-          fanout(c.env, { type: 'area:updated', payload: { area } }, c.get('requestId')),
-        );
+        await publish(c, { type: 'area:updated', payload: { area } });
         return c.json(area, 201);
       }
     }
