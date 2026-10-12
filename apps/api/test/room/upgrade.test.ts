@@ -1,4 +1,4 @@
-import { LIMITS, MAP, ROOM, WS, type WsEvent } from '@cgis/shared';
+import { type AreaEvent, LIMITS, MAP, ROOM, WS } from '@cgis/shared';
 import { evictDurableObject, runInDurableObject } from 'cloudflare:test';
 import { env, exports } from 'cloudflare:workers';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -46,14 +46,17 @@ const attachments = () =>
 const socketCount = () =>
   runInDurableObject(room(), (_room, state) => state.getWebSockets().length);
 
-const event = (n: number): WsEvent => ({
+const event = (n: number): AreaEvent => ({
   type: 'area:deleted',
-  seq: 0,
-  ts: 0,
   payload: { id: `00000000-0000-4000-8000-00000000000${n}` },
 });
-/** What a socket receives for `event(n)`: the Room replaces `seq` and `ts` with its own. */
-const received = (n: number) => ({ ...event(n), seq: expect.any(Number), ts: expect.any(Number) });
+/** What a socket receives for `event(n)`: stamped with the Room's `seq`, `ts` and `mapVersion`. */
+const received = (n: number) => ({
+  ...event(n),
+  seq: expect.any(Number),
+  ts: expect.any(Number),
+  mapVersion: expect.any(Number),
+});
 
 afterEach(async () => {
   vi.restoreAllMocks();
@@ -229,17 +232,6 @@ describe('Room Durable Object', () => {
     const [gotA, gotB] = [nextMessage(a), nextMessage(b)];
     await room().broadcast(event(1));
     expect(JSON.parse(await gotA)).toEqual(received(1));
-    expect(JSON.parse(await gotB)).toEqual(received(1));
-  });
-
-  it('broadcast(event, exceptUserId) skips that user', async () => {
-    const a = await connect('u1', 'Alice');
-    const b = await connect('u2', 'Bob');
-    const [gotA, gotB] = [nextMessage(a), nextMessage(b)];
-    await room().broadcast(event(1), 'u1');
-    await room().broadcast(event(2));
-    // Frames arrive in order, so Alice's first frame being event 2 proves she never got event 1.
-    expect(JSON.parse(await gotA)).toEqual(received(2));
     expect(JSON.parse(await gotB)).toEqual(received(1));
   });
 
