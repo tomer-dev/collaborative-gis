@@ -28,6 +28,12 @@ export const TIMEOUTS = {
   REQUEST_MS: 10_000,
 } as const;
 
+/** Structured logs: a value whose key contains one of REDACT_KEYS (any case, any depth) is replaced by REDACTED. */
+export const LOG = {
+  REDACT_KEYS: ['password', 'secret', 'cookie', 'authorization'],
+  REDACTED: '[redacted]',
+} as const;
+
 /** HTTP paths the Worker serves and the SPA calls. */
 export const ROUTES = {
   API_PREFIX: '/api',

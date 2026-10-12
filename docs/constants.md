@@ -33,7 +33,14 @@ Import from `@cgis/shared` in app code (`@cgis/shared/constants` in Node-side co
 |---|---|---|---|
 | `DB_CONNECT_MS` | `3000` | `apps/api/src/db/index.ts` `withClient`: `connectionTimeoutMillis` and a hard `Promise.race` deadline (workerd cannot abort a TCP connect in flight) | `/readyz` and every DB call fail fast when the DB is unreachable |
 | `DB_QUERY_MS` | `3000` | `apps/api/src/db/index.ts` `withClient` (`query_timeout`) | Bounds one query inside the request budget |
-| `REQUEST_MS` | `10_000` | Planned: T3 `timeout()` middleware → 504 `TIMEOUT` | Whole-request budget (§6) |
+| `REQUEST_MS` | `10_000` | `apps/api/src/middleware/index.ts` `timeout()` → 504 `TIMEOUT` | Whole-request budget (§6) |
+
+## LOG
+
+| Name | Value | Where used | Why |
+|---|---|---|---|
+| `REDACT_KEYS` | `['password', 'secret', 'cookie', 'authorization']` | `apps/api/src/middleware/logger.ts` `log()`: a key containing one of these (any case, any depth) is redacted | Spec §6: secrets never reach Workers Logs (`set-cookie`, `BETTER_AUTH_SECRET`, `Authorization` all match) |
+| `REDACTED` | `'[redacted]'` | `apps/api/src/middleware/logger.ts` | Replacement value; keeps the key so the log still shows the field was present |
 
 ## ROUTES
 
@@ -87,7 +94,7 @@ Every `ApiError.code` the API sends; `ApiErrorCodeSchema = z.enum(ERROR_CODES)`.
 | `UNPROCESSABLE` | `'UNPROCESSABLE'` | 422 | `unprocessableError`; planned T15 Zod and `ST_IsValid` failures | Validation |
 | `PAYLOAD_TOO_LARGE` | `'PAYLOAD_TOO_LARGE'` | 413 | `payloadTooLargeError` | Body limit |
 | `RATE_LIMITED` | `'RATE_LIMITED'` | 429 | `rateLimitedError`; planned T7 draft bucket | D13 rate limits |
-| `TIMEOUT` | `'TIMEOUT'` | 504 | `codeFor(504)`; planned T3 timeout middleware | Request budget exceeded |
+| `TIMEOUT` | `'TIMEOUT'` | 504 | `codeFor(504)` for the `apps/api/src/middleware/index.ts` timeout | Request budget exceeded |
 | `NOT_READY` | `'NOT_READY'` | 503 | `apps/api/src/routes/health.ts` `/readyz` | DB unreachable |
 | `INTERNAL` | `'INTERNAL'` | 500 | `apps/api/src/app.ts` `onError` | Sanitised server error |
 | `NOT_IMPLEMENTED` | `'NOT_IMPLEMENTED'` | 501 | T0 stubs `apps/api/src/auth.ts`, `apps/api/src/ws.ts` | Mounted route whose lane has not landed |
@@ -107,7 +114,7 @@ Default `ApiError.message` per code, same keys as `ERROR_CODES` (`satisfies` + a
 | `UNPROCESSABLE` | `'Unprocessable'` | `unprocessableError` default | Generic 422 |
 | `PAYLOAD_TOO_LARGE` | `'Payload too large'` | `payloadTooLargeError` default | Generic 413 |
 | `RATE_LIMITED` | `'Too many requests'` | `rateLimitedError` default | Generic 429 |
-| `TIMEOUT` | `'timeout'` | Planned: T3 `HTTPException(504, { message: ERROR_MESSAGES.TIMEOUT })` | 504 body |
+| `TIMEOUT` | `'timeout'` | `apps/api/src/middleware/index.ts` `HTTPException(504, { message: ERROR_MESSAGES.TIMEOUT })` | 504 body |
 | `NOT_READY` | `'database unreachable'` | `apps/api/src/routes/health.ts` | `/readyz` 503 body |
 | `INTERNAL` | `'Internal Server Error'` | `apps/api/src/app.ts` `onError` | 5xx bodies never leak `err.message` |
 | `NOT_IMPLEMENTED` | `'not implemented'` | T0 stubs `auth.ts`, `ws.ts` | 501 until the lane fills the stub |
