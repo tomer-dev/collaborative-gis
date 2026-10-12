@@ -43,7 +43,7 @@ export const buttonVariants = cva(
   },
 );
 
-const iconSize = { sm: 'size-4', md: 'size-4', lg: 'size-5' } as const;
+const iconSize = { sm: 'size-4 shrink-0', md: 'size-4 shrink-0', lg: 'size-5 shrink-0' } as const;
 
 export interface ButtonProps
   extends
