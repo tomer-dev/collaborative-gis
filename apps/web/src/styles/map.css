@@ -1,7 +1,8 @@
 /*
- * Leaflet path and handle classes built on the --map-* tokens (tokens.css). Leaflet writes
+ * Leaflet path classes built on the --map-* tokens (tokens.css). Leaflet writes
  * presentation attributes (stroke="#3388ff", ...) on each path; CSS properties override them,
- * so a layer only needs `className` (see src/ui/map-styles.ts for the path options).
+ * so a layer only needs `className` (see src/ui/map-styles.ts for the path options). Vertex
+ * handles are drawn by src/lib/geo/draw-handler.ts from MAP.HANDLE_* in @cgis/shared.
  */
 
 @layer components {
@@ -19,12 +20,10 @@
     fill-opacity: var(--map-area-selected-fill-opacity);
   }
 
+  /* Colour only: width, dash and fill opacity are path options from MAP.DRAFT_STYLE. */
   .map-draft {
     stroke: var(--map-draft-stroke);
-    stroke-width: var(--map-draft-stroke-width);
-    stroke-dasharray: var(--map-draft-dash);
     fill: var(--map-draft-stroke);
-    fill-opacity: var(--map-draft-fill-opacity);
   }
 
   /* Another user's draft: their presence hue (set by one of the .map-ghost-N classes). */
@@ -58,41 +57,6 @@
   }
   .map-ghost-8 {
     --map-ghost-color: var(--color-presence-8);
-  }
-
-  /*
-   * Vertex handle for L.divIcon({ className: 'map-handle', iconSize: null }): a 12 px dot centred
-   * in a 24 px hit area. With iconSize null Leaflet leaves sizing to CSS, so the negative margins
-   * centre the hit area on the vertex.
-   */
-  .map-handle {
-    box-sizing: border-box;
-    display: grid;
-    place-items: center;
-    width: var(--map-handle-hit);
-    height: var(--map-handle-hit);
-    margin-left: calc(var(--map-handle-hit) / -2);
-    margin-top: calc(var(--map-handle-hit) / -2);
-    cursor: move;
-  }
-
-  .map-handle::before {
-    content: '';
-    box-sizing: border-box;
-    width: var(--map-handle-size);
-    height: var(--map-handle-size);
-    border-radius: 50%;
-    background: var(--map-handle-fill);
-    border: var(--map-handle-stroke-width) solid var(--map-handle-stroke);
-  }
-
-  .map-handle:focus-visible {
-    outline: none;
-  }
-
-  .map-handle:focus-visible::before {
-    outline: var(--map-handle-stroke-width) solid var(--color-primary);
-    outline-offset: var(--map-handle-stroke-width);
   }
 }
 

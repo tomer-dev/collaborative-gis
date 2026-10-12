@@ -11,7 +11,7 @@ import { Field } from './Field';
 import { IconLayers, IconPencil, IconPlus } from './icons';
 import { Input } from './Input';
 import { MapControl, MapControlButton } from './MapControl';
-import { areaPathOptions, ghostPathOptions } from './map-styles';
+import { areaPathOptions, draftPathOptions, ghostPathOptions } from './map-styles';
 import { PresenceList } from './PresenceList';
 import { formatStatValue, Stat } from './Stat';
 import { syncColorScheme } from './theme';
@@ -310,6 +310,11 @@ describe('map styles', () => {
   it('puts saved areas and drafts in the panes from MAP, with hue classes by slot', () => {
     expect(areaPathOptions()).toEqual({ pane: MAP.AREAS_PANE, className: 'map-area' });
     expect(areaPathOptions(true).className).toBe('map-area-selected');
+    expect(draftPathOptions()).toEqual({
+      pane: MAP.DRAFTS_PANE,
+      className: 'map-draft',
+      ...MAP.DRAFT_STYLE,
+    });
     expect(ghostPathOptions(2)).toEqual({
       pane: MAP.DRAFTS_PANE,
       className: 'map-ghost map-ghost-3',

@@ -4,7 +4,7 @@ Single source of truth is `packages/shared/src/constants.ts`; this doc mirrors i
 
 Import from `@cgis/shared` in app code (`@cgis/shared/constants` in Node-side config files such as `vite.config.ts` and `vitest.config.ts`). Lanes extend both files rather than writing literals. "Planned" names the M1 task that consumes a value.
 
-Visual design tokens (spacing, type, colour ramps and semantic colours, presence hues, map styles, radii, z-index, motion) live in one CSS file, [`apps/web/src/styles/tokens.css`](../apps/web/src/styles/tokens.css) (design system "Grid 4", D15–D18). Values both CSS and TypeScript need (presence hues, map pane z-indexes) are defined here and mirrored there; `apps/web/src/styles/tokens.test.ts` fails when the two drift.
+Visual design tokens (spacing, type, colour ramps and semantic colours, presence hues, map styles, radii, z-index, motion) live in one CSS file, [`apps/web/src/styles/tokens.css`](../apps/web/src/styles/tokens.css) (design system "Grid 4", D15–D18). Values both CSS and TypeScript need (presence hues, map pane z-indexes) are defined here and mirrored there; `apps/web/src/styles/tokens.test.ts` fails when the two drift. Draw-tool visuals Leaflet needs as numbers (`MAP.HANDLE_*`, `MAP.DRAFT_STYLE`) live only here; the token file supplies their colours (`--color-accent`, `--color-bg`).
 
 ## LIMITS
 
@@ -74,11 +74,11 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, presence
 | `AREAS_PANE` / `AREAS_PANE_Z` | `'areas'` / `450` | `apps/web/src/ui/map-styles.ts` (path options), `tokens.css` `--z-index-map-areas` (drift-tested); planned: T10 creates, T13 draws saved areas | Above tiles and Leaflet's overlay pane (400) |
 | `DRAFTS_PANE` / `DRAFTS_PANE_Z` | `'drafts'` / `460` | `apps/web/src/ui/map-styles.ts` (path options), `tokens.css` `--z-index-map-drafts` (drift-tested), `apps/web/src/components/DrawControl.tsx` (`PolygonDraw` pane for the own sketch); planned: T10 creates, T14 draws ghost drafts | Live drafts render above saved areas |
 | `MOVEEND_DEBOUNCE_MS` | `250` | Planned: T13 bbox query on `moveend` | One fetch per pan gesture |
-| `HANDLE_RADIUS_PX` | `6` | `apps/web/src/lib/geo/draw-handler.ts` (visible vertex dot radius) | Small enough not to hide the edge, big enough to see |
-| `HANDLE_HIT_PX` | `24` | `apps/web/src/lib/geo/draw-handler.ts` (vertex handle hit box, the marker icon size) | WCAG 2.5.8 target size (≥24 CSS px) for dragging a vertex |
-| `HANDLE_BORDER_PX` | `2` | `apps/web/src/lib/geo/draw-handler.ts` (vertex dot ring) | Ring stays visible over busy tiles |
-| `DRAFT_STYLE` | `{ weight: 2, dashArray: '6 4', fillOpacity: 0.12 }` | `apps/web/src/lib/geo/draw-handler.ts` (live sketch); planned T14 ghost drafts | Dashed and faint: reads as unsaved next to solid saved areas |
 | `PRESENCE_COLORS` | `['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948']` | `apps/web/src/styles/tokens.css` `--color-presence-1..8` (drift-tested), `apps/web/src/ui/Avatar.tsx` slot count; planned T14 ghost drafts | Design brief §3: categorical, CVD-checked, assigned by join order; the 9th user gets a neutral |
+| `HANDLE_RADIUS_PX` | `6` | `apps/web/src/lib/geo/draw-handler.ts` (visible vertex dot radius); Storybook Foundations/Map | Small enough not to hide the edge, big enough to see |
+| `HANDLE_HIT_PX` | `24` | `apps/web/src/lib/geo/draw-handler.ts` (vertex handle hit box, the marker icon size); Storybook Foundations/Map | WCAG 2.5.8 target size (≥24 CSS px) for dragging a vertex |
+| `HANDLE_BORDER_PX` | `2` | `apps/web/src/lib/geo/draw-handler.ts` (vertex dot ring); Storybook Foundations/Map | Ring stays visible over busy tiles |
+| `DRAFT_STYLE` | `{ weight: 2, dashArray: '8 4', fillOpacity: 0.12 }` | `apps/web/src/lib/geo/draw-handler.ts` (live sketch), `apps/web/src/ui/map-styles.ts` `draftPathOptions()`; Storybook Foundations/Map; planned T14 ghost drafts | Dashed and faint: reads as unsaved next to solid saved areas. Dash 8/4 is the design brief's §4 value |
 
 ## GEO
 
