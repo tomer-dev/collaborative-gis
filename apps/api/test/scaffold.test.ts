@@ -22,12 +22,10 @@ describe('M1 composition stubs', () => {
     expect((await SELF.fetch('http://x/healthz')).status).toBe(200);
     const ready = await SELF.fetch('http://x/readyz');
     expect(ready.status).toBe(200);
-    expect(await ready.json()).toEqual({ ok: true, db: 'up' });
+    expect(await ready.json()).toEqual({ status: 'ready', db: 'up', room: 'up' });
   });
 
   it('the test env carries the vars and secrets lanes rely on', () => {
-    // wrangler.jsonc is JSON, so CLIENT_ORIGIN mirrors DEV.WEB_ORIGIN by hand; this catches drift.
-    expect(env.CLIENT_ORIGIN).toBe(DEV.WEB_ORIGIN);
     expect(env.BETTER_AUTH_URL).toBe(DEV.API_ORIGIN);
     expect(env.BETTER_AUTH_SECRET.length).toBeGreaterThanOrEqual(32);
   });

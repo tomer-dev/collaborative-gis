@@ -1,10 +1,8 @@
+import type { AuthUser } from '@cgis/shared';
 import { authClient } from './auth-client';
 
-/** The signed-in user as the SPA sees it. */
-export type SessionUser = { id: string; name: string };
-
 /** `useSession()` result. */
-export type SessionState = { data: SessionUser | null; isPending: boolean };
+export type SessionState = { data: AuthUser | null; isPending: boolean };
 
 /**
  * Current user from Better Auth's `useSession()`, or `null` when signed out. A failed check
