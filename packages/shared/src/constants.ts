@@ -14,6 +14,8 @@ export const LIMITS = {
   BOUNDS_LIMIT: 500,
   SIMPLIFY_ZOOM_BELOW: 12,
   SIMPLIFY_TOLERANCE: 0.0005,
+  /** Better Auth's default `minPasswordLength`; the register form's `minlength`. */
+  PASSWORD_MIN: 8,
 } as const;
 
 /** Spatial reference of every stored geometry, and the sphere for client-side measurements. */
@@ -132,12 +134,54 @@ export const MAP = {
   HANDLE_HIT_PX: 24,
   /** Leaflet path options for a sketch in progress (own draft now, remote ghosts in T14); design brief §4: 2 px, dashed 8/4, fill 12 %. */
   DRAFT_STYLE: { weight: 2, dashArray: '8 4', fillOpacity: 0.12 },
+  /** Area readouts switch from m² to km² at this many km². */
+  AREA_KM2_THRESHOLD: 1,
 } as const;
 
-/** Polygon draw tool: the client-side `draw:invalid` reasons. */
+/** Polygon draw tool: the client-side `draw:invalid` reasons and the draw control's copy. */
 export const DRAW = {
   SELF_INTERSECTION_REASON: 'Polygon edges must not cross or touch each other',
   MAX_VERTICES_REASON: 'Vertex limit reached',
+  TOOLBAR_LABEL: 'Drawing tools',
+  START_LABEL: 'Draw polygon',
+  PANEL_TITLE: 'New area',
+  AREA_LABEL: 'Area',
+  VERTICES_LABEL: 'Vertices',
+  FINISH_LABEL: 'Finish',
+  UNDO_LABEL: 'Undo',
+  CANCEL_LABEL: 'Cancel',
+  /** Area unit suffixes (Intl.NumberFormat has no area units). */
+  M2_UNIT: 'm²',
+  KM2_UNIT: 'km²',
+} as const;
+
+/** User-facing text in the SPA, grouped by screen. */
+export const COPY = {
+  APP: {
+    NAME: 'Collaborative GIS',
+  },
+  AUTH: {
+    LOGIN_TITLE: 'Sign in',
+    LOGIN_SUBMIT: 'Sign in',
+    LOGIN_PENDING: 'Signing in…',
+    LOGIN_ERROR_TITLE: 'Could not sign in',
+    LOGIN_SWITCH_PROMPT: 'No account yet?',
+    LOGIN_SWITCH_LINK: 'Create one',
+    REGISTER_TITLE: 'Create an account',
+    REGISTER_SUBMIT: 'Create account',
+    REGISTER_PENDING: 'Creating account…',
+    REGISTER_ERROR_TITLE: 'Could not create the account',
+    REGISTER_SWITCH_PROMPT: 'Already have an account?',
+    REGISTER_SWITCH_LINK: 'Sign in',
+    NAME_LABEL: 'Name',
+    EMAIL_LABEL: 'Email',
+    PASSWORD_LABEL: 'Password',
+    PASSWORD_HINT: `At least ${LIMITS.PASSWORD_MIN} characters.`,
+    /** Shown when a failed auth call carries no server message (network error, empty body). */
+    ERROR_GENERIC: 'Something went wrong. Try again.',
+    SIGN_OUT: 'Sign out',
+    SIGN_OUT_ERROR: 'Could not sign out. Try again.',
+  },
 } as const;
 
 /** Every `ApiError.code` the API sends; apps/api/src/errors.ts maps each to its HTTP status. */
