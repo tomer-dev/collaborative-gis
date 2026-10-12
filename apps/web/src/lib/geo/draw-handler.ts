@@ -1,15 +1,17 @@
 import { DRAW, LIMITS, MAP, PolygonSchema, PositionSchema } from '@cgis/shared';
 import * as L from 'leaflet';
+import 'leaflet-editable';
 import { z } from 'zod';
 import { ringAreaKm2, type LngLat } from './geodesic';
 import { hasSelfIntersection } from './self-intersection';
 
 export interface PolygonDrawOptions {
-  /** Pane for the live shape and the vertex handles; created if the map lacks it. Default: Leaflet's own panes. */
+  /** Pane for the sketch polygon; created if the map lacks it. Default: Leaflet's overlay pane. */
   pane?: string;
   /**
    * Cap on positions in the closed ring, counted like `PolygonSchema` (closing vertex included),
-   * so at most `maxVertices − 1` clicks. Default `LIMITS.POLYGON_MAX_VERTICES`.
+   * so at most `maxVertices − 1` placed vertices. Default `LIMITS.POLYGON_MAX_VERTICES`, i.e.
+   * `LIMITS.POLYGON_MAX_PLACED_VERTICES` placed.
    */
   maxVertices?: number;
 }
@@ -77,40 +79,58 @@ export function invalidReason(vertices: readonly LngLat[]): string | null {
   return hasSelfIntersection(ring) ? DRAW.SELF_INTERSECTION_REASON : null;
 }
 
+const isEditableClass = (value: unknown): value is L.EditableStatic => typeof value === 'function';
+const isLatLng = (value: unknown): value is L.LatLng => value instanceof L.LatLng;
+const isPolygonEditor = (editor: L.Editor): editor is L.PolygonEditor => 'newHole' in editor;
+
 /**
- * Vertex handle: an empty `HANDLE_HIT_PX` hit box. Its look (dot radius, ring, colours, the
- * filled "close here" first handle) is CSS: `.cgis-draw-handle` and `.cgis-draw-handle--first`
- * rules live in the token stylesheet (T9b, PR #14), next to `.cgis-draw-sketch`.
+ * The map's Leaflet.Editable instance, created once. The class comes from `map.options` because
+ * the plugin registers `L.Editable` on the CommonJS view of Leaflet, which an ESM bundle's
+ * `import * as L` does not see; `L.Map.mergeOptions` reaches the shared Map class either way.
+ * Vertex handles are the plugin's own vertex markers with our icon: class `cgis-draw-handle`
+ * (the token stylesheet draws it, T9b) and a `MAP.HANDLE_HIT_PX` hit box.
  */
-function handleIcon(first: boolean): L.DivIcon {
-  return L.divIcon({
-    className: first ? 'cgis-draw-handle cgis-draw-handle--first' : 'cgis-draw-handle',
-    iconSize: [MAP.HANDLE_HIT_PX, MAP.HANDLE_HIT_PX],
-    html: '',
+function editTools(map: L.Map): L.Editable {
+  if (map.editTools) return map.editTools;
+  const Tools = map.options.editToolsClass;
+  if (!isEditableClass(Tools)) throw new Error('leaflet-editable is not loaded');
+  const featuresLayer = L.layerGroup().addTo(map);
+  map.editTools = Object.assign(new Tools(map, { featuresLayer, skipMiddleMarkers: true }), {
+    createVertexIcon: () =>
+      L.divIcon({
+        className: 'cgis-draw-handle',
+        iconSize: [MAP.HANDLE_HIT_PX, MAP.HANDLE_HIT_PX],
+        html: '',
+      }),
   });
+  return map.editTools;
 }
 
 /**
- * Hand-rolled polygon draw tool as a Leaflet `Handler` (`enable()` / `disable()`).
+ * Polygon draw tool as a Leaflet `Handler` (`enable()` / `disable()`) over Leaflet.Editable.
  *
- * Click adds a vertex, dragging a handle moves it, double-click or clicking the first handle
- * closes; `finish()`, `undo()` and `cancel()` are for the draw control's buttons. Finishing or
- * cancelling disables the handler; `disable()` alone discards the sketch silently. Only
- * Leaflet APIs: styling is the CSS classes `cgis-draw-sketch` and `cgis-draw-handle`.
+ * A map click adds a vertex, dragging a handle moves it, clicking the first or the last handle
+ * commits; `finish()`, `undo()` and `cancel()` are for the draw control's buttons. A valid ring
+ * removes the sketch, disables the handler and fires `draw:done`; an invalid one fires
+ * `draw:invalid` and keeps the sketch (after a handle-click commit it stays editable by drag).
+ * `disable()` alone discards the sketch silently.
  */
 export class PolygonDraw extends L.Handler {
   readonly options: { pane?: string; maxVertices: number };
   private readonly map: L.Map;
-  private latlngs: L.LatLng[] = [];
-  private handles: L.Marker[] = [];
-  private group: L.LayerGroup | null = null;
-  private shape: L.Polygon | null = null;
-  private restoreDoubleClickZoom = false;
+  private readonly placedCap: number;
+  private layer: L.Polygon | null = null;
+  private editor: L.PolygonEditor | null = null;
+  private committed = false;
 
   constructor(map: L.Map, options: PolygonDrawOptions = {}) {
     super(map);
     this.map = map;
     this.options = { ...options, maxVertices: options.maxVertices ?? LIMITS.POLYGON_MAX_VERTICES };
+    this.placedCap =
+      options.maxVertices === undefined
+        ? LIMITS.POLYGON_MAX_PLACED_VERTICES
+        : options.maxVertices - 1;
   }
 
   addHooks(): void {
@@ -118,115 +138,110 @@ export class PolygonDraw extends L.Handler {
     const { pane } = this.options;
     if (pane && !map.getPane(pane)) map.createPane(pane);
 
-    this.group = L.layerGroup().addTo(map);
-    this.shape = L.polygon([], {
-      ...(pane ? { pane } : {}),
+    const layer = editTools(map).startPolygon(undefined, {
       ...MAP.DRAFT_STYLE,
+      ...(pane ? { pane } : {}),
       className: 'cgis-draw-sketch',
-      interactive: false,
-    }).addTo(this.group);
-
-    map.on('click', this.onClick).on('dblclick', this.onDblClick);
-    this.restoreDoubleClickZoom = map.doubleClickZoom.enabled();
-    map.doubleClickZoom.disable();
-    L.DomUtil.addClass(map.getContainer(), 'leaflet-crosshair');
+    });
+    const editor = layer.enableEdit(map);
+    this.editor = isPolygonEditor(editor) ? editor : null;
+    this.layer = layer.on(this.editableEvents);
+    this.committed = false;
   }
 
   removeHooks(): void {
-    const { map } = this;
-    map.off('click', this.onClick).off('dblclick', this.onDblClick);
-    if (this.restoreDoubleClickZoom) map.doubleClickZoom.enable();
-    L.DomUtil.removeClass(map.getContainer(), 'leaflet-crosshair');
-
-    this.group?.remove();
-    this.group = null;
-    this.shape = null;
-    this.handles = [];
-    this.latlngs = [];
+    const { layer } = this;
+    if (!layer) return;
+    layer.off(this.editableEvents); // first: disableEdit below fires drawing:cancel / drawing:end
+    layer.disableEdit(); // also cancels an ongoing drawing
+    this.map.editTools.options.featuresLayer?.removeLayer(layer);
+    layer.remove();
+    this.layer = null;
+    this.editor = null;
   }
 
   /** Current open vertices as GeoJSON `[lng, lat]` (empty when not drawing). */
   getVertices(): LngLat[] {
-    return this.latlngs.map(toLngLat);
+    const ring = this.layer?.getLatLngs()[0];
+    return Array.isArray(ring) ? ring.filter(isLatLng).map(toLngLat) : [];
   }
 
-  /** Live area of the sketch in km² (0 below 3 vertices), for the T11b readout. */
+  /** Live area of the sketch in km² (0 below 3 vertices), for the readout. */
   getAreaKm2(): number {
     return ringAreaKm2(this.getVertices());
   }
 
-  /** Adds a vertex (what a map click does). Fires `draw:invalid` at the vertex cap. */
-  addVertex(latlng: L.LatLngExpression): void {
-    if (!this.group) return;
-    const { maxVertices } = this.options;
-    if (this.latlngs.length >= maxVertices - 1) {
-      this.map.fire('draw:invalid', { reason: DRAW.MAX_VERTICES_REASON });
-      return;
-    }
-    const ll = L.latLng(latlng);
-    const index = this.latlngs.push(ll) - 1;
-    this.handles.push(this.addHandle(ll, index));
-    this.map.fire('draw:vertex', { vertex: toLngLat(ll), index });
-    this.changed();
-  }
-
-  /** Removes the last vertex (the draw control's Undo). */
+  /**
+   * Removes the last vertex (the draw control's Undo) through the editor's `pop()`. Only while
+   * drawing, and Leaflet.Editable's `pop()` keeps the first vertex: with one vertex it is a no-op.
+   */
   undo(): void {
-    if (!this.latlngs.length) return;
-    this.latlngs.pop();
-    this.handles.pop()?.remove();
-    this.changed();
+    if (this.editor?.drawing()) this.editor.pop();
   }
 
-  /** Closes the ring (Finish, double-click, first handle): `draw:done` and disable, or `draw:invalid` and keep drawing. */
+  /** Closes the ring (Finish): `draw:done` and disable, or `draw:invalid` and keep drawing. */
   finish(): boolean {
-    if (!this.group) return false;
-    const vertices = this.getVertices();
-    const reason = invalidReason(vertices);
+    if (!this.layer) return false;
+    const reason = invalidReason(this.getVertices());
     if (reason) {
       this.map.fire('draw:invalid', { reason });
       return false;
     }
-    this.disable();
-    this.map.fire('draw:done', { ring: closeRing(vertices) });
+    this.complete();
     return true;
   }
 
   /** Discards the sketch (the draw control's Cancel): disable, then `draw:cancel`. */
   cancel(): void {
-    if (!this.group) return;
+    if (!this.layer) return;
     this.disable();
     this.map.fire('draw:cancel');
   }
 
-  private addHandle(latlng: L.LatLng, index: number): L.Marker {
-    const { pane } = this.options;
-    const marker = L.marker(latlng, {
-      ...(pane ? { pane } : {}),
-      icon: handleIcon(index === 0),
-      draggable: true,
-      keyboard: false, // no tab stop per handle: up to 1,000 would be unusable
-    });
-    marker.on('drag', () => {
-      this.latlngs[index] = marker.getLatLng();
-      this.changed();
-    });
-    // Markers do not bubble mouse events to the map, so handles close the ring themselves.
-    marker.on('dblclick', () => this.finish());
-    marker.on('click', () => {
-      if (index === 0 && this.latlngs.length >= 3) this.finish();
-    });
-    return marker.addTo(this.group!);
+  private complete(): void {
+    const ring = closeRing(this.getVertices());
+    this.disable();
+    this.map.fire('draw:done', { ring });
   }
 
   private changed(): void {
-    this.shape?.setLatLngs(this.latlngs);
     this.map.fire('draw:change', { vertices: this.getVertices() });
   }
 
-  private readonly onClick = (e: L.LeafletMouseEvent) => this.addVertex(e.latlng);
+  /** Vertex cap: refuse the click before Leaflet.Editable adds a vertex. Clicks on a handle pass (they may commit). */
+  private readonly onDrawingClick = (e: L.CancelableEvent) => {
+    if ('vertex' in e && e.vertex) return;
+    if (this.getVertices().length < this.placedCap) return;
+    e.cancel();
+    this.map.fire('draw:invalid', { reason: DRAW.MAX_VERTICES_REASON });
+  };
 
-  private readonly onDblClick = () => {
-    this.finish();
+  private readonly onVertexNew = (e: L.VertexEvent) => {
+    const vertex = toLngLat(e.vertex.getLatLng());
+    this.map.fire('draw:vertex', { vertex, index: e.vertex.getIndex() });
+    this.changed();
+  };
+
+  private readonly onChange = () => this.changed();
+
+  /** A handle click committed the sketch: validate now, complete once Leaflet.Editable has ended drawing. */
+  private readonly onCommit = () => {
+    const reason = invalidReason(this.getVertices());
+    if (reason) this.map.fire('draw:invalid', { reason });
+    else this.committed = true;
+  };
+
+  private readonly onDrawingEnd = () => {
+    if (this.committed) this.complete();
+  };
+
+  /** Leaflet.Editable events on the sketch layer (typed by @types/leaflet-editable's event map). */
+  private readonly editableEvents: L.LeafletEventHandlerFnMap = {
+    'editable:drawing:click': this.onDrawingClick,
+    'editable:vertex:new': this.onVertexNew,
+    'editable:vertex:dragend': this.onChange,
+    'editable:vertex:deleted': this.onChange,
+    'editable:drawing:commit': this.onCommit,
+    'editable:drawing:end': this.onDrawingEnd,
   };
 }
