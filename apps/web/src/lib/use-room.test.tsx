@@ -118,8 +118,11 @@ const draftState = (drafts: { userId: string; vertices: Position[] }[]) =>
   serverFrame({ type: 'draft:state', payload: { drafts } });
 
 /** An `error` frame; `resync: true` asks the client to join again and resend its draft. */
-const errorFrame = (code: string, message: string, extra: { resync?: boolean } = {}) =>
-  serverFrame({ type: 'error', payload: { code, message, ...extra } });
+const errorFrame = (
+  code: string,
+  message: string,
+  extra: { resync?: boolean; retryAfter?: number; frameSeq?: number | undefined } = {},
+) => serverFrame({ type: 'error', payload: { code, message, ...extra } });
 
 const stateLost = errorFrame(ERROR_CODES.CONFLICT, WS_MESSAGES.ROOM_STATE_LOST, { resync: true });
 
@@ -462,25 +465,47 @@ describe('useRoom', () => {
     expect(room.drafts().at(-1)?.payload).toEqual({ op: 'clear' });
   });
 
-  it('pauses for RATE_LIMITED retryAfter, then clears and re-adds', () => {
+  it('RATE_LIMITED on the last op sent: pauses for retryAfter, then sends that op again, no clear', () => {
     const room = renderRoom();
     room.open();
-    room.draw(line(2));
+    room.draw(line(20));
+    room.advance(DRAFT_INTERVAL_MS * 2);
+    const sent = room.drafts();
+    expect(sent).toHaveLength(3);
+    const refused = sent.at(-1);
+    const retryAfter = 700;
+
+    room.receive(
+      errorFrame(ERROR_CODES.RATE_LIMITED, 'rate limited', { retryAfter, frameSeq: refused?.seq }),
+    );
+    room.advance(retryAfter - 1);
+    expect(room.drafts()).toHaveLength(sent.length);
+
+    room.advance(1 + DRAFT_INTERVAL_MS * 17);
+    const after = room.drafts().slice(sent.length);
+    // The refused op goes out once more, then the rest: nothing is cleared or sent twice.
+    expect(after[0]?.payload).toEqual(refused?.payload);
+    expect(after.map((frame) => frame.payload.op)).not.toContain('clear');
+    expect(after).toHaveLength(18);
+    const accepted = [...sent.slice(0, -1), ...after].map((frame) => frame.payload);
+    expect(replay(accepted)).toEqual(line(20));
+  });
+
+  it('RATE_LIMITED on an older op (ops were built on it since): restarts with clear and re-adds', () => {
+    const room = renderRoom();
+    room.open();
+    room.draw(line(3));
     room.advance(DRAFT_INTERVAL_MS * 2);
     const before = room.drafts().length;
     const retryAfter = 700;
 
     room.receive(
-      serverFrame({
-        type: 'error',
-        payload: { code: ERROR_CODES.RATE_LIMITED, message: 'rate limited', retryAfter },
+      errorFrame(ERROR_CODES.RATE_LIMITED, 'rate limited', {
+        retryAfter,
+        frameSeq: room.drafts()[0]?.seq,
       }),
     );
-    room.draw(line(3));
-    room.advance(retryAfter - 1);
-    expect(room.drafts()).toHaveLength(before);
-
-    room.advance(1 + DRAFT_INTERVAL_MS * 3);
+    room.advance(retryAfter + DRAFT_INTERVAL_MS * 3);
     const resent = room.drafts().slice(before);
     expect(resent[0]?.payload).toEqual({ op: 'clear' });
     expect(replay(resent.map((frame) => frame.payload))).toEqual(line(3));

@@ -78,7 +78,7 @@ export function sendError(
   ws: WebSocket,
   code: ApiErrorCode,
   message: string,
-  extra: { retryAfter?: number; resync?: boolean } = {},
+  extra: { retryAfter?: number; resync?: boolean; frameSeq?: number } = {},
 ): void {
   sendTo(ctx, ws, { type: 'error', payload: { code, message, ...extra } });
 }
