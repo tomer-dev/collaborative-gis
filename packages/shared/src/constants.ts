@@ -63,6 +63,13 @@ export const MAP = {
   DRAFTS_PANE: 'drafts',
   DRAFTS_PANE_Z: 460,
   MOVEEND_DEBOUNCE_MS: 250,
+  HANDLE_RADIUS_PX: 6,
+  HANDLE_HIT_PX: 24,
+} as const;
+
+/** Geodesy constants for client-side measurements. */
+export const GEO = {
+  EARTH_RADIUS_M: 6371008.8,
 } as const;
 
 /** Every `ApiError.code` the API sends; apps/api/src/errors.ts maps each to its HTTP status. */
