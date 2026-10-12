@@ -1,7 +1,8 @@
 import { DRAW, MAP } from '@cgis/shared';
 import * as L from 'leaflet';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { PolygonDraw, onDraw, type DrawEventMap } from './draw-handler';
+import { ZodError } from 'zod';
+import { PolygonDraw, onDraw, type DrawEvent, type DrawEventType } from './draw-handler';
 import { ringAreaKm2 } from './geodesic';
 
 let map: L.Map;
@@ -27,8 +28,8 @@ const triangle = () => {
   click(32, 35.05);
   click(32.05, 35.05);
 };
-const record = <K extends keyof DrawEventMap>(type: K) => {
-  const events: DrawEventMap[K][] = [];
+const record = <K extends DrawEventType>(type: K) => {
+  const events: DrawEvent<K>[] = [];
   onDraw(map, type, (e) => events.push(e));
   return events;
 };
@@ -174,6 +175,17 @@ describe('PolygonDraw', () => {
     expect(draw.getVertices()).toHaveLength(3);
     expect(invalid).toHaveLength(1);
     expect(invalid[0]!.reason).toBe(DRAW.MAX_VERTICES_REASON);
+  });
+
+  it('onDraw parses the payload: a malformed draw:change throws a ZodError from map.fire', () => {
+    // Our own events: a bad payload is a bug, so the subscriber throws rather than skipping it.
+    const changes = record('draw:change');
+    expect(() => map.fire('draw:change', { vertices: [[200, 0]] })).toThrow(ZodError);
+    expect(() => map.fire('draw:change', {})).toThrow(ZodError);
+    expect(changes).toHaveLength(0);
+    map.fire('draw:change', { vertices: [[35, 32]] });
+    expect(changes[0]!.vertices).toEqual([[35, 32]]);
+    expect(changes[0]!.type).toBe('draw:change');
   });
 
   it('defaults maxVertices to LIMITS.POLYGON_MAX_VERTICES', () => {

@@ -1,5 +1,6 @@
-import { DRAW, LIMITS, MAP, PolygonSchema } from '@cgis/shared';
+import { DRAW, LIMITS, MAP, PolygonSchema, PositionSchema } from '@cgis/shared';
 import * as L from 'leaflet';
+import { z } from 'zod';
 import { ringAreaKm2, type LngLat } from './geodesic';
 import { hasSelfIntersection } from './self-intersection';
 
@@ -13,26 +14,43 @@ export interface PolygonDrawOptions {
   maxVertices?: number;
 }
 
-/** Events `PolygonDraw` fires on the map. Vertices and rings are GeoJSON `[lng, lat]`. */
-export interface DrawEventMap {
-  'draw:vertex': L.LeafletEvent & { vertex: LngLat; index: number };
-  'draw:change': L.LeafletEvent & { vertices: LngLat[] };
-  'draw:done': L.LeafletEvent & { ring: LngLat[] };
-  'draw:cancel': L.LeafletEvent;
-  'draw:invalid': L.LeafletEvent & { reason: string };
-}
+/** Payloads of the events `PolygonDraw` fires on the map. Vertices and rings are GeoJSON `[lng, lat]`. */
+const drawEventSchemas = {
+  'draw:vertex': z.object({ vertex: PositionSchema, index: z.number().int().nonnegative() }),
+  'draw:change': z.object({ vertices: z.array(PositionSchema) }),
+  'draw:done': z.object({ ring: z.array(PositionSchema) }),
+  'draw:cancel': z.object({}),
+  'draw:invalid': z.object({ reason: z.string() }),
+};
+type DrawPayloads = { [K in keyof typeof drawEventSchemas]: z.infer<(typeof drawEventSchemas)[K]> };
+/**
+ * The same schemas seen through a plain `parse` signature per key, so indexing with a generic
+ * `K` yields `parse(data): DrawPayloads[K]` (Zod's own `parse` returns `output<this>`, which TS
+ * cannot narrow for a generic key).
+ */
+const schemaFor: { [K in keyof DrawPayloads]: { parse(data: unknown): DrawPayloads[K] } } =
+  drawEventSchemas;
+
+export type DrawEventType = keyof DrawPayloads;
+/** One draw event as delivered to `onDraw` listeners; works with a generic `K`. */
+export type DrawEvent<K extends DrawEventType> = L.LeafletEvent & DrawPayloads[K];
+export type DrawEventMap = { [K in DrawEventType]: DrawEvent<K> };
 export type DrawVertexEvent = DrawEventMap['draw:vertex'];
 export type DrawChangeEvent = DrawEventMap['draw:change'];
 export type DrawDoneEvent = DrawEventMap['draw:done'];
 export type DrawInvalidEvent = DrawEventMap['draw:invalid'];
 
-/** Typed `map.on` for the draw events; returns the matching `map.off`. */
-export function onDraw<K extends keyof DrawEventMap>(
+/**
+ * Typed `map.on` for the draw events; returns the matching `map.off`. The payload is parsed
+ * with its schema, so a malformed event (only our own code fires these) throws a `ZodError`
+ * out of `map.fire` instead of reaching `fn`.
+ */
+export function onDraw<K extends DrawEventType>(
   map: L.Map,
   type: K,
-  fn: (event: DrawEventMap[K]) => void,
+  fn: (event: DrawEvent<K>) => void,
 ): () => void {
-  const handler = fn as unknown as L.LeafletEventHandlerFn;
+  const handler = (e: L.LeafletEvent) => fn({ ...e, ...schemaFor[type].parse(e) });
   map.on(type, handler);
   return () => {
     map.off(type, handler);
