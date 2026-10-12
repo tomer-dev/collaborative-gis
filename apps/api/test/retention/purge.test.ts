@@ -1,4 +1,4 @@
-import { RETENTION } from '@cgis/shared';
+import { AUDIT, RETENTION } from '@cgis/shared';
 import {
   createExecutionContext,
   createScheduledController,
@@ -109,14 +109,14 @@ describe('purgeDeleted', () => {
     ).toEqual([
       {
         user_id: null,
-        action: RETENTION.AUDIT_ACTION,
+        action: AUDIT.ACTIONS.RETENTION_PURGE,
         entity_id: null,
         version: null,
         details: { areas: 1, versions: 2 },
       },
       {
         user_id: null,
-        action: RETENTION.AUDIT_ACTION,
+        action: AUDIT.ACTIONS.RETENTION_PURGE,
         entity_id: null,
         version: null,
         details: { areas: 0, versions: 0 },
@@ -167,7 +167,7 @@ describe('scheduled', () => {
     expect(log).toHaveBeenCalledTimes(1);
     expect(JSON.parse(String(log.mock.calls[0]?.[0]))).toEqual({
       level: 'info',
-      msg: RETENTION.AUDIT_ACTION,
+      msg: AUDIT.ACTIONS.RETENTION_PURGE,
       areas: 1,
       versions: 2,
       cron: RETENTION.CRON,
