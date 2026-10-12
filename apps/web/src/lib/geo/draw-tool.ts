@@ -29,7 +29,13 @@ const handleIcon = (first: boolean) =>
     html: '',
   });
 
-/** The map's Leaflet.Editable, made once from `map.options` (an ESM bundle's `L` lacks `L.Editable`). */
+/**
+ * The map's Leaflet.Editable, made once from `map.options.editToolsClass`. Not `L.Editable`: the
+ * bundle has one Leaflet (checked in a browser on the production build; `resolve.dedupe` changes
+ * nothing), but `import * as L` is a namespace the bundler builds from Leaflet's CommonJS exports
+ * before leaflet-editable adds `Editable` to them, so the namespace never has it. The plugin's
+ * `L.Map.mergeOptions({ editToolsClass })` lands on the shared Map class, which the map reads.
+ */
 function editTools(map: L.Map): L.Editable {
   if (map.editTools) return map.editTools;
   const Tools = map.options.editToolsClass;
