@@ -189,7 +189,9 @@
 
   /* Map styles (brief §4), read by the Leaflet path classes in map.css. The basemap is light
      imagery in both UI themes, so these do not switch with .dark. Strokes are hairlines, not
-     layout, so their widths are exempt from the 4 px grid. */
+     layout, so their widths are exempt from the 4 px grid. The draw tool's numbers (vertex
+     handle sizes, draft stroke width, dash and fill) are MAP.HANDLE_* and MAP.DRAFT_STYLE in
+     @cgis/shared, because Leaflet takes them in JS; only their colours come from here. */
   --map-area-stroke: var(--color-primary-600);
   --map-area-stroke-width: 2px; /* grid-exception: stroke */
   --map-area-fill: var(--color-primary-500);
@@ -197,17 +199,9 @@
   --map-area-selected-stroke: var(--color-primary-700);
   --map-area-selected-stroke-width: 3px; /* grid-exception: stroke (brief §4: selected = 3 px) */
   --map-area-selected-fill-opacity: 0.3;
-  --map-draft-stroke: var(--color-accent);
-  --map-draft-stroke-width: 2px; /* grid-exception: stroke */
-  --map-draft-dash: 8 4;
-  --map-draft-fill-opacity: 0.12;
+  --map-draft-stroke: var(--color-accent); /* width, dash, fill opacity: MAP.DRAFT_STYLE */
   --map-ghost-stroke-width: 2px; /* grid-exception: stroke */
   --map-ghost-fill-opacity: 0.24;
-  --map-handle-size: 12px;
-  --map-handle-hit: 24px;
-  --map-handle-fill: var(--color-white);
-  --map-handle-stroke: var(--color-primary-600);
-  --map-handle-stroke-width: 2px; /* grid-exception: stroke */
 }
 
 @layer base {

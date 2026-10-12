@@ -63,6 +63,14 @@ describe('tokens.css', () => {
     expect(Number(themeValue('--z-index-map-drafts'))).toBe(MAP.DRAFTS_PANE_Z);
   });
 
+  it('leaves the draw tool numbers to MAP (one source; Leaflet takes them in JS)', () => {
+    const duplicated = decls.filter((d) =>
+      /^--map-(handle-|draft-(dash|stroke-width|fill-opacity))/.test(d.name),
+    );
+    expect(duplicated.map((d) => d.name)).toEqual([]);
+    expect(MAP.DRAFT_STYLE.dashArray).toBe('8 4');
+  });
+
   it('gives every themed semantic colour a dark value', () => {
     const darkBlock = tokensCss.slice(tokensCss.indexOf('@variant dark {'));
     const darkNames = new Set(declarations(darkBlock).map((d) => d.name));
