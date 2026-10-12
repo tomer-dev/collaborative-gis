@@ -1,7 +1,8 @@
 import { COPY, LIMITS, ROUTES } from '@cgis/shared/constants';
 import { useMutation } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useState, type FormEvent, type InputHTMLAttributes } from 'react';
+import type { FormEvent, InputHTMLAttributes } from 'react';
+import { z } from 'zod';
 import { authErrorMessage, signIn, signUp } from '../../lib/auth';
 import { Banner, Button, Field, Input, Panel } from '../../ui';
 import { focusRing } from '../../ui/focus';
@@ -9,7 +10,6 @@ import { focusRing } from '../../ui/focus';
 export type AuthMode = 'login' | 'register';
 
 type FieldName = 'name' | 'email' | 'password';
-type Values = Record<FieldName, string>;
 
 type FieldSpec = {
   name: FieldName;
@@ -44,13 +44,26 @@ const NEW_PASSWORD: FieldSpec = {
   input: { type: 'password', autoComplete: 'new-password', minLength: LIMITS.PASSWORD_MIN },
 };
 
+// The submitted FormData entries, parsed with the same rules as the native required/minlength
+// (which block the submit first). Email format is left to type="email" and the server.
+const SignInForm = z.object({
+  email: z.string().min(1),
+  password: z.string().min(1),
+});
+const SignUpForm = z.object({
+  name: z.string().min(1),
+  email: z.string().min(1),
+  password: z.string().min(LIMITS.PASSWORD_MIN),
+});
+
 type ModeSpec = {
   title: string;
   fields: readonly FieldSpec[];
   submitLabel: string;
   pendingLabel: string;
   errorTitle: string;
-  submit: (values: Values) => Promise<void>;
+  /** Parses the form's entries and makes the call; a parse failure rejects like a failed call. */
+  submit: (form: FormData) => Promise<void>;
   switchPrompt: string;
   switchLabel: string;
   switchTo: typeof ROUTES.APP.LOGIN | typeof ROUTES.APP.REGISTER;
@@ -63,7 +76,7 @@ const MODES: Record<AuthMode, ModeSpec> = {
     submitLabel: COPY.AUTH.LOGIN_SUBMIT,
     pendingLabel: COPY.AUTH.LOGIN_PENDING,
     errorTitle: COPY.AUTH.LOGIN_ERROR_TITLE,
-    submit: signIn,
+    submit: (form) => signIn(SignInForm.parse(Object.fromEntries(form))),
     switchPrompt: COPY.AUTH.LOGIN_SWITCH_PROMPT,
     switchLabel: COPY.AUTH.LOGIN_SWITCH_LINK,
     switchTo: ROUTES.APP.REGISTER,
@@ -74,14 +87,12 @@ const MODES: Record<AuthMode, ModeSpec> = {
     submitLabel: COPY.AUTH.REGISTER_SUBMIT,
     pendingLabel: COPY.AUTH.REGISTER_PENDING,
     errorTitle: COPY.AUTH.REGISTER_ERROR_TITLE,
-    submit: signUp,
+    submit: (form) => signUp(SignUpForm.parse(Object.fromEntries(form))),
     switchPrompt: COPY.AUTH.REGISTER_SWITCH_PROMPT,
     switchLabel: COPY.AUTH.REGISTER_SWITCH_LINK,
     switchTo: ROUTES.APP.LOGIN,
   },
 };
-
-const EMPTY: Values = { name: '', email: '', password: '' };
 
 /**
  * Sign-in or sign-up card; `mode` picks the fields, copy and call from MODES. Success needs no
@@ -90,12 +101,12 @@ const EMPTY: Values = { name: '', email: '', password: '' };
  */
 export function AuthForm({ mode }: { mode: AuthMode }) {
   const spec = MODES[mode];
-  const [values, setValues] = useState<Values>(EMPTY);
   const auth = useMutation({ mutationFn: spec.submit });
 
+  // Uncontrolled inputs: the browser holds the values and validates them before this runs.
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    auth.mutate(values);
+    auth.mutate(new FormData(event.currentTarget));
   }
 
   return (
@@ -124,14 +135,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           ) : null}
           {spec.fields.map((field) => (
             <Field key={field.name} label={field.label} hint={field.hint} required>
-              <Input
-                {...field.input}
-                name={field.name}
-                value={values[field.name]}
-                onChange={(event) =>
-                  setValues((current) => ({ ...current, [field.name]: event.target.value }))
-                }
-              />
+              <Input {...field.input} name={field.name} />
             </Field>
           ))}
           <Button type="submit" disabled={auth.isPending}>

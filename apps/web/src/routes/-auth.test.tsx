@@ -166,6 +166,19 @@ describe('/login', () => {
     expect((await screen.findByRole('alert')).textContent).toContain(COPY.AUTH.ERROR_GENERIC);
   });
 
+  it('rejects unparseable form data without calling Better Auth', async () => {
+    renderAppAt(ROUTES.APP.LOGIN, signedOut);
+    const button = await screen.findByRole('button', { name: COPY.AUTH.LOGIN_SUBMIT });
+
+    // A direct submit event skips the native required check; the Zod parse still refuses.
+    const form = button.closest('form');
+    if (!form) throw new Error('submit button is outside a form');
+    fireEvent.submit(form);
+
+    expect((await screen.findByRole('alert')).textContent).toContain(COPY.AUTH.ERROR_GENERIC);
+    expect(auth.signInEmail).not.toHaveBeenCalled();
+  });
+
   it('disables the submit button while the request is pending', async () => {
     let respond: (result: unknown) => void = () => {};
     auth.signInEmail.mockReturnValue(
