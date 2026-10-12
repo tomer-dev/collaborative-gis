@@ -1,6 +1,6 @@
 # Collaborative GIS — design spec
 
-Date: 2026-10-12. Status: **approved by the user 2026-10-12 (decision D1)**; open items D3-method, D4 client UX, D6 invalidation, D9 compose variant pending. Source brief: Snapland home assignment. Roadmap: `docs/roadmap.md` (Linear P-TOM-1). Research: `docs/research-notes.md`.
+Date: 2026-10-12. Status: **approved by the user 2026-10-12 (decision D1)**; all ten decisions resolved (see §10). Source brief: Snapland home assignment. Roadmap: `docs/roadmap.md` (Linear P-TOM-1). Research: `docs/research-notes.md`.
 
 ## 1. Goal and success criteria
 
@@ -27,7 +27,7 @@ Cron Trigger ──► retention purge
 Static assets (Vite build) served by the same Worker
 ```
 
-One deployable unit: a single Worker with two Durable Object classes and static assets. Local parity: `wrangler dev` with a Hyperdrive `localConnectionString` to a docker PostGIS, plus a Node entry (`@hono/node-server` with `ws` in `noServer` mode) for the docker-compose bonus. The Hono CLI (`@hono/cli`) inspects and tests the app in-process (`hono routes`, `hono request`, `hono batch`) with local Cloudflare bindings injected.
+One deployable unit: a single Worker with two Durable Object classes and static assets. Local parity: `wrangler dev` with a Hyperdrive `localConnectionString` to a docker PostGIS, and docker-compose runs PostGIS plus a `wrangler dev` (workerd) container for the one-command bonus; no Node port of the Worker (D9). The Hono CLI (`@hono/cli`) inspects and tests the app in-process (`hono routes`, `hono request`, `hono batch`) with local Cloudflare bindings injected.
 
 ## 3. Components and boundaries
 
@@ -56,13 +56,13 @@ Rule: the Worker never holds state between requests; all coordination state live
 
 **Save polygon.** Client validates ring (closed, ≥3 unique vertices, ≤1,000, no self-intersection via a simple segment check) → `POST /areas` → Zod → `requireUser` → `RateLimiter.take('draw')` → transaction: insert area with computed `area_km2`, insert version 1, audit row → response → `ctx.waitUntil(room.broadcast({type:'area:created', area}))`.
 
-**Concurrent edit.** `PUT /areas/:id` carries `version`. `UPDATE … WHERE id=$1 AND version=$2 AND deleted_at IS NULL`; zero rows → 409 with the current server row. Client shows a conflict dialog (keep mine / take theirs / rename only). Success bumps version and writes a version row.
+**Concurrent edit.** `PUT /areas/:id` carries `version`. `UPDATE … WHERE id=$1 AND version=$2 AND deleted_at IS NULL`; zero rows → 409 with the current server row. Client shows a two-button prompt: Overwrite with mine (resend with the server version) or Load theirs. Success bumps version and writes a version row.
 
 **Live drawing.** Client sends `draft:update` deltas (≤10/s, `seq`). Room DO validates, calls `RateLimiter.take`, rebroadcasts to peers except sender. Peers render ghost polygons. On `join` the DO sends the presence list and current drafts.
 
-**Viewport fetch.** `GET /areas?bbox=w,s,e,n&zoom=z` → bbox quantised to a tile → Cache API lookup → miss: `geom && ST_MakeEnvelope(...)` with limit and optional simplification → cached with ETag. Mutations purge affected tile keys.
+**Viewport fetch.** `GET /areas?bbox=w,s,e,n&zoom=z` → bbox quantised to a tile → cache key includes the map's version counter (held by the Room DO, bumped on every write) → Cache API lookup → miss: `geom && ST_MakeEnvelope(...)` with limit and optional simplification → cached with ETag. Writes invalidate by changing the key; old entries expire by TTL.
 
-**Layer switch.** Overlays are stored as WGS84 and re-added after the base layer change, in dedicated panes (saved areas, drafts) above tiles. If the spike selects option A, the map CRS is swapped to a hand-rolled EPSG:2039 CRS built on `proj4` (Proj4Leaflet is unmaintained and has no Leaflet 2 path) with a `TileLayer` subclass overriding `getTileUrl` for govmap's `L/R/C` scheme, and centre/zoom are converted via `CRS.project/unproject`; if B, a Worker route reprojects ITM tiles to 3857 so the map stays in Web Mercator.
+**Layer switch.** Overlays are stored as WGS84 and re-added after the base layer change, in dedicated panes (saved areas, drafts) above tiles. Option A is chosen (D3): the map CRS is swapped to a hand-rolled EPSG:2039 CRS built on `proj4` (Proj4Leaflet is unmaintained and has no Leaflet 2 path) with a `TileLayer` subclass overriding `getTileUrl` for govmap's `L/R/C` scheme, and centre/zoom are converted via `CRS.project/unproject`. A tile proxy is not planned; if A proves technically impossible the spike stops and a new decision is raised.
 
 **Degradation.** Client state machine: connecting → open → degraded → offline. Backoff with jitter; on reconnect resync via bounds query; while offline, poll every 10 s and keep drafts locally. Durable Object hibernation and alarms keep presence correct across idle periods.
 
@@ -95,7 +95,10 @@ In: everything in the brief's sections 1–6, bonus Docker/tests/OpenAPI/benchma
 - Rate limiting: exact per-user Durable Object (D5).
 - Rooms: one Durable Object per map; sharding by tile documented as an ADR only (D7).
 - Two-browser Playwright E2E is in scope (D10).
-- govmap imagery is a requirement; the spike chooses between CRS swap and tile proxy, no fallback provider (D3).
+- govmap imagery is a requirement; option A (CRS swap) chosen, no proxy, no fallback provider (D3).
+- Conflicts: server version check + 409; client two-button prompt (D4).
+- Cache invalidation by version-stamped keys bumped in the Room DO (D6).
+- Local parity: docker-compose with PostGIS + workerd container; no Node port (D9).
 - Leaflet **1.9.4**, not 2.0 alpha: 2.0 is ESM-only with breaking API changes and no plugin ecosystem yet; our custom CRS/handler code is written against stable APIs and ported later.
 - No Proj4Leaflet: unmaintained since 2017; a CRS object on `proj4` is ~50 lines.
 - Hono over Fastify: Workers are fetch runtimes; Hono runs on Node too; official agent skill + CLI.
