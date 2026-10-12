@@ -1,8 +1,8 @@
-import { MAP } from '@cgis/shared';
+import { MAP, type PresenceUser } from '@cgis/shared';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useRef, useState } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { Avatar, initials, PRESENCE_SLOT_CLASSES, presenceSlotClass } from './Avatar';
+import { Avatar, initials } from './Avatar';
 import { Banner } from './Banner';
 import { Button } from './Button';
 import { Dialog } from './Dialog';
@@ -152,16 +152,6 @@ describe('MapControl', () => {
 });
 
 describe('Avatar', () => {
-  it('has one hue class per MAP.PRESENCE_COLORS entry and a neutral past it', () => {
-    expect(PRESENCE_SLOT_CLASSES).toHaveLength(MAP.PRESENCE_COLORS.length);
-    expect(presenceSlotClass(0)).toContain('presence-1');
-    expect(presenceSlotClass(MAP.PRESENCE_COLORS.length - 1)).toContain(
-      `presence-${MAP.PRESENCE_COLORS.length}`,
-    );
-    expect(presenceSlotClass(MAP.PRESENCE_COLORS.length)).toContain('presence-none');
-    expect(presenceSlotClass(null)).toContain('presence-none');
-  });
-
   it('derives initials and is an image named after the user unless decorative', () => {
     expect(initials('Ada Lovelace')).toBe('AL');
     expect(initials('  grace  brewster murray hopper ')).toBe('GH');
@@ -169,11 +159,13 @@ describe('Avatar', () => {
     expect(initials('')).toBe('?');
     render(
       <>
-        <Avatar name="Ada Lovelace" colorSlot={2} />
-        <Avatar name="Hidden" decorative />
+        <Avatar name="Ada Lovelace" color={MAP.PRESENCE_COLORS[2]} />
+        <Avatar name="Hidden" color={MAP.PRESENCE_COLORS[0]} decorative />
       </>,
     );
-    expect(screen.getByRole('img', { name: 'Ada Lovelace' }).className).toContain('presence-3');
+    // The server-assigned colour arrives as the --presence variable the tint and ring read.
+    const avatar = screen.getByRole('img', { name: 'Ada Lovelace' });
+    expect(avatar.style.getPropertyValue('--presence')).toBe(MAP.PRESENCE_COLORS[2]);
     expect(screen.queryByRole('img', { name: 'Hidden' })).toBeNull();
   });
 });
@@ -216,14 +208,14 @@ describe('formatStatValue', () => {
 });
 
 describe('PresenceList', () => {
-  const users = [
-    { id: 'a', name: 'Ada Lovelace', colorSlot: 0, state: 'drawing' as const, self: true },
-    { id: 'b', name: 'Grace Hopper', colorSlot: 1 },
-    { id: 'c', name: 'Alan Turing', colorSlot: 2 },
+  const users: PresenceUser[] = [
+    { userId: 'a', name: 'Ada Lovelace', color: MAP.PRESENCE_COLORS[0], state: 'drawing' },
+    { userId: 'b', name: 'Grace Hopper', color: MAP.PRESENCE_COLORS[1], state: 'viewing' },
+    { userId: 'c', name: 'Alan Turing', color: MAP.PRESENCE_COLORS[2], state: 'viewing' },
   ];
 
   it('lists names with "(you)" and the drawing state', () => {
-    render(<PresenceList users={users} />);
+    render(<PresenceList users={users} selfId="a" />);
     const [ada, grace, alan] = screen.getAllByRole('listitem');
     expect(ada!.textContent).toMatch(/Ada Lovelace \(you\)Drawing$/);
     expect(grace!.textContent).toMatch(/Grace Hopper$/);
@@ -233,7 +225,7 @@ describe('PresenceList', () => {
   });
 
   it('stacks avatars with a "+N more" counter', () => {
-    render(<PresenceList users={users} variant="stack" max={2} />);
+    render(<PresenceList users={users} selfId="a" variant="stack" max={2} />);
     expect(screen.getByRole('img', { name: 'Ada Lovelace (you)' })).toBeTruthy();
     expect(screen.getByRole('img', { name: '1 more' })).toBeTruthy();
     expect(screen.queryByRole('img', { name: 'Alan Turing' })).toBeNull();
@@ -246,7 +238,7 @@ describe('PresenceList', () => {
 });
 
 describe('map styles', () => {
-  it('puts saved areas and drafts in the panes from MAP, with hue classes by slot', () => {
+  it('puts saved areas and drafts in the panes from MAP; ghosts take the presence colour', () => {
     expect(areaPathOptions()).toEqual({ pane: MAP.AREAS_PANE, className: 'map-area' });
     expect(areaPathOptions(true).className).toBe('map-area-selected');
     expect(draftPathOptions()).toEqual({
@@ -254,11 +246,12 @@ describe('map styles', () => {
       className: 'cgis-draw-sketch',
       ...MAP.DRAFT_STYLE,
     });
-    expect(ghostPathOptions(2)).toEqual({
+    expect(ghostPathOptions(MAP.PRESENCE_COLORS[2])).toEqual({
       pane: MAP.DRAFTS_PANE,
-      className: 'map-ghost map-ghost-3',
+      className: 'map-ghost',
+      color: MAP.PRESENCE_COLORS[2],
+      fillColor: MAP.PRESENCE_COLORS[2],
     });
-    expect(ghostPathOptions(MAP.PRESENCE_COLORS.length).className).toBe('map-ghost');
   });
 });
 

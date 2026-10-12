@@ -62,13 +62,16 @@ function MapSample() {
             />
           </foreignObject>
         ))}
-        {MAP.PRESENCE_COLORS.map((_, index) => {
+        {MAP.PRESENCE_COLORS.map((color, index) => {
           const x = 360 + (index % 4) * 68;
           const y = 30 + Math.floor(index / 4) * 110;
+          // What ghostPathOptions(color) makes Leaflet write: the colour as stroke and fill.
           return (
             <path
-              key={index}
-              className={`${MAP_CLASS.ghost} ${MAP_CLASS.ghost}-${index + 1}`}
+              key={color}
+              className={MAP_CLASS.ghost}
+              stroke={color}
+              fill={color}
               d={`M${x} ${y} L${x + 56} ${y + 8} L${x + 48} ${y + 80} L${x + 4} ${y + 64} Z`}
             />
           );
@@ -76,8 +79,8 @@ function MapSample() {
       </svg>
       <figcaption className="text-xs text-fg-muted">
         Saved area · selected area · your draft (accent, dashed) with vertex handles in a{' '}
-        {HANDLE_HIT_PX} px hit area, the first filled (&ldquo;close here&rdquo;) · ghosts in
-        presence hues.
+        {HANDLE_HIT_PX} px hit area, the first filled (&ldquo;close here&rdquo;) · ghosts in the
+        server-assigned presence colours.
       </figcaption>
     </figure>
   );

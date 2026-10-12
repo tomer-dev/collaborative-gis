@@ -52,12 +52,6 @@ describe('tokens.css', () => {
     }
   });
 
-  it('mirrors MAP.PRESENCE_COLORS as --color-presence-1..8, in order', () => {
-    const presence = MAP.PRESENCE_COLORS.map((_, i) => themeValue(`--color-presence-${i + 1}`));
-    expect(presence).toEqual([...MAP.PRESENCE_COLORS]);
-    expect(themeValue(`--color-presence-${MAP.PRESENCE_COLORS.length + 1}`)).toBeUndefined();
-  });
-
   it('mirrors the map pane z-indexes from MAP', () => {
     expect(Number(themeValue('--z-index-map-areas'))).toBe(MAP.AREAS_PANE_Z);
     expect(Number(themeValue('--z-index-map-drafts'))).toBe(MAP.DRAFTS_PANE_Z);

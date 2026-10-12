@@ -50,37 +50,11 @@
     background: var(--map-handle-ring);
   }
 
-  /* Another user's draft: their presence hue (set by one of the .map-ghost-N classes). */
+  /* Another user's draft: Leaflet writes their presence colour (ghostPathOptions); this adds
+     the token width and fill alpha. */
   .map-ghost {
-    stroke: var(--map-ghost-color, var(--color-presence-none));
     stroke-width: var(--map-ghost-stroke-width);
-    fill: var(--map-ghost-color, var(--color-presence-none));
     fill-opacity: var(--map-ghost-fill-opacity);
-  }
-
-  .map-ghost-1 {
-    --map-ghost-color: var(--color-presence-1);
-  }
-  .map-ghost-2 {
-    --map-ghost-color: var(--color-presence-2);
-  }
-  .map-ghost-3 {
-    --map-ghost-color: var(--color-presence-3);
-  }
-  .map-ghost-4 {
-    --map-ghost-color: var(--color-presence-4);
-  }
-  .map-ghost-5 {
-    --map-ghost-color: var(--color-presence-5);
-  }
-  .map-ghost-6 {
-    --map-ghost-color: var(--color-presence-6);
-  }
-  .map-ghost-7 {
-    --map-ghost-color: var(--color-presence-7);
-  }
-  .map-ghost-8 {
-    --map-ghost-color: var(--color-presence-8);
   }
 }
 
