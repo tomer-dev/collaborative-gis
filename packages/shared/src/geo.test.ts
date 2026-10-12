@@ -41,6 +41,11 @@ describe('PolygonSchema', () => {
     expect(PolygonSchema.safeParse(line).success).toBe(false);
   });
 
+  it('rejects an empty ring instead of throwing', () => {
+    const empty = { type: 'Polygon' as const, coordinates: [[]] };
+    expect(PolygonSchema.safeParse(empty).success).toBe(false);
+  });
+
   it('rejects out-of-range longitude', () => {
     const bad = square();
     bad.coordinates[0]![0] = [181, 32.0];
