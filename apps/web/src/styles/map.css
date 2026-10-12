@@ -1,0 +1,123 @@
+/*
+ * Leaflet path and handle classes built on the --map-* tokens (tokens.css). Leaflet writes
+ * presentation attributes (stroke="#3388ff", ...) on each path; CSS properties override them,
+ * so a layer only needs `className` (see src/ui/map-styles.ts for the path options).
+ */
+
+@layer components {
+  .map-area {
+    stroke: var(--map-area-stroke);
+    stroke-width: var(--map-area-stroke-width);
+    fill: var(--map-area-fill);
+    fill-opacity: var(--map-area-fill-opacity);
+  }
+
+  .map-area-selected {
+    stroke: var(--map-area-selected-stroke);
+    stroke-width: var(--map-area-selected-stroke-width);
+    fill: var(--map-area-fill);
+    fill-opacity: var(--map-area-selected-fill-opacity);
+  }
+
+  .map-draft {
+    stroke: var(--map-draft-stroke);
+    stroke-width: var(--map-draft-stroke-width);
+    stroke-dasharray: var(--map-draft-dash);
+    fill: var(--map-draft-stroke);
+    fill-opacity: var(--map-draft-fill-opacity);
+  }
+
+  /* Another user's draft: their presence hue (set by one of the .map-ghost-N classes). */
+  .map-ghost {
+    stroke: var(--map-ghost-color, var(--color-presence-none));
+    stroke-width: var(--map-ghost-stroke-width);
+    fill: var(--map-ghost-color, var(--color-presence-none));
+    fill-opacity: var(--map-ghost-fill-opacity);
+  }
+
+  .map-ghost-1 {
+    --map-ghost-color: var(--color-presence-1);
+  }
+  .map-ghost-2 {
+    --map-ghost-color: var(--color-presence-2);
+  }
+  .map-ghost-3 {
+    --map-ghost-color: var(--color-presence-3);
+  }
+  .map-ghost-4 {
+    --map-ghost-color: var(--color-presence-4);
+  }
+  .map-ghost-5 {
+    --map-ghost-color: var(--color-presence-5);
+  }
+  .map-ghost-6 {
+    --map-ghost-color: var(--color-presence-6);
+  }
+  .map-ghost-7 {
+    --map-ghost-color: var(--color-presence-7);
+  }
+  .map-ghost-8 {
+    --map-ghost-color: var(--color-presence-8);
+  }
+
+  /*
+   * Vertex handle for L.divIcon({ className: 'map-handle', iconSize: null }): a 12 px dot centred
+   * in a 24 px hit area. With iconSize null Leaflet leaves sizing to CSS, so the negative margins
+   * centre the hit area on the vertex.
+   */
+  .map-handle {
+    box-sizing: border-box;
+    display: grid;
+    place-items: center;
+    width: var(--map-handle-hit);
+    height: var(--map-handle-hit);
+    margin-left: calc(var(--map-handle-hit) / -2);
+    margin-top: calc(var(--map-handle-hit) / -2);
+    cursor: move;
+  }
+
+  .map-handle::before {
+    content: '';
+    box-sizing: border-box;
+    width: var(--map-handle-size);
+    height: var(--map-handle-size);
+    border-radius: 50%;
+    background: var(--map-handle-fill);
+    border: var(--map-handle-stroke-width) solid var(--map-handle-stroke);
+  }
+
+  .map-handle:focus-visible {
+    outline: none;
+  }
+
+  .map-handle:focus-visible::before {
+    outline: var(--map-handle-stroke-width) solid var(--color-primary);
+    outline-offset: var(--map-handle-stroke-width);
+  }
+}
+
+/*
+ * Leaflet chrome on the tokens (its own CSS uses 10 px control margins and Helvetica). Unlayered
+ * and one class more specific than leaflet.css, which the map component imports after this file.
+ */
+html .leaflet-container {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+}
+
+.leaflet-container .leaflet-top .leaflet-control {
+  margin-top: var(--spacing-3);
+}
+
+.leaflet-container .leaflet-bottom .leaflet-control {
+  margin-bottom: var(--spacing-3);
+}
+
+.leaflet-container .leaflet-left .leaflet-control {
+  margin-left: var(--spacing-3);
+}
+
+.leaflet-container .leaflet-right .leaflet-control {
+  margin-right: var(--spacing-3);
+}
