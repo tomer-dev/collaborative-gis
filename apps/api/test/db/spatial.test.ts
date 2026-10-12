@@ -1,13 +1,14 @@
 import { AreaSchema, LIMITS, SEED, type Area, type Bbox, type Polygon } from '@cgis/shared';
 import { sql } from 'drizzle-orm';
 import pg from 'pg';
-import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, inject, it, vi } from 'vitest';
 import { db } from '../../src/db';
 import { seedAreas } from '../../src/db/seed';
 import {
   areasInBoundsSql,
   InvalidGeometryError,
   insertArea,
+  revertArea,
   selectAreasInBounds,
   softDeleteArea,
   updateAreaIfVersion,
@@ -408,6 +409,35 @@ describe('softDeleteArea', () => {
     ]);
     expect(await softDeleteArea(client, area.id, 'deleter')).toBeNull();
     expect(await softDeleteArea(client, crypto.randomUUID(), 'deleter')).toBeNull();
+  });
+});
+
+describe('revertArea', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the reverted area through AreaSchema, like the other writers', async () => {
+    const geometry = box(27, 47, 27.01, 47.01);
+    const area = await insertArea(client, { name: 'v1', geometry, userId });
+    const edited = await updateAreaIfVersion(client, area.id, {
+      name: 'v2',
+      geometry: box(27, 47, 27.02, 47.02),
+      version: 1,
+      userId,
+    });
+    expect(edited.ok).toBe(true);
+    const parse = vi.spyOn(AreaSchema, 'parse');
+
+    const result = await revertArea(client, area.id, 1, 2, 'reverter');
+
+    expect(result).toMatchObject({
+      status: 'reverted',
+      area: { name: 'v1', geometry, version: 3 },
+    });
+    // The CTE's row is checked at the boundary: the parsed copy is what leaves spatial.ts.
+    expect(parse).toHaveBeenCalledOnce();
+    expect(parse.mock.results[0]?.value).toBe(result.status === 'reverted' ? result.area : null);
   });
 });
 
