@@ -6,7 +6,7 @@
 
 **Architecture:** pnpm workspace with `apps/api` (Hono on Cloudflare Workers, workerd runtime), `apps/web` (Vite + React), `packages/shared` (Zod schemas consumed by both). The Worker reaches Postgres only through a Hyperdrive binding; locally that binding points at a docker PostGIS via `localConnectionString`. No Node port of the Worker exists (decision D9).
 
-**Tech Stack:** pnpm 9, TypeScript 5, Node 22+, Hono 4 + `@hono/cli`, Wrangler 4, `@cloudflare/vitest-plugin`, Vitest 3, Zod 3, Vite 6 + React 19, Docker (`imresamu/postgis:18-3.6`), Neon CLI (`neonctl`), 1Password CLI (`op`).
+**Tech Stack:** pnpm 12, TypeScript 5, Node 22+, Hono 4 + `@hono/cli`, Wrangler 4, `@cloudflare/vitest-plugin`, Vitest 5, Zod 4, Vite 8 + React 19, Docker (`imresamu/postgis:18-3.6`), Neon CLI (`neonctl`), 1Password CLI (`op`).
 
 **Spec:** `docs/superpowers/specs/2026-10-12-collaborative-gis-design.md`
 **Roadmap / tickets:** `docs/roadmap.md` → Linear TOM-13 (0.1), TOM-14 (0.2), TOM-15 (0.3), TOM-16 (0.4), TOM-17 (0.5)
@@ -963,11 +963,11 @@ Planning and decisions: `docs/roadmap.md`, `docs/research-notes.md`, `docs/super
 
 ## Setup
 
-Prerequisites: Node 22, pnpm 9, Docker, Wrangler (installed by pnpm), Hono CLI (`npm i -g @hono/cli`).
+Prerequisites: Node 22, pnpm 12, Docker, Wrangler (installed by pnpm), Hono CLI (`@hono/cli` dev dependency).
 
 ```bash
 pnpm install
-pnpm db:up && pnpm db:check          # local PostGIS 16 / 3.4 with the extension enabled
+pnpm db:up && pnpm db:check          # local PostGIS 18 / 3.6 (imresamu/postgis:18-3.6) with the extension enabled
 pnpm --filter @cgis/api dev          # Worker on http://localhost:8787 (workerd, Hyperdrive → local PostGIS)
 pnpm --filter @cgis/web dev          # Vite on http://localhost:5173
 pnpm test && pnpm typecheck && pnpm lint
