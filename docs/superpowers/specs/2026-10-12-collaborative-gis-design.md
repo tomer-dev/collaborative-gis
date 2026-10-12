@@ -108,6 +108,7 @@ In: everything in the brief's sections 1–6, bonus Docker/tests/OpenAPI/benchma
 - Hono over Fastify: Workers are fetch runtimes; Hono runs on Node too; official agent skill + CLI.
 - Cloudflare over Vercel: Vercel WebSocket beta has a hard per-connection duration cap; Durable Objects give a native coordinator.
 - Design system "Grid 4" adopted (D15, 2026-10-12): 4 px base unit, fixed spacing steps, 6 type sizes on the grid, OKLCH ramps used only through semantic tokens with base/hover/active/disabled variants; reasonable exceptions allowed case by case when a 4 px multiple cannot work, documented in the token file. Brief: `docs/design-system-brief.html`.
+- HTTP client (D19, 2026-10-12): native `fetch` behind one typed helper (same-origin cookies, Zod-parsed bodies, shared `ApiError` mapping); Hono `hc` RPC client typed from the api's `AppType` once the areas routes exist. No axios/ky; undici/got are Node-only.
 - Font: Inter variable, self-hosted (D16). Primary hue: blue as proposed (D17). Storybook: full scope — foundations + components + a11y gating + vitest browser tests in CI (D18).
 
 ## 11. Open questions carried into tickets
