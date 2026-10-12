@@ -1,4 +1,5 @@
-import { AreaSchema, LIMITS, RATE_LIMIT, type Polygon } from '@cgis/shared';
+import { AreaSchema, LIMITS, RATE_LIMIT, ROUTES, type Polygon } from '@cgis/shared';
+import { createExecutionContext } from 'cloudflare:test';
 import { env as workerEnv } from 'cloudflare:workers';
 import { Hono } from 'hono';
 import pg from 'pg';
@@ -14,7 +15,7 @@ import {
   randomSpot,
   squareAt,
 } from '../areas/fixtures';
-import type { User } from '../helpers';
+import { appWithUser, type User } from '../helpers';
 
 const { DRAW_ACTIONS_PER_WINDOW: LIMIT, WINDOW_MS, ACTIONS } = RATE_LIMIT;
 // Far ahead of the real clock: workerd schedules alarms on real time, so an alarm armed at a
@@ -167,12 +168,26 @@ describe('the area mutation routes mount mutationGuards()', () => {
     expect(await countRows(env, 'areas', 'created_by = $1', [user.id])).toBe(0);
   });
 
-  it('a 65 KiB body is 413 on POST and PUT before any database call', async () => {
+  it('a 65 KiB body is 413 on POST, PUT and revert before any database call', async () => {
     const connect = vi.spyOn(pg.Client.prototype, 'connect');
-    const api = areasClient(env, freshUser());
+    const user = freshUser();
+    const api = areasClient(env, user);
     const body = { name: 'x'.repeat(65 * KIB), geometry: squareAt(randomSpot()) };
+    // The revert route takes no body, so its client sends none; one sent anyway is capped too.
+    const revert = () =>
+      appWithUser(user).request(
+        `${ROUTES.AREAS}/${crypto.randomUUID()}/revert/1`,
+        { method: 'POST', body: JSON.stringify(body) },
+        env,
+        createExecutionContext(),
+      );
 
-    for (const res of [await api.create(body), await api.update(crypto.randomUUID(), body)]) {
+    const responses = [
+      await api.create(body),
+      await api.update(crypto.randomUUID(), body),
+      await revert(),
+    ];
+    for (const res of responses) {
       expect(res.status).toBe(413);
       expect(await res.json()).toEqual({ code: 'PAYLOAD_TOO_LARGE', message: 'Payload too large' });
     }
