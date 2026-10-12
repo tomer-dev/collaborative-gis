@@ -22,6 +22,7 @@ import {
   stubApi,
   type StubHandler,
   type StubRequest,
+  ZOOM,
 } from '../test/api-stub';
 import { AreaPanel, type AreaPanelProps } from './AreaPanel';
 
@@ -62,7 +63,7 @@ function renderPanel(handler: StubHandler, props: Partial<AreaPanelProps> = {}) 
       : handler(request),
   );
   const { queryClient, wrapper: Wrapper } = queryWrapper();
-  queryClient.setQueryData<AreaList>(areasKey(ISRAEL), { areas: [orchard] });
+  queryClient.setQueryData<AreaList>(areasKey(ISRAEL, ZOOM), { areas: [orchard] });
   const callbacks = {
     onSelect: vi.fn(),
     onClose: vi.fn(),
@@ -166,7 +167,7 @@ it("shows the server's area and renames with the version it shows", async () => 
   rename(panel, 'Grove');
 
   await waitFor(() =>
-    expect(queryClient.getQueryData(areasKey(ISRAEL))).toEqual({ areas: [renamed] }),
+    expect(queryClient.getQueryData(areasKey(ISRAEL, ZOOM))).toEqual({ areas: [renamed] }),
   );
   expect(writes(requests)[0]).toMatchObject({
     method: 'PUT',
@@ -203,7 +204,7 @@ it('deletes the area and reports it; a failed delete shows an alert', async () =
     method: 'DELETE',
     path: `/api/areas/${AREA_ID}`,
   });
-  expect(ok.queryClient.getQueryData(areasKey(ISRAEL))).toEqual({ areas: [] });
+  expect(ok.queryClient.getQueryData(areasKey(ISRAEL, ZOOM))).toEqual({ areas: [] });
   cleanup();
 
   const failing = renderPanel(() =>
