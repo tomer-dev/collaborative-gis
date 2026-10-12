@@ -25,6 +25,13 @@ export const LIMITS = {
    * `area_versions.version`. A larger value would fail the query (22003) as a 500, not a 422.
    */
   VERSION_MAX: 2_147_483_647,
+  /** Rows in the area panel's list of the areas in view; the rest show as one "+N more" line. */
+  PANEL_LIST_MAX: 50,
+  /**
+   * Leading characters of a user id that name the editor in an area's history (the versions
+   * payload carries ids, not names).
+   */
+  USER_ID_PREFIX: 8,
   /** Better Auth's default `minPasswordLength`; the register form's `minlength`. */
   PASSWORD_MIN: 8,
 } as const;
