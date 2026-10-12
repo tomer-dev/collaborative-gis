@@ -75,6 +75,9 @@ Server: `error` events carry `resync: true` when the DO lost state; `join` after
 ### H13 (web): area panel — TOM-52 (5.11)
 `AreaPanel` (Panel + list of areas in view with name/km²; select → highlight; rename inline → PUT with version; history → `GET versions`; revert → POST revert → cache patch). Tests with mocked fetch.
 
+### H16 (db): Drizzle builder system-wide — ticket 1.7 (D23), Wave 1 after H1 (same files)
+`apps/api/src/db/spatial.ts`: `selectAreasInBounds` and the `current` read in `updateAreaIfVersion` become builder selects with `sql` fragments (`ST_AsGeoJSON(${areas.geom})::json`, `${areas.geom} && ST_MakeEnvelope(...)`), explicit column lists (never raw `geom`); the write CTEs stay and carry a comment naming the D23 exception. Any plain read in routes/services → builder. Lint guard (ESLint `no-restricted-syntax` on tagged template `sql` whose first quasi starts with `select`/`SELECT`, allow-list: spatial.ts write helpers, test files) proved with a probe. README "Database access rules" section. Tests: helper signatures unchanged, api suite green, probe fails lint.
+
 ### H15: integration + M2 epic review
 Mount audit/rate-limit/timeout per H4/H5; cron trigger; constants doc tidy; README sections (performance, security, limitations updated with facts); process log; Linear M2 → Done; **M2 epic review (fable)** over the milestone range + one opus fix round + scoped re-review.
 
