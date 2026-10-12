@@ -4,7 +4,6 @@ import { Hono } from 'hono';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { type AppEnv, createApp, type Env } from '../../src/app';
 import { recordAudit } from '../../src/db/audit';
-import { auditAuth, auditRejections } from '../../src/middleware/audit';
 import { freshUser, randomSpot, squareAt } from '../areas/fixtures';
 import { PASSWORD, withCookies } from '../auth/session';
 import { appWithUser, TEST, type User } from '../helpers';
@@ -26,15 +25,11 @@ afterEach(() => {
 });
 
 /**
- * The real app (as `user`, or anonymous) behind the two audit middlewares, mounted on the paths
- * app.ts gives them. Outside the app's own chain here, which changes nothing they read: both act
- * after `next()`, when the request id and the session user are set.
+ * The real app (as `user`, or anonymous): app.ts mounts `auditAuth()` on `/api/auth/*` and
+ * `auditRejections()` on `/api/*` itself, so these tests exercise the production chain.
  */
-function audited(user?: User) {
-  return new Hono<AppEnv>()
-    .use(`${ROUTES.AUTH}/*`, auditAuth())
-    .use(`${ROUTES.API_PREFIX}/*`, auditRejections())
-    .route('/', user ? appWithUser(user) : createApp());
+function audited(user?: User): Hono<AppEnv> {
+  return user ? appWithUser(user) : createApp();
 }
 
 /** One request with an ExecutionContext, as the runtime gives one, awaited until `waitUntil` settles. */
