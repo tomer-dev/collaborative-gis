@@ -11,7 +11,7 @@ Prerequisites: Node 22 (`.node-version` pins 22.23.3; `engines` requires `>=22.2
 Workspace:
 
 - `packages/shared` (`@cgis/shared`): Zod 4 contracts used by both apps (polygon, area, bounds query, API error, WebSocket envelope).
-- `apps/api` (`@cgis/api`): Hono 4 Worker. `GET /healthz`; `GET /readyz` pings the database through the `HYPERDRIVE` binding and answers 503 `NOT_READY` when it is unreachable.
+- `apps/api` (`@cgis/api`): Hono 4 Worker. `GET /healthz`; `GET /readyz` pings the database through the `HYPERDRIVE` binding and the Room Durable Object (`getVersion()` within `TIMEOUTS.DO_PING_MS`) and answers 503 `NOT_READY` with `details: { db, room }` when either does not answer.
 - `apps/web` (`@cgis/web`): Vite 8 + React 19 placeholder.
 
 ```bash
