@@ -57,9 +57,49 @@ jobs:
       - name: web build
         run: pnpm --filter @cgis/web build
       # Static build only (D18 reduced): proves every story and .storybook file compiles. Story
-      # play functions and a11y checks run in the Storybook UI; browser tests in CI come in M3.
+      # play functions and a11y checks run in the Storybook UI; the browser run is the e2e job.
       - name: storybook build
         run: pnpm --filter @cgis/web build-storybook
       # The production config (env.production: assets from the web build above, its own bindings).
       - name: wrangler dry run
         run: pnpm --filter @cgis/api exec wrangler deploy --dry-run --env production --outdir dist
+  # Two-browser end to end (`pnpm e2e`, apps/web/e2e): Playwright starts `wrangler dev` and Vite
+  # itself (webServer) against a lane database it empties and migrates on this job's PostGIS. CI
+  # runs the `chromium` project only: the `aerial` project loads govmap's tiles from its CDN, so
+  # playwright.config.ts leaves it out when CI is set. `pnpm bench` (k6) is never run here.
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgis:
+        image: imresamu/postgis:18-3.6
+        env:
+          POSTGRES_USER: cgis
+          POSTGRES_PASSWORD: cgis
+          POSTGRES_DB: cgis
+        # scripts/db-lane.sh creates the e2e lane database on this server (127.0.0.1:5433).
+        ports: ['5433:5432']
+        options: >-
+          --health-cmd "pg_isready -U cgis -d cgis" --health-interval 5s --health-timeout 3s --health-retries 10 --health-start-period 10s
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: playwright chromium
+        run: pnpm --filter @cgis/web exec playwright install --with-deps chromium
+      # The Worker's secrets are test-only values (no apps/api/.dev.vars here; wrangler reads env).
+      - name: e2e
+        run: pnpm e2e
+        env:
+          BETTER_AUTH_SECRET: test-only-better-auth-secret-0123456789abcdef
+          BETTER_AUTH_URL: http://localhost:8787
+      - name: e2e traces
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-traces
+          path: apps/web/node_modules/.e2e-results/
+          retention-days: 7

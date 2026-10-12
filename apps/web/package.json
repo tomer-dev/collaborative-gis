@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b",
+    "typecheck": "tsc -b && tsc -p e2e",
     "test": "vitest run",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "tsc -b .storybook && storybook build",
