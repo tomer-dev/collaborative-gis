@@ -129,7 +129,7 @@ The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmar
 
 | Name | Value | Where used | Why |
 |---|---|---|---|
-| `DEFAULT_ROOM_ID` | `'default'` | `apps/api/test/scaffold.test.ts`; planned T6 `ROOM.idFromName`, T8 fan-out | D11: one shared map, one Room DO |
+| `DEFAULT_ROOM_ID` | `'default'` | `apps/api/src/ws.ts` (`GET /ws` hand-off), `apps/api/src/services/fanout.ts` (area changes → `Room.broadcast`), `apps/api/test/scaffold.test.ts` | D11: one shared map, one Room DO |
 | `USER_ID_HEADER` / `USER_NAME_HEADER` | `'x-user-id'` / `'x-user-name'` | `apps/api/src/do/handoff.ts`: `withRoomUser` (used by `ws.ts`) sets them, name percent-encoded; `readRoomUser` (used by `room.ts`) validates them | The Worker hands the session user to the Room; client-sent copies are overwritten |
 
 ## MAP

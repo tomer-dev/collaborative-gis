@@ -5,7 +5,7 @@ import { attachmentOf, type PresenceAttachment } from './presence';
 /** An open socket with its parsed attachment. */
 export type Socket = { ws: WebSocket; attachment: PresenceAttachment };
 
-/** Creates the table behind the outgoing `seq` (`counters`; T8 can add `mapVersion`). */
+/** Creates `counters`: the outgoing `seq` here, and the map version (`Room.bumpMapVersion`, T8). */
 export function createSeqCounter(sql: SqlStorage): void {
   sql.exec('CREATE TABLE IF NOT EXISTS counters (name TEXT PRIMARY KEY, value INTEGER NOT NULL)');
 }
