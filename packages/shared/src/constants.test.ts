@@ -11,10 +11,12 @@ describe('constants', () => {
       'TIMEOUTS',
       'ROUTES',
       'DEV',
+      'HEADERS',
       'ROOM',
       'MAP',
       'ERROR_CODES',
       'ERROR_MESSAGES',
+      'ERROR_REASONS',
       'WS_MESSAGES',
     ] as const;
     for (const name of groups) {
