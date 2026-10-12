@@ -10,7 +10,6 @@ import type { AppEnv } from '../app';
 import { attachUser } from './attach-user';
 
 export { attachUser } from './attach-user';
-export { log, type LogLevel } from './logger';
 export { requireUser, type SignedIn } from './require-user';
 
 /**

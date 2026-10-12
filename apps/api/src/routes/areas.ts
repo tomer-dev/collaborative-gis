@@ -80,7 +80,9 @@ export const areas = new Hono<AppEnv>()
       const result = await createArea(c.env, c.req.valid('json'), actor(c, c.get('user').id));
       if (result.status === 'invalid') return invalidGeometry(c, result.reason);
       const { area } = result;
-      c.executionCtx.waitUntil(fanout(c.env, { type: 'area:created', payload: { area } }));
+      c.executionCtx.waitUntil(
+        fanout(c.env, { type: 'area:created', payload: { area } }, c.get('requestId')),
+      );
       return c.json(area, 201);
     },
   )
@@ -138,7 +140,9 @@ export const areas = new Hono<AppEnv>()
           });
         case 'updated': {
           const { area } = result;
-          c.executionCtx.waitUntil(fanout(c.env, { type: 'area:updated', payload: { area } }));
+          c.executionCtx.waitUntil(
+            fanout(c.env, { type: 'area:updated', payload: { area } }, c.get('requestId')),
+          );
           return c.json(area, 200);
         }
       }
@@ -164,7 +168,9 @@ export const areas = new Hono<AppEnv>()
       const { id } = c.req.valid('param');
       const result = await deleteArea(c.env, id, actor(c, c.get('user').id));
       if (result.status === 'missing') return notFoundError(c);
-      c.executionCtx.waitUntil(fanout(c.env, { type: 'area:deleted', payload: { id } }));
+      c.executionCtx.waitUntil(
+        fanout(c.env, { type: 'area:deleted', payload: { id } }, c.get('requestId')),
+      );
       return c.body(null, 204);
     },
   );
