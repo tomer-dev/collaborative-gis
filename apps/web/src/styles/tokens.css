@@ -170,13 +170,12 @@
 
   /* Stacking. Map panes mirror MAP.AREAS_PANE_Z / DRAFTS_PANE_Z (Leaflet: tiles 200, overlay
      400, markers 600, its own controls 1000). Native <dialog> renders in the top layer;
-     dialog/toast/tooltip order the non-modal overlays above the map. */
+     dialog and toast order the non-modal overlays above the map. */
   --z-index-map-areas: 450;
   --z-index-map-drafts: 460;
   --z-index-controls: 1000;
   --z-index-dialog: 1100;
   --z-index-toast: 1200;
-  --z-index-tooltip: 1300;
 
   /* Motion: 100 / 200 / 300 ms on one curve; all three drop to 0 under
      prefers-reduced-motion (base layer below). Layer crossfade = slow. */

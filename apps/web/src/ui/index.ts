@@ -9,7 +9,6 @@ export { Input, type InputProps } from './Input';
 export {
   MapControl,
   MapControlButton,
-  useLeafletControlContainer,
   type MapControlButtonProps,
   type MapControlProps,
 } from './MapControl';
@@ -18,4 +17,3 @@ export { Panel, type PanelProps } from './Panel';
 export { PresenceList, type PresenceListProps, type PresenceUser } from './PresenceList';
 export { formatStatValue, Stat, type StatProps } from './Stat';
 export { DARK_CLASS, syncColorScheme } from './theme';
-export { Tooltip, type TooltipProps } from './Tooltip';
