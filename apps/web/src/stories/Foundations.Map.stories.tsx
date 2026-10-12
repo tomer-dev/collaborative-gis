@@ -14,34 +14,51 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const SELECTED = [
-  [40, 150],
-  [110, 120],
-  [140, 190],
-  [70, 220],
+const SELECTED = 'M40 150 L110 120 L140 190 L70 220 Z';
+const DRAFT = [
+  [200, 40],
+  [320, 30],
+  [300, 130],
+  [210, 120],
 ] as const;
+const { HANDLE_RADIUS_PX, HANDLE_HIT_PX, HANDLE_BORDER_PX, DRAFT_STYLE } = MAP;
 
-/** The map.css classes on plain SVG paths, as Leaflet would render them. */
+/**
+ * The map.css classes on plain SVG paths, as Leaflet renders them. The sketch and its vertex
+ * handles take their numbers from MAP (as src/lib/geo/draw-handler.ts does) and their colours
+ * from the accent and background tokens.
+ */
 function MapSample() {
   return (
     <figure className="flex flex-col gap-2">
       <svg
         viewBox="0 0 640 260"
         role="img"
-        aria-label="Sample map styles: a saved area, a selected area with vertex handles, your draft and eight other users' drafts"
+        aria-label="Sample map styles: a saved area, a selected area, your draft with vertex handles and eight other users' drafts"
         className="w-full rounded-md border border-line bg-bg-sunken"
       >
         <path className={MAP_CLASS.area} d="M30 30 L150 20 L170 90 L60 110 Z" />
+        <path className={MAP_CLASS.areaSelected} d={SELECTED} />
         <path
-          className={MAP_CLASS.areaSelected}
-          d={`M${SELECTED.map(([x, y]) => `${x} ${y}`).join(' L')} Z`}
+          className={MAP_CLASS.draft}
+          strokeWidth={DRAFT_STYLE.weight}
+          strokeDasharray={DRAFT_STYLE.dashArray}
+          fillOpacity={DRAFT_STYLE.fillOpacity}
+          d={`M${DRAFT.map(([x, y]) => `${x} ${y}`).join(' L')} Z`}
         />
-        {SELECTED.map(([x, y]) => (
-          <foreignObject key={`${x}-${y}`} x={x - 12} y={y - 12} width="24" height="24">
-            <div className={MAP_CLASS.handle} style={{ margin: 0 }} />
-          </foreignObject>
+        {DRAFT.map(([x, y], index) => (
+          <circle
+            key={`${x}-${y}`}
+            cx={x}
+            cy={y}
+            r={HANDLE_RADIUS_PX - HANDLE_BORDER_PX / 2}
+            strokeWidth={HANDLE_BORDER_PX}
+            style={{
+              stroke: 'var(--color-accent)',
+              fill: index === 0 ? 'var(--color-accent)' : 'var(--color-bg)',
+            }}
+          />
         ))}
-        <path className={MAP_CLASS.draft} d="M200 40 L320 30 L300 130 L210 120 Z" />
         {MAP.PRESENCE_COLORS.map((_, index) => {
           const x = 360 + (index % 4) * 68;
           const y = 30 + Math.floor(index / 4) * 110;
@@ -55,12 +72,22 @@ function MapSample() {
         })}
       </svg>
       <figcaption className="text-xs text-fg-muted">
-        Saved area · selected area with 12 px handles (24 px hit area) · your draft (accent, dashed)
+        Saved area · selected area · your draft (accent, dashed) with {2 * HANDLE_RADIUS_PX} px
+        vertex handles in a {HANDLE_HIT_PX} px hit area, the first filled (&ldquo;close here&rdquo;)
         · ghosts in presence hues 1–8.
       </figcaption>
     </figure>
   );
 }
+
+const drawTool = [
+  { name: 'HANDLE_RADIUS_PX', value: HANDLE_RADIUS_PX, use: 'Vertex dot radius' },
+  { name: 'HANDLE_HIT_PX', value: HANDLE_HIT_PX, use: 'Vertex hit box (marker icon size)' },
+  { name: 'HANDLE_BORDER_PX', value: HANDLE_BORDER_PX, use: 'Vertex dot ring' },
+  { name: 'DRAFT_STYLE.weight', value: DRAFT_STYLE.weight, use: 'Sketch stroke width' },
+  { name: 'DRAFT_STYLE.dashArray', value: DRAFT_STYLE.dashArray, use: 'Sketch dash' },
+  { name: 'DRAFT_STYLE.fillOpacity', value: DRAFT_STYLE.fillOpacity, use: 'Sketch fill' },
+];
 
 const panes = [
   { name: MAP.AREAS_PANE, z: MAP.AREAS_PANE_Z, token: '--z-index-map-areas' },
@@ -72,7 +99,7 @@ export const MapStyles: Story = {
   render: () => (
     <Page
       title="Map"
-      intro="Leaflet paths take a className from src/ui/map-styles.ts; map.css styles it from the --map-* tokens. The basemap is light imagery in both UI themes, so map styles do not switch with dark mode."
+      intro="Leaflet paths take a className from src/ui/map-styles.ts; map.css colours it from the --map-* tokens, and the draw tool's sizes come from MAP in @cgis/shared. The basemap is light imagery in both UI themes, so map styles do not switch with dark mode."
     >
       <MapSample />
       <TokenTable
@@ -85,6 +112,20 @@ export const MapStyles: Story = {
             <Code key="value">{token.value}</Code>,
             <span key="note" className="text-fg-muted">
               {token.note ?? ''}
+            </span>,
+          ],
+        }))}
+      />
+      <TokenTable
+        caption="Draw tool (MAP in @cgis/shared; Leaflet takes these in JS)"
+        columns={['Constant', 'Value', 'Use']}
+        rows={drawTool.map((row) => ({
+          name: row.name,
+          cells: [
+            <Code key="name">MAP.{row.name}</Code>,
+            <Code key="value">{String(row.value)}</Code>,
+            <span key="use" className="text-fg-muted">
+              {row.use}
             </span>,
           ],
         }))}
