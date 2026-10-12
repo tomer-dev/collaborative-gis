@@ -63,6 +63,17 @@ export const MAP = {
   DRAFTS_PANE: 'drafts',
   DRAFTS_PANE_Z: 460,
   MOVEEND_DEBOUNCE_MS: 250,
+  /** Categorical presence hues by join order (design brief §3); apps/web/src/styles/tokens.css mirrors them as --color-presence-1..8. */
+  PRESENCE_COLORS: [
+    '#2a78d6',
+    '#eb6834',
+    '#1baf7a',
+    '#eda100',
+    '#e87ba4',
+    '#008300',
+    '#6250d6',
+    '#e34948',
+  ],
 } as const;
 
 /** Every `ApiError.code` the API sends; apps/api/src/errors.ts maps each to its HTTP status. */
