@@ -1,5 +1,4 @@
-import type { Polygon } from '@cgis/shared';
-import { GEO } from '@cgis/shared/constants';
+import { GEO, type Polygon } from '@cgis/shared';
 import { sql, type SQL } from 'drizzle-orm';
 import { customType } from 'drizzle-orm/pg-core';
 

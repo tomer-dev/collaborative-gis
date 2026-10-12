@@ -1,7 +1,6 @@
 // Node also runs the db modules natively (`db:seed`, `db:explain`), so within src/db relative
-// imports name the .ts file and runtime constants come from @cgis/shared/constants (see
-// tsconfig.base.json); type-only imports are erased and may use either form.
-import { TIMEOUTS } from '@cgis/shared/constants';
+// imports name the .ts file (see tsconfig.base.json); type-only imports are erased.
+import { TIMEOUTS } from '@cgis/shared';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import type { Env } from '../app';

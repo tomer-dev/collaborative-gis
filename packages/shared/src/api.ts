@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ERROR_CODES } from './constants';
+import { ERROR_CODES } from './constants/index.ts';
 
 /** Every `ApiError.code` the API sends (`apps/api/src/errors.ts` maps HTTP statuses onto these). */
 export const ApiErrorCodeSchema = z.enum(ERROR_CODES);
