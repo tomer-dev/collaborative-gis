@@ -11,8 +11,9 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    // Node loads @cgis/shared/constants as TypeScript (Vite config files import it natively), and
-    // Node resolves relative imports only with their real extension: those imports name the .ts file.
+    // Node loads @cgis/shared and apps/api/src/db as TypeScript (Vite config files and the db
+    // scripts import them natively), and Node resolves relative imports only with their real
+    // extension: those imports name the .ts file.
     "allowImportingTsExtensions": true
   }
 }

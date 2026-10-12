@@ -6,7 +6,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { BENCH, LIMITS } from '@cgis/shared/constants';
+import { BENCH, LIMITS } from '@cgis/shared';
 import { sql } from 'drizzle-orm';
 import pg from 'pg';
 import { z } from 'zod';

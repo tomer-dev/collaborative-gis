@@ -3,8 +3,7 @@
 // SEED.COUNT; `--count 10000` makes the benchmark set). Never a Hyperdrive URL.
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import type { Polygon } from '@cgis/shared';
-import { SEED } from '@cgis/shared/constants';
+import { SEED, type Polygon } from '@cgis/shared';
 import { inArray, like } from 'drizzle-orm';
 import pg from 'pg';
 import { z } from 'zod';
