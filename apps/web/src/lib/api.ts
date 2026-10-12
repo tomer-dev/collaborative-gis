@@ -28,6 +28,24 @@ export async function apiGet<T>(path: `/${string}`, schema: Parser<T>): Promise<
     credentials: 'same-origin',
     headers: { accept: 'application/json' },
   });
+  return parseResponse(res, schema);
+}
+
+/**
+ * POSTs `body` as JSON to a same-origin API path; responses are handled exactly as in `apiGet`.
+ * The browser adds the same-origin `Origin` header, which Better Auth requires on every POST.
+ */
+export async function apiPost<T>(path: `/${string}`, body: unknown, schema: Parser<T>): Promise<T> {
+  const res = await fetch(path, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { accept: 'application/json', 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return parseResponse(res, schema);
+}
+
+async function parseResponse<T>(res: Response, schema: Parser<T>): Promise<T> {
   if (!res.ok) {
     const error = ApiErrorSchema.safeParse(await res.json().catch(() => null));
     throw new ApiRequestError(res.status, error.success ? error.data : null);

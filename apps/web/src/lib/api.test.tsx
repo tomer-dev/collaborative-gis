@@ -1,6 +1,6 @@
-import { GetSessionResponseSchema } from '@cgis/shared';
+import { GetSessionResponseSchema, SignOutResponseSchema } from '@cgis/shared';
 import { afterEach, expect, it, vi } from 'vitest';
-import { apiGet, ApiRequestError } from './api';
+import { apiGet, apiPost, ApiRequestError } from './api';
 
 function stubFetch(response: () => Promise<Response>) {
   const fetchMock = vi.fn(response);
@@ -62,4 +62,39 @@ it('keeps the status when a non-2xx body is not an ApiError', async () => {
   );
   expect(error).toBeInstanceOf(ApiRequestError);
   expect(error).toMatchObject({ status: 502, body: null });
+});
+
+it('POSTs a JSON body to a same-origin path and returns the schema-parsed body', async () => {
+  const fetchMock = stubFetch(async () => Response.json({ success: true, extra: 'dropped' }));
+
+  await expect(apiPost('/api/auth/sign-out', { a: 1 }, SignOutResponseSchema)).resolves.toEqual({
+    success: true,
+  });
+  expect(fetchMock).toHaveBeenCalledWith('/api/auth/sign-out', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { accept: 'application/json', 'content-type': 'application/json' },
+    body: JSON.stringify({ a: 1 }),
+  });
+});
+
+it('maps a non-2xx POST response onto ApiRequestError like apiGet', async () => {
+  stubFetch(async () =>
+    Response.json(
+      { code: 'INVALID_EMAIL_OR_PASSWORD', message: 'Invalid email or password' },
+      { status: 401 },
+    ),
+  );
+
+  const error = await apiPost('/api/auth/sign-out', {}, SignOutResponseSchema).catch(
+    (e: unknown) => e,
+  );
+  expect(error).toBeInstanceOf(ApiRequestError);
+  expect(error).toMatchObject({ status: 401, message: 'Invalid email or password' });
+});
+
+it('rejects a 2xx POST body that does not match the schema', async () => {
+  stubFetch(async () => Response.json({ ok: 'yes' }));
+
+  await expect(apiPost('/api/auth/sign-out', {}, SignOutResponseSchema)).rejects.toThrow();
 });
