@@ -4,7 +4,7 @@ export const ROUTES = {
   API_PREFIX: '/api',
   /** Liveness. */
   HEALTHZ: '/healthz',
-  /** Readiness (DB reachable). */
+  /** Readiness: the database and the Room answer. */
   READYZ: '/readyz',
   /** Better Auth mount. */
   AUTH: '/api/auth',
