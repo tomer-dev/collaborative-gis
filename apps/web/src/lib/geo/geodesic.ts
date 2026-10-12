@@ -1,32 +1,24 @@
-import { GEO, type Position } from '@cgis/shared';
+import type { Position } from '@cgis/shared';
+import { area } from '@turf/area';
 
 /** A GeoJSON position, `[longitude, latitude]` in degrees (the shared `Position`). */
 export type LngLat = Position;
 
-const rad = (deg: number) => (deg * Math.PI) / 180;
-
-/**
- * Area of a ring on the WGS84 mean sphere (`GEO.EARTH_RADIUS_M`), in m².
- *
- * Spherical excess after Chamberlain & Duquette (2007), "Some Algorithms for Polygons on a
- * Sphere": A = R²/2 · |Σ (λ[i+1] − λ[i−1]) · sin φ[i]|. Works for open or closed rings and
- * either orientation; fewer than 3 vertices gives 0. Does not handle rings that cross the
- * antimeridian or contain a pole (out of scope for the single Israel-centred map).
- */
-export function ringAreaM2(ring: readonly LngLat[]): number {
+/** The ring as a closed GeoJSON ring (first position repeated at the end if it is not already). */
+export function closedRing(ring: readonly LngLat[]): LngLat[] {
   const first = ring[0];
   const last = ring[ring.length - 1];
-  const closed = ring.length > 1 && first![0] === last![0] && first![1] === last![1];
-  const n = closed ? ring.length - 1 : ring.length;
-  if (n < 3) return 0;
+  if (!first || !last) return [];
+  return first[0] === last[0] && first[1] === last[1] ? [...ring] : [...ring, first];
+}
 
-  let sum = 0;
-  for (let i = 0; i < n; i++) {
-    const prev = ring[(i + n - 1) % n]!;
-    const next = ring[(i + 1) % n]!;
-    sum += (rad(next[0]) - rad(prev[0])) * Math.sin(rad(ring[i]![1]));
-  }
-  return (Math.abs(sum) * GEO.EARTH_RADIUS_M ** 2) / 2;
+/**
+ * Area of a ring in m², via `@turf/area`: spherical excess (Chamberlain & Duquette 2007) on
+ * the WGS84 mean-radius sphere, R = 6371008.8 m (= `GEO.EARTH_RADIUS_M`). Open or closed
+ * rings, either orientation; fewer than 3 vertices gives 0.
+ */
+export function ringAreaM2(ring: readonly LngLat[]): number {
+  return area({ type: 'Polygon', coordinates: [closedRing(ring)] });
 }
 
 /** `ringAreaM2` in km², the unit the UI and `area_km2` use. */

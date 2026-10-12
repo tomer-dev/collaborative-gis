@@ -106,13 +106,7 @@ function MapDrawControl({ map, onDone }: DrawControlProps) {
 function IdleControls({ ref, onStart }: { ref: Ref<HTMLButtonElement>; onStart: () => void }) {
   return (
     <MapControl label={DRAW.TOOLBAR_LABEL}>
-      <MapControlButton
-        ref={ref}
-        label={DRAW.START_LABEL}
-        icon={IconPolygon}
-        tooltipSide="left"
-        onClick={onStart}
-      />
+      <MapControlButton ref={ref} label={DRAW.START_LABEL} icon={IconPolygon} onClick={onStart} />
     </MapControl>
   );
 }

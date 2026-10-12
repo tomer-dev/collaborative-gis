@@ -1,5 +1,5 @@
-import { cva, cx, type VariantProps } from 'class-variance-authority';
 import { forwardRef, useId, type HTMLAttributes, type ReactNode } from 'react';
+import { cx } from './cx';
 
 const wholeFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
 const hundredthsFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
@@ -35,18 +35,15 @@ export function formatStatValue(value: number, { decimals }: StatFormatOptions =
   return smallFormat.format(value);
 }
 
-export const statValueVariants = cva('font-semibold text-fg tabular-nums', {
-  variants: {
-    size: {
-      md: 'text-xl',
-      lg: 'text-2xl',
-    },
-  },
-  defaultVariants: { size: 'lg' },
-});
+export type StatSize = 'md' | 'lg';
 
-export interface StatProps
-  extends Omit<HTMLAttributes<HTMLDivElement>, 'children'>, VariantProps<typeof statValueVariants> {
+const valueClass: Record<StatSize, string> = {
+  md: 'font-semibold text-fg tabular-nums text-xl',
+  lg: 'font-semibold text-fg tabular-nums text-2xl',
+};
+
+export interface StatProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
+  size?: StatSize;
   label: ReactNode;
   /** null renders an em dash (no value yet, e.g. fewer than 3 vertices). */
   value: number | null;
@@ -71,7 +68,7 @@ export const Stat = forwardRef<HTMLDivElement, StatProps>(function Stat(
     decimals,
     format = (number: number) => formatStatValue(number, { decimals }),
     live = false,
-    size,
+    size = 'lg',
     className,
     ...rest
   },
@@ -90,14 +87,14 @@ export const Stat = forwardRef<HTMLDivElement, StatProps>(function Stat(
       >
         {value === null ? (
           <>
-            <span aria-hidden="true" className={statValueVariants({ size })}>
+            <span aria-hidden="true" className={valueClass[size]}>
               —
             </span>
             <span className="sr-only">No value</span>
           </>
         ) : (
           <>
-            <span className={statValueVariants({ size })}>{format(value)}</span>
+            <span className={valueClass[size]}>{format(value)}</span>
             {/* The space is for text and screen readers ("12.35 km²"); the flex gap spaces it visually. */}
             {unit ? (
               <>

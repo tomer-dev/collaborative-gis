@@ -1,5 +1,6 @@
-import { DRAW, LIMITS, MAP, PolygonSchema } from '@cgis/shared';
+import { DRAW, LIMITS, MAP, PolygonSchema, PositionSchema } from '@cgis/shared';
 import * as L from 'leaflet';
+import { z } from 'zod';
 import { ringAreaKm2, type LngLat } from './geodesic';
 import { hasSelfIntersection } from './self-intersection';
 
@@ -13,26 +14,43 @@ export interface PolygonDrawOptions {
   maxVertices?: number;
 }
 
-/** Events `PolygonDraw` fires on the map. Vertices and rings are GeoJSON `[lng, lat]`. */
-export interface DrawEventMap {
-  'draw:vertex': L.LeafletEvent & { vertex: LngLat; index: number };
-  'draw:change': L.LeafletEvent & { vertices: LngLat[] };
-  'draw:done': L.LeafletEvent & { ring: LngLat[] };
-  'draw:cancel': L.LeafletEvent;
-  'draw:invalid': L.LeafletEvent & { reason: string };
-}
+/** Payloads of the events `PolygonDraw` fires on the map. Vertices and rings are GeoJSON `[lng, lat]`. */
+const drawEventSchemas = {
+  'draw:vertex': z.object({ vertex: PositionSchema, index: z.number().int().nonnegative() }),
+  'draw:change': z.object({ vertices: z.array(PositionSchema) }),
+  'draw:done': z.object({ ring: z.array(PositionSchema) }),
+  'draw:cancel': z.object({}),
+  'draw:invalid': z.object({ reason: z.string() }),
+};
+type DrawPayloads = { [K in keyof typeof drawEventSchemas]: z.infer<(typeof drawEventSchemas)[K]> };
+/**
+ * The same schemas seen through a plain `parse` signature per key, so indexing with a generic
+ * `K` yields `parse(data): DrawPayloads[K]` (Zod's own `parse` returns `output<this>`, which TS
+ * cannot narrow for a generic key).
+ */
+const schemaFor: { [K in keyof DrawPayloads]: { parse(data: unknown): DrawPayloads[K] } } =
+  drawEventSchemas;
+
+export type DrawEventType = keyof DrawPayloads;
+/** One draw event as delivered to `onDraw` listeners; works with a generic `K`. */
+export type DrawEvent<K extends DrawEventType> = L.LeafletEvent & DrawPayloads[K];
+export type DrawEventMap = { [K in DrawEventType]: DrawEvent<K> };
 export type DrawVertexEvent = DrawEventMap['draw:vertex'];
 export type DrawChangeEvent = DrawEventMap['draw:change'];
 export type DrawDoneEvent = DrawEventMap['draw:done'];
 export type DrawInvalidEvent = DrawEventMap['draw:invalid'];
 
-/** Typed `map.on` for the draw events; returns the matching `map.off`. */
-export function onDraw<K extends keyof DrawEventMap>(
+/**
+ * Typed `map.on` for the draw events; returns the matching `map.off`. The payload is parsed
+ * with its schema, so a malformed event (only our own code fires these) throws a `ZodError`
+ * out of `map.fire` instead of reaching `fn`.
+ */
+export function onDraw<K extends DrawEventType>(
   map: L.Map,
   type: K,
-  fn: (event: DrawEventMap[K]) => void,
+  fn: (event: DrawEvent<K>) => void,
 ): () => void {
-  const handler = fn as unknown as L.LeafletEventHandlerFn;
+  const handler = (e: L.LeafletEvent) => fn({ ...e, ...schemaFor[type].parse(e) });
   map.on(type, handler);
   return () => {
     map.off(type, handler);
@@ -59,36 +77,26 @@ export function invalidReason(vertices: readonly LngLat[]): string | null {
   return hasSelfIntersection(ring) ? DRAW.SELF_INTERSECTION_REASON : null;
 }
 
-/** The accent token (styles/tokens.css: the draft you are drawing), or the inherited text colour when the token is absent. */
-const ACCENT = 'var(--color-accent, currentColor)';
-function accentColor(el: HTMLElement): string {
-  return getComputedStyle(el).getPropertyValue('--color-accent').trim() || 'currentColor';
-}
-
-/** Vertex handle: a `HANDLE_RADIUS_PX` dot centred in a `HANDLE_HIT_PX` hit box; the first one is filled ("close here"). */
+/**
+ * Vertex handle: an empty `HANDLE_HIT_PX` hit box. Its look (dot radius, ring, colours, the
+ * filled "close here" first handle) is CSS: `.cgis-draw-handle` and `.cgis-draw-handle--first`
+ * rules live in the token stylesheet (T9b, PR #14), next to `.cgis-draw-sketch`.
+ */
 function handleIcon(first: boolean): L.DivIcon {
-  const { HANDLE_RADIUS_PX: r, HANDLE_HIT_PX: hit, HANDLE_BORDER_PX: border } = MAP;
-  const dot = document.createElement('span');
-  dot.style.cssText = [
-    'display:block',
-    'box-sizing:border-box',
-    `width:${2 * r}px`,
-    `height:${2 * r}px`,
-    `margin:${hit / 2 - r}px`,
-    'border-radius:50%',
-    `border:${border}px solid ${ACCENT}`,
-    `background:${first ? ACCENT : 'var(--color-bg, Canvas)'}`,
-  ].join(';');
-  return L.divIcon({ className: 'cgis-draw-handle', iconSize: [hit, hit], html: dot });
+  return L.divIcon({
+    className: first ? 'cgis-draw-handle cgis-draw-handle--first' : 'cgis-draw-handle',
+    iconSize: [MAP.HANDLE_HIT_PX, MAP.HANDLE_HIT_PX],
+    html: '',
+  });
 }
 
 /**
  * Hand-rolled polygon draw tool as a Leaflet `Handler` (`enable()` / `disable()`).
  *
- * Click adds a vertex, dragging a handle moves it, double-click / Enter / clicking the first
- * handle closes, Backspace removes the last vertex, Escape cancels. Keys act while the map
- * container itself has focus (enable() focuses it). Finishing or cancelling disables the
- * handler; `disable()` alone discards the sketch silently.
+ * Click adds a vertex, dragging a handle moves it, double-click or clicking the first handle
+ * closes; `finish()`, `undo()` and `cancel()` are for the draw control's buttons. Finishing or
+ * cancelling disables the handler; `disable()` alone discards the sketch silently. Only
+ * Leaflet APIs: styling is the CSS classes `cgis-draw-sketch` and `cgis-draw-handle`.
  */
 export class PolygonDraw extends L.Handler {
   readonly options: { pane?: string; maxVertices: number };
@@ -97,7 +105,6 @@ export class PolygonDraw extends L.Handler {
   private handles: L.Marker[] = [];
   private group: L.LayerGroup | null = null;
   private shape: L.Polygon | null = null;
-  private savedAttrs: [string, string | null][] = [];
   private restoreDoubleClickZoom = false;
 
   constructor(map: L.Map, options: PolygonDrawOptions = {}) {
@@ -109,46 +116,27 @@ export class PolygonDraw extends L.Handler {
   addHooks(): void {
     const { map } = this;
     const { pane } = this.options;
-    const container = map.getContainer();
     if (pane && !map.getPane(pane)) map.createPane(pane);
 
-    const color = accentColor(container);
     this.group = L.layerGroup().addTo(map);
     this.shape = L.polygon([], {
       ...(pane ? { pane } : {}),
       ...MAP.DRAFT_STYLE,
+      className: 'cgis-draw-sketch',
       interactive: false,
-      color,
-      fillColor: color,
     }).addTo(this.group);
 
     map.on('click', this.onClick).on('dblclick', this.onDblClick);
-    container.addEventListener('keydown', this.onKeyDown);
     this.restoreDoubleClickZoom = map.doubleClickZoom.enabled();
     map.doubleClickZoom.disable();
-
-    const attrs: [string, string][] = [
-      ['role', 'application'],
-      ['aria-label', DRAW.ARIA_LABEL],
-      ['tabindex', '0'],
-    ];
-    this.savedAttrs = attrs.map(([name]) => [name, container.getAttribute(name)]);
-    for (const [name, value] of attrs) container.setAttribute(name, value);
-    L.DomUtil.addClass(container, 'leaflet-crosshair');
-    container.focus({ preventScroll: true });
+    L.DomUtil.addClass(map.getContainer(), 'leaflet-crosshair');
   }
 
   removeHooks(): void {
     const { map } = this;
-    const container = map.getContainer();
     map.off('click', this.onClick).off('dblclick', this.onDblClick);
-    container.removeEventListener('keydown', this.onKeyDown);
     if (this.restoreDoubleClickZoom) map.doubleClickZoom.enable();
-    for (const [name, value] of this.savedAttrs) {
-      if (value === null) container.removeAttribute(name);
-      else container.setAttribute(name, value);
-    }
-    L.DomUtil.removeClass(container, 'leaflet-crosshair');
+    L.DomUtil.removeClass(map.getContainer(), 'leaflet-crosshair');
 
     this.group?.remove();
     this.group = null;
@@ -182,7 +170,7 @@ export class PolygonDraw extends L.Handler {
     this.changed();
   }
 
-  /** Removes the last vertex (Backspace). */
+  /** Removes the last vertex (the draw control's Undo). */
   undo(): void {
     if (!this.latlngs.length) return;
     this.latlngs.pop();
@@ -190,7 +178,7 @@ export class PolygonDraw extends L.Handler {
     this.changed();
   }
 
-  /** Closes the ring (Enter / double-click): `draw:done` and disable, or `draw:invalid` and keep drawing. */
+  /** Closes the ring (Finish, double-click, first handle): `draw:done` and disable, or `draw:invalid` and keep drawing. */
   finish(): boolean {
     if (!this.group) return false;
     const vertices = this.getVertices();
@@ -204,7 +192,7 @@ export class PolygonDraw extends L.Handler {
     return true;
   }
 
-  /** Discards the sketch (Escape): disable, then `draw:cancel`. */
+  /** Discards the sketch (the draw control's Cancel): disable, then `draw:cancel`. */
   cancel(): void {
     if (!this.group) return;
     this.disable();
@@ -217,7 +205,7 @@ export class PolygonDraw extends L.Handler {
       ...(pane ? { pane } : {}),
       icon: handleIcon(index === 0),
       draggable: true,
-      keyboard: false, // the container owns the keyboard; 1,000 tab stops would be unusable
+      keyboard: false, // no tab stop per handle: up to 1,000 would be unusable
     });
     marker.on('drag', () => {
       this.latlngs[index] = marker.getLatLng();
@@ -240,15 +228,5 @@ export class PolygonDraw extends L.Handler {
 
   private readonly onDblClick = () => {
     this.finish();
-  };
-
-  private readonly onKeyDown = (e: KeyboardEvent) => {
-    // Only when the container itself is focused: Enter on a zoom button must still zoom.
-    if (e.target !== this.map.getContainer()) return;
-    if (e.key === 'Enter') this.finish();
-    else if (e.key === 'Escape') this.cancel();
-    else if (e.key === 'Backspace') this.undo();
-    else return;
-    e.preventDefault();
   };
 }

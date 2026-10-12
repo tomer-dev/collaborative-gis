@@ -1,9 +1,8 @@
-import { MAP } from '@cgis/shared';
+import { MAP, type PresenceUser } from '@cgis/shared';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { map as leafletMap } from 'leaflet';
 import { useRef, useState } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { Avatar, initials, PRESENCE_SLOT_CLASSES, presenceSlotClass } from './Avatar';
+import { Avatar, initials } from './Avatar';
 import { Banner } from './Banner';
 import { Button } from './Button';
 import { Dialog } from './Dialog';
@@ -15,7 +14,6 @@ import { areaPathOptions, draftPathOptions, ghostPathOptions } from './map-style
 import { PresenceList } from './PresenceList';
 import { formatStatValue, Stat } from './Stat';
 import { syncColorScheme } from './theme';
-import { Tooltip } from './Tooltip';
 
 beforeAll(() => {
   // jsdom has HTMLDialogElement but no modal API; this stand-in mirrors the parts Dialog uses.
@@ -37,6 +35,8 @@ describe('Button', () => {
     expect(button.getAttribute('type')).toBe('button');
     expect(button.className).toContain('w-10');
     expect(button.className).not.toContain('px-4');
+    // lucide icons are hidden from assistive tech; the button's name comes from aria-label.
+    expect(button.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('applies variant and size classes and stays inert when disabled', () => {
@@ -132,97 +132,28 @@ describe('Dialog', () => {
   });
 });
 
-describe('Tooltip', () => {
-  it('shows on focus, describes its trigger and hides on Escape', () => {
-    render(
-      <Tooltip content="Saved areas only">
-        <Button>Filter</Button>
-      </Tooltip>,
-    );
-    const trigger = screen.getByRole('button', { name: 'Filter' });
-    const tooltip = screen.getByText('Saved areas only');
-    expect(trigger.getAttribute('aria-describedby')).toBe(tooltip.id);
-    expect(tooltip.closest('[hidden]')).not.toBeNull();
-
-    fireEvent.focus(trigger);
-    expect(tooltip.closest('[hidden]')).toBeNull();
-    expect(tooltip.getAttribute('role')).toBe('tooltip');
-
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(tooltip.closest('[hidden]')).not.toBeNull();
-  });
-
-  it('can be the accessible name of an icon-only trigger', () => {
-    render(
-      <Tooltip content="Layers" relation="label">
-        <Button icon={IconLayers} />
-      </Tooltip>,
-    );
-    expect(screen.getByRole('button', { name: 'Layers' })).toBeTruthy();
-  });
-});
-
-function Toolbar(props: { map?: ReturnType<typeof leafletMap> }) {
-  return (
-    <MapControl label="Drawing tools" {...props}>
-      <MapControlButton label="Pan" icon={IconLayers} />
-      <MapControlButton label="Draw polygon" icon={IconPencil} pressed />
-      <MapControlButton label="Zoom in" icon={IconPlus} />
-    </MapControl>
-  );
-}
-
 describe('MapControl', () => {
-  it('is one Tab stop and moves focus with arrows, Home and End', () => {
-    render(<Toolbar />);
+  it('is a labelled toolbar of icon buttons named by aria-label and title', () => {
+    render(
+      <MapControl label="Drawing tools">
+        <MapControlButton label="Pan" icon={IconLayers} />
+        <MapControlButton label="Draw polygon" icon={IconPencil} pressed />
+        <MapControlButton label="Zoom in" icon={IconPlus} disabled />
+      </MapControl>,
+    );
     const toolbar = screen.getByRole('toolbar', { name: 'Drawing tools' });
     expect(toolbar.getAttribute('aria-orientation')).toBe('vertical');
-    const [pan, draw, zoom] = ['Pan', 'Draw polygon', 'Zoom in'].map((name) =>
-      screen.getByRole('button', { name }),
+    const draw = screen.getByRole('button', { name: 'Draw polygon' });
+    expect(draw.getAttribute('title')).toBe('Draw polygon');
+    expect(draw.getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Pan' }).hasAttribute('aria-pressed')).toBe(false);
+    expect((screen.getByRole('button', { name: 'Zoom in' }) as HTMLButtonElement).disabled).toBe(
+      true,
     );
-    expect([pan, draw, zoom].map((b) => b!.tabIndex)).toEqual([0, -1, -1]);
-    expect(draw!.getAttribute('aria-pressed')).toBe('true');
-
-    pan!.focus();
-    fireEvent.keyDown(pan!, { key: 'ArrowDown' });
-    expect(document.activeElement).toBe(draw);
-    expect([pan, draw, zoom].map((b) => b!.tabIndex)).toEqual([-1, 0, -1]);
-    fireEvent.keyDown(draw!, { key: 'End' });
-    expect(document.activeElement).toBe(zoom);
-    fireEvent.keyDown(zoom!, { key: 'ArrowDown' });
-    expect(document.activeElement).toBe(pan);
-    fireEvent.keyDown(pan!, { key: 'ArrowUp' });
-    expect(document.activeElement).toBe(zoom);
-    fireEvent.keyDown(zoom!, { key: 'Home' });
-    expect(document.activeElement).toBe(pan);
-  });
-
-  it('mounts inside a Leaflet control when given a map', () => {
-    const element = document.createElement('div');
-    document.body.append(element);
-    const map = leafletMap(element, { center: [...MAP.DEFAULT_CENTER], zoom: MAP.DEFAULT_ZOOM });
-    render(<Toolbar map={map} />);
-    const toolbar = screen.getByRole('toolbar', { name: 'Drawing tools' });
-    expect(toolbar.closest('.leaflet-control')).not.toBeNull();
-    expect(toolbar.closest('.leaflet-top.leaflet-left')).not.toBeNull();
-    cleanup();
-    expect(element.querySelector('[role="toolbar"]')).toBeNull();
-    map.remove();
-    element.remove();
   });
 });
 
 describe('Avatar', () => {
-  it('has one hue class per MAP.PRESENCE_COLORS entry and a neutral past it', () => {
-    expect(PRESENCE_SLOT_CLASSES).toHaveLength(MAP.PRESENCE_COLORS.length);
-    expect(presenceSlotClass(0)).toContain('presence-1');
-    expect(presenceSlotClass(MAP.PRESENCE_COLORS.length - 1)).toContain(
-      `presence-${MAP.PRESENCE_COLORS.length}`,
-    );
-    expect(presenceSlotClass(MAP.PRESENCE_COLORS.length)).toContain('presence-none');
-    expect(presenceSlotClass(null)).toContain('presence-none');
-  });
-
   it('derives initials and is an image named after the user unless decorative', () => {
     expect(initials('Ada Lovelace')).toBe('AL');
     expect(initials('  grace  brewster murray hopper ')).toBe('GH');
@@ -230,11 +161,13 @@ describe('Avatar', () => {
     expect(initials('')).toBe('?');
     render(
       <>
-        <Avatar name="Ada Lovelace" colorSlot={2} />
-        <Avatar name="Hidden" decorative />
+        <Avatar name="Ada Lovelace" color={MAP.PRESENCE_COLORS[2]} />
+        <Avatar name="Hidden" color={MAP.PRESENCE_COLORS[0]} decorative />
       </>,
     );
-    expect(screen.getByRole('img', { name: 'Ada Lovelace' }).className).toContain('presence-3');
+    // The server-assigned colour arrives as the --presence variable the tint and ring read.
+    const avatar = screen.getByRole('img', { name: 'Ada Lovelace' });
+    expect(avatar.style.getPropertyValue('--presence')).toBe(MAP.PRESENCE_COLORS[2]);
     expect(screen.queryByRole('img', { name: 'Hidden' })).toBeNull();
   });
 });
@@ -289,14 +222,14 @@ describe('formatStatValue', () => {
 });
 
 describe('PresenceList', () => {
-  const users = [
-    { id: 'a', name: 'Ada Lovelace', colorSlot: 0, state: 'drawing' as const, self: true },
-    { id: 'b', name: 'Grace Hopper', colorSlot: 1 },
-    { id: 'c', name: 'Alan Turing', colorSlot: 2 },
+  const users: PresenceUser[] = [
+    { userId: 'a', name: 'Ada Lovelace', color: MAP.PRESENCE_COLORS[0], state: 'drawing' },
+    { userId: 'b', name: 'Grace Hopper', color: MAP.PRESENCE_COLORS[1], state: 'viewing' },
+    { userId: 'c', name: 'Alan Turing', color: MAP.PRESENCE_COLORS[2], state: 'viewing' },
   ];
 
   it('lists names with "(you)" and the drawing state', () => {
-    render(<PresenceList users={users} />);
+    render(<PresenceList users={users} selfId="a" />);
     const [ada, grace, alan] = screen.getAllByRole('listitem');
     expect(ada!.textContent).toMatch(/Ada Lovelace \(you\)Drawing$/);
     expect(grace!.textContent).toMatch(/Grace Hopper$/);
@@ -306,7 +239,7 @@ describe('PresenceList', () => {
   });
 
   it('stacks avatars with a "+N more" counter', () => {
-    render(<PresenceList users={users} variant="stack" max={2} />);
+    render(<PresenceList users={users} selfId="a" variant="stack" max={2} />);
     expect(screen.getByRole('img', { name: 'Ada Lovelace (you)' })).toBeTruthy();
     expect(screen.getByRole('img', { name: '1 more' })).toBeTruthy();
     expect(screen.queryByRole('img', { name: 'Alan Turing' })).toBeNull();
@@ -319,19 +252,20 @@ describe('PresenceList', () => {
 });
 
 describe('map styles', () => {
-  it('puts saved areas and drafts in the panes from MAP, with hue classes by slot', () => {
+  it('puts saved areas and drafts in the panes from MAP; ghosts take the presence colour', () => {
     expect(areaPathOptions()).toEqual({ pane: MAP.AREAS_PANE, className: 'map-area' });
     expect(areaPathOptions(true).className).toBe('map-area-selected');
     expect(draftPathOptions()).toEqual({
       pane: MAP.DRAFTS_PANE,
-      className: 'map-draft',
+      className: 'cgis-draw-sketch',
       ...MAP.DRAFT_STYLE,
     });
-    expect(ghostPathOptions(2)).toEqual({
+    expect(ghostPathOptions(MAP.PRESENCE_COLORS[2])).toEqual({
       pane: MAP.DRAFTS_PANE,
-      className: 'map-ghost map-ghost-3',
+      className: 'map-ghost',
+      color: MAP.PRESENCE_COLORS[2],
+      fillColor: MAP.PRESENCE_COLORS[2],
     });
-    expect(ghostPathOptions(MAP.PRESENCE_COLORS.length).className).toBe('map-ghost');
   });
 });
 

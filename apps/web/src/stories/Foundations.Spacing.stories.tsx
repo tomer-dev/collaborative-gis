@@ -19,7 +19,7 @@ export const Spacing: Story = {
   render: () => (
     <Page
       title="Spacing"
-      intro="Base unit 4 px. These steps are the only spacing utilities (p-*, m-*, gap-*, w-*, h-*, inset-*); Tailwind's open-ended multiplier is reset, so p-5.5 does not exist and w-[23px] fails lint."
+      intro="Base unit 4 px. These steps are the only spacing utilities (p-*, m-*, gap-*, w-*, h-*, inset-*); Tailwind's open-ended multiplier is reset, so p-5.5 does not exist, and an arbitrary length or colour in brackets fails lint."
     >
       <TokenTable
         caption="Spacing steps"
