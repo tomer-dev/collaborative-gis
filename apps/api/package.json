@@ -8,7 +8,9 @@
     "deploy": "wrangler deploy --minify",
     "types": "wrangler types --env-interface CloudflareBindings --strict-vars=false",
     "typecheck": "pnpm types && tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate && prettier --write drizzle/meta",
+    "db:migrate": "node src/db/migrate.ts"
   },
   "dependencies": {
     "@cgis/shared": "workspace:*",
