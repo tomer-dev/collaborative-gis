@@ -1,6 +1,6 @@
 # Collaborative GIS — design spec
 
-Date: 2026-10-12. Status: draft for user review. Source brief: the product brief. Roadmap: `docs/roadmap.md` (Linear P-TOM-1). Research: `docs/research-notes.md`.
+Date: 2026-10-12. Status: **approved by the user 2026-10-12 (decision D1)**; open items D3-method, D4 client UX, D6 invalidation, D9 compose variant pending. Source brief: the product brief. Roadmap: `docs/roadmap.md` (Linear P-TOM-1). Research: `docs/research-notes.md`.
 
 ## 1. Goal and success criteria
 
@@ -91,6 +91,11 @@ In: everything in the brief's sections 1–6, bonus Docker/tests/OpenAPI/benchma
 
 ## 10. Decisions log
 
+- Retention: soft-deleted areas purged after 7 days (D8).
+- Rate limiting: exact per-user Durable Object (D5).
+- Rooms: one Durable Object per map; sharding by tile documented as an ADR only (D7).
+- Two-browser Playwright E2E is in scope (D10).
+- govmap imagery is a requirement; the spike chooses between CRS swap and tile proxy, no fallback provider (D3).
 - Leaflet **1.9.4**, not 2.0 alpha: 2.0 is ESM-only with breaking API changes and no plugin ecosystem yet; our custom CRS/handler code is written against stable APIs and ported later.
 - No Proj4Leaflet: unmaintained since 2017; a CRS object on `proj4` is ~50 lines.
 - Hono over Fastify: Workers are fetch runtimes; Hono runs on Node too; official agent skill + CLI.
