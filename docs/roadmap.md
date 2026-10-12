@@ -113,6 +113,50 @@ E0 ──┬── E1 (db) ──┐
 | 7.4 | Durable Object migrations + observability: `migrations` tags in wrangler config, `observability.enabled`, Workers Logs retention, DO hibernation verified in logs | Two clients on different edge locations see each other's events | 4.9, 7.1 |
 | 7.5 | Production hardening: `trustedOrigins`, secure cookies, Cloudflare WAF rate rules on `/api/auth/*`, health checks wired to a Cloudflare Health Check, rollback via `wrangler rollback` documented | Checklist in README | 7.4 |
 
+## Critical path
+
+Two different things get called "critical path"; both are stated here.
+
+### 1. Longest dependency chain (schedule-critical)
+Sequential tickets that cannot overlap, from an empty repo to a production URL:
+
+```
+0.1 scaffold → 0.3 databases → 1.1 schema → 2.1 Better Auth → 2.2 session guard
+ → 4.1 Room DO → 4.2 protocol → 4.5 fan-out (needs 3.1 create, which needs 1.4 + 2.4)
+ → 4.7 degradation → 5.10 WS client (needs 5.9 data layer, which needs 5.7 draw tool + 3.3 concurrency)
+ → 6.3 E2E / 6.1–6.2 tests → 6.4 local parity → 7.1 deploy → 7.2 secrets → 7.4 DO prod → 7.5 hardening
+```
+16 tickets deep. The chain runs through **auth → Durable Object → fan-out → client**, not through the map. Anything that slips in 2.1/2.2 (Better Auth on Workers with a per-request `pg` client over Hyperdrive) delays every realtime ticket.
+
+Mitigation built into the tickets: 4.1 can start against a stubbed session check (user id from a header) the moment 0.2 lands; 2.2 is swapped in afterwards. 5.x runs the whole time against mocked contracts.
+
+### 2. Highest-uncertainty item (risk-critical)
+**5.4 SPIKE govmap EPSG:2039** (TOM-45). Short chain (0.1 → 0.2 → 5.1 → 5.3 → 5.4 → 5.5 → 5.6, 7 deep) but the only ticket whose outcome is unknown:
+- If option **A** (CRS swap per base layer) works: frontend-only, 5.5 + 5.6 proceed as written.
+- If option **B** (reprojecting tile proxy) is needed: adds a backend ticket (Worker route that fetches ITM tiles and re-warps to 3857, cached in the Cache API) and touches E3/E7. Budget: +2 days.
+- If option **C** (fallback imagery): section 4 of the brief is only partially met; must be documented as a known limitation.
+- Licence outcome can force C regardless of technical result.
+
+Because 5.4 is both uncertain and early, it is scheduled **first in M2**, immediately after 5.3, and time-boxed to one day so a B/C decision lands before E3/E7 are planned in detail.
+
+### 3. Day-1 parallel starts (after 0.1 + 0.2)
+| Lane | Can start | Waits on |
+|---|---|---|
+| db | 0.3 → 1.1 → 1.3/1.4/1.5 | nothing |
+| security | 2.3, 2.6, 2.7, 2.4 | 2.1/2.2 wait on 1.1 |
+| realtime | 4.1 (stub auth) → 4.2 → 4.3/4.4 | 4.5 waits on 3.1 |
+| frontend | 5.1 → 5.3 → 5.7/5.8, 5.4 spike | 5.2 waits on 2.1; 5.9 waits on 3.3 |
+| api | — | 1.3/1.4 + 2.2/2.4 |
+
+### 4. Risk register (top 4)
+1. **5.4 govmap tiles / licence** — unknown scheme, undocumented terms. Owner: frontend. Decision gate end of spike day.
+2. **2.1 Better Auth on Workers + Hyperdrive** — AsyncLocalStorage needs `nodejs_compat`; Drizzle adapter must use a per-request client. Validate on `wrangler dev` before building 2.2.
+3. **4.1 DO hibernation semantics** — in-memory state resets; everything presence-related must live in attachments/storage. Covered by `durable-objects` skill guidance.
+4. **1.2 migrations through transaction pooling** — must use the Neon direct URL from CI, never Hyperdrive. Fails loudly if wrong; cheap to fix.
+
+### Installed skills for execution
+`postgis`, `design-postgis-tables` (E1); `durable-objects`, `workers-best-practices` (E2.5, E4); `wrangler` (E0, E7); plus `better-auth-best-practices`, `react-expert`, `websocket-engineer`, `test-master`, `devops-engineer` already present.
+
 ## Known risks (facts only, no critique)
 - govmap imagery licence and tile scheme are undocumented; spike 5.4 is on the critical path for section 4 of the brief.
 - Durable Objects: one object per room is a single-threaded coordinator (≈1,000 req/s soft limit); hibernation resets in-memory state, so all presence must live in attachments or storage.
