@@ -1,6 +1,7 @@
 import { GOVMAP, MAP } from '@cgis/shared';
 // Default import, as in govmap-crs.ts: the Leaflet object plugins attach to.
 import L from 'leaflet';
+import { createOsmLayer } from './osm-layer';
 
 declare module 'leaflet' {
   interface ZoomOptions {
@@ -23,10 +24,7 @@ type BaseLayer = { crs: L.CRS; layer: L.GridLayer };
 const BASE_LAYERS: Record<BaseLayerId, () => Promise<BaseLayer>> = {
   osm: async () => ({
     crs: L.CRS.EPSG3857,
-    layer: L.tileLayer(MAP.OSM_TILE_URL, {
-      attribution: MAP.OSM_ATTRIBUTION,
-      maxZoom: MAP.OSM_MAX_ZOOM,
-    }),
+    layer: createOsmLayer(),
   }),
   // Loaded on the first switch to aerial: proj4 and Proj4Leaflet are about 47 kB gzip (ADR-0005).
   aerial: async () => {
