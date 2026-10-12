@@ -1,11 +1,16 @@
 import { cva, cx, type VariantProps } from 'class-variance-authority';
 import { forwardRef, useId, type HTMLAttributes, type ReactNode } from 'react';
 
-const defaultFormat = new Intl.NumberFormat(undefined, { maximumSignificantDigits: 4 });
+const wholeFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
+const hundredthsFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
+const smallFormat = new Intl.NumberFormat(undefined, { maximumSignificantDigits: 3 });
 
-/** Formats with four significant digits in the user's locale (1,235 · 12.35 · 0.004213). */
+/** User-locale number: whole from 1,000 (22,072), hundredths from 1 (12.35), else 3 significant digits (0.00421). */
 export function formatStatValue(value: number): string {
-  return defaultFormat.format(value);
+  const magnitude = Math.abs(value);
+  if (magnitude >= 1000) return wholeFormat.format(value);
+  if (magnitude >= 1) return hundredthsFormat.format(value);
+  return smallFormat.format(value);
 }
 
 export const statValueVariants = cva('font-semibold text-fg tabular-nums', {

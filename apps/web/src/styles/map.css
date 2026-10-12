@@ -95,3 +95,29 @@
     outline-offset: var(--map-handle-stroke-width);
   }
 }
+
+/*
+ * Leaflet chrome on the tokens (its own CSS uses 10 px control margins and Helvetica). Unlayered
+ * and one class more specific than leaflet.css, which the map component imports after this file.
+ */
+html .leaflet-container {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+}
+
+.leaflet-container .leaflet-top .leaflet-control {
+  margin-top: var(--spacing-3);
+}
+
+.leaflet-container .leaflet-bottom .leaflet-control {
+  margin-bottom: var(--spacing-3);
+}
+
+.leaflet-container .leaflet-left .leaflet-control {
+  margin-left: var(--spacing-3);
+}
+
+.leaflet-container .leaflet-right .leaflet-control {
+  margin-right: var(--spacing-3);
+}

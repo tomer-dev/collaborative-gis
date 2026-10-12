@@ -13,7 +13,7 @@ import { Input } from './Input';
 import { MapControl, MapControlButton } from './MapControl';
 import { areaPathOptions, ghostPathOptions } from './map-styles';
 import { PresenceList } from './PresenceList';
-import { Stat } from './Stat';
+import { formatStatValue, Stat } from './Stat';
 import { syncColorScheme } from './theme';
 import { Tooltip } from './Tooltip';
 
@@ -263,6 +263,16 @@ describe('Stat', () => {
     rerender(<Stat label="Area" value={null} unit="km²" live />);
     expect(screen.getByRole('status', { name: 'Area' }).textContent).toBe('—No value');
     expect(screen.getByRole('status', { name: 'Area' }).getAttribute('aria-live')).toBe('polite');
+  });
+});
+
+describe('formatStatValue', () => {
+  it('keeps whole km² from 1,000, hundredths from 1 and 3 significant digits below', () => {
+    expect(formatStatValue(22072.4)).toBe((22072).toLocaleString());
+    expect(formatStatValue(12.3456)).toBe((12.35).toLocaleString());
+    expect(formatStatValue(0.004213)).toBe(
+      (0.00421).toLocaleString(undefined, { maximumSignificantDigits: 3 }),
+    );
   });
 });
 
