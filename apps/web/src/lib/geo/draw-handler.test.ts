@@ -1,7 +1,7 @@
-import { MAP } from '@cgis/shared';
+import { DRAW, MAP } from '@cgis/shared';
 import * as L from 'leaflet';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { PolygonDraw, SELF_INTERSECTION_REASON, onDraw, type DrawEventMap } from './draw-handler';
+import { PolygonDraw, onDraw, type DrawEventMap } from './draw-handler';
 import { ringAreaKm2 } from './geodesic';
 
 let map: L.Map;
@@ -42,7 +42,7 @@ describe('PolygonDraw', () => {
   it('makes the map container an accessible, focused application while enabled', () => {
     const draw = new PolygonDraw(map).enable();
     expect(container.getAttribute('role')).toBe('application');
-    expect(container.getAttribute('aria-label')).toMatch(/draw/i);
+    expect(container.getAttribute('aria-label')).toBe(DRAW.ARIA_LABEL);
     expect(container.tabIndex).toBeGreaterThanOrEqual(0);
     expect(document.activeElement).toBe(container);
     expect(map.doubleClickZoom.enabled()).toBe(false);
@@ -145,7 +145,7 @@ describe('PolygonDraw', () => {
     key('Enter');
     expect(done).toHaveLength(0);
     expect(invalid).toHaveLength(1);
-    expect(invalid[0]!.reason).toBe(SELF_INTERSECTION_REASON);
+    expect(invalid[0]!.reason).toBe(DRAW.SELF_INTERSECTION_REASON);
     expect(draw.enabled()).toBe(true);
     expect(draw.getVertices()).toHaveLength(4);
   });
@@ -167,7 +167,7 @@ describe('PolygonDraw', () => {
     click(32.05, 35);
     expect(draw.getVertices()).toHaveLength(3);
     expect(invalid).toHaveLength(1);
-    expect(invalid[0]!.reason).toMatch(/at most 4 vertices/);
+    expect(invalid[0]!.reason).toBe(DRAW.MAX_VERTICES_REASON);
   });
 
   it('defaults maxVertices to LIMITS.POLYGON_MAX_VERTICES', () => {

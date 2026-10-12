@@ -1,4 +1,4 @@
-import { LIMITS, MAP, PolygonSchema } from '@cgis/shared';
+import { DRAW, LIMITS, MAP, PolygonSchema } from '@cgis/shared';
 import * as L from 'leaflet';
 import { ringAreaKm2, type LngLat } from './geodesic';
 import { hasSelfIntersection } from './self-intersection';
@@ -39,10 +39,6 @@ export function onDraw<K extends keyof DrawEventMap>(
   };
 }
 
-export const SELF_INTERSECTION_REASON = 'Polygon edges must not cross or touch each other';
-const ARIA_LABEL =
-  'Polygon drawing. Click to add a vertex, drag a vertex to move it, Enter or double-click to finish, Backspace to undo, Escape to cancel.';
-
 /** Leaflet `LatLng` → GeoJSON `[lng, lat]`; longitudes past ±180 (a panned world copy) are wrapped back. */
 export function toLngLat(latlng: L.LatLng): LngLat {
   // Wrap only when needed: wrap() always recomputes the longitude and adds float noise.
@@ -59,19 +55,19 @@ export function closeRing(vertices: readonly LngLat[]): LngLat[] {
 export function invalidReason(vertices: readonly LngLat[]): string | null {
   const ring = closeRing(vertices);
   const parsed = PolygonSchema.safeParse({ type: 'Polygon', coordinates: [ring] });
-  if (!parsed.success) return parsed.error.issues[0]?.message ?? 'Invalid polygon';
-  return hasSelfIntersection(ring) ? SELF_INTERSECTION_REASON : null;
+  if (!parsed.success) return parsed.error.issues[0]!.message; // a failed parse has ≥1 issue
+  return hasSelfIntersection(ring) ? DRAW.SELF_INTERSECTION_REASON : null;
 }
 
-/** Reads a CSS custom property from the app theme (index.css), with a fallback for tests. */
-function themeColor(el: HTMLElement, name: string, fallback: string): string {
-  return getComputedStyle(el).getPropertyValue(name).trim() || fallback;
+/** The app theme's signal colour (index.css), or the inherited text colour when the token is absent. */
+const SIGNAL = 'var(--color-signal, currentColor)';
+function signalColor(el: HTMLElement): string {
+  return getComputedStyle(el).getPropertyValue('--color-signal').trim() || 'currentColor';
 }
 
 /** Vertex handle: a `HANDLE_RADIUS_PX` dot centred in a `HANDLE_HIT_PX` hit box; the first one is filled ("close here"). */
 function handleIcon(first: boolean): L.DivIcon {
-  const r = MAP.HANDLE_RADIUS_PX;
-  const hit = MAP.HANDLE_HIT_PX;
+  const { HANDLE_RADIUS_PX: r, HANDLE_HIT_PX: hit, HANDLE_BORDER_PX: border } = MAP;
   const dot = document.createElement('span');
   dot.style.cssText = [
     'display:block',
@@ -80,9 +76,8 @@ function handleIcon(first: boolean): L.DivIcon {
     `height:${2 * r}px`,
     `margin:${hit / 2 - r}px`,
     'border-radius:50%',
-    'border:2px solid var(--color-signal, #e8590c)',
-    `background:${first ? 'var(--color-signal, #e8590c)' : 'var(--color-paper, #f3efe4)'}`,
-    'box-shadow:0 1px 2px rgb(0 0 0 / 0.45)',
+    `border:${border}px solid ${SIGNAL}`,
+    `background:${first ? SIGNAL : 'var(--color-paper, Canvas)'}`,
   ].join(';');
   return L.divIcon({ className: 'cgis-draw-handle', iconSize: [hit, hit], html: dot });
 }
@@ -117,16 +112,14 @@ export class PolygonDraw extends L.Handler {
     const container = map.getContainer();
     if (pane && !map.getPane(pane)) map.createPane(pane);
 
-    const color = themeColor(container, '--color-signal', '#e8590c');
+    const color = signalColor(container);
     this.group = L.layerGroup().addTo(map);
     this.shape = L.polygon([], {
       ...(pane ? { pane } : {}),
+      ...MAP.DRAFT_STYLE,
       interactive: false,
       color,
-      weight: 2,
-      dashArray: '6 4',
       fillColor: color,
-      fillOpacity: 0.12,
     }).addTo(this.group);
 
     map.on('click', this.onClick).on('dblclick', this.onDblClick);
@@ -136,7 +129,7 @@ export class PolygonDraw extends L.Handler {
 
     const attrs: [string, string][] = [
       ['role', 'application'],
-      ['aria-label', ARIA_LABEL],
+      ['aria-label', DRAW.ARIA_LABEL],
       ['tabindex', '0'],
     ];
     this.savedAttrs = attrs.map(([name]) => [name, container.getAttribute(name)]);
@@ -179,7 +172,7 @@ export class PolygonDraw extends L.Handler {
     if (!this.group) return;
     const { maxVertices } = this.options;
     if (this.latlngs.length >= maxVertices - 1) {
-      this.map.fire('draw:invalid', { reason: `A ring may have at most ${maxVertices} vertices` });
+      this.map.fire('draw:invalid', { reason: DRAW.MAX_VERTICES_REASON });
       return;
     }
     const ll = L.latLng(latlng);
