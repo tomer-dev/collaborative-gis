@@ -211,6 +211,20 @@ describe('PUT /api/areas/:id', () => {
     expect(await missing.json()).toEqual({ code: 'NOT_FOUND', message: 'Not found' });
   });
 
+  it('answers 409 for a bowtie at a stale version, and 404 for a bowtie at an unknown id', async () => {
+    const { api } = signedIn();
+    const { spot, area } = await createSquare(api);
+    await api.update(area.id, { name: 'v2', geometry: squareAt(spot), version: 1 });
+    const bowtie = { name: 'x', geometry: bowtieAt(spot), version: 1 };
+
+    const stale = await api.update(area.id, bowtie);
+    expect(stale.status).toBe(409);
+    const body = await stale.json<{ details: { current: Area } }>();
+    expect(body.details.current).toMatchObject({ name: 'v2', version: 2 });
+
+    expect((await api.update(crypto.randomUUID(), bowtie)).status).toBe(404);
+  });
+
   it('answers 422 for a bowtie or a missing version and leaves the area as it was', async () => {
     const { api } = signedIn();
     const { spot, area } = await createSquare(api);
