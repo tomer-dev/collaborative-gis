@@ -60,6 +60,16 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 | `ENTITIES` | `{ AREA: 'area' }` |  |
 | `ACTIONS` | `{ AREA_CREATE: 'area.create', AREA_UPDATE: 'area.update', AREA_DELETE: 'area.delete' }` |  |
 
+## RETENTION
+
+`db.ts`. Retention of soft-deleted areas (D8): a daily Cron Trigger (apps/api/src/scheduled.ts) hard-deletes areas deleted more than `DAYS` ago, with their `area_versions`.
+
+| Name | Value | Notes |
+|---|---|---|
+| `DAYS` | `7` | Days a soft-deleted area and its version history are kept before the purge removes them. |
+| `CRON` | `'0 3 * * *'` | When the purge runs (cron syntax, UTC): daily at 03:00. apps/api/wrangler.jsonc `triggers.crons` repeats it as a JSON literal; a test fails when the two differ. |
+| `AUDIT_ACTION` | `'retention.purge'` | `audit_log.action` of the one row each purge run writes: no user, the counts in `details`. |
+
 ## WS
 
 `ws.ts`. Realtime room behaviour, server and client (D13).
