@@ -25,7 +25,7 @@ export const PresenceAttachmentSchema = z.object({
   lastSeq: z.number().int().nonnegative().nullable(),
 });
 export type PresenceAttachment = z.infer<typeof PresenceAttachmentSchema>;
-export type PresenceColor = PresenceAttachment['color'];
+type PresenceColor = PresenceAttachment['color'];
 
 /** The attachment `Room` stored on `ws`, or `undefined` when it is missing or invalid. */
 export function attachmentOf(ws: WebSocket): PresenceAttachment | undefined {
