@@ -27,7 +27,7 @@ describe('PolygonSchema', () => {
     if (!r.success) expect(r.error.issues[0]?.message).toMatch(/closed/i);
   });
 
-  it('rejects fewer than 3 unique vertices', () => {
+  it('rejects a ring shorter than the 4-position minimum', () => {
     const line = {
       type: 'Polygon' as const,
       coordinates: [
@@ -41,6 +41,23 @@ describe('PolygonSchema', () => {
     expect(PolygonSchema.safeParse(line).success).toBe(false);
   });
 
+  it('rejects a closed 4-position ring with only 2 unique vertices', () => {
+    const degenerate = {
+      type: 'Polygon' as const,
+      coordinates: [
+        [
+          [34.8, 32.0],
+          [34.9, 32.0],
+          [34.8, 32.0],
+          [34.8, 32.0],
+        ],
+      ],
+    };
+    const r = PolygonSchema.safeParse(degenerate);
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error.issues[0]?.message).toMatch(/unique/i);
+  });
+
   it('rejects an empty ring instead of throwing', () => {
     const empty = { type: 'Polygon' as const, coordinates: [[]] };
     expect(PolygonSchema.safeParse(empty).success).toBe(false);
@@ -49,6 +66,12 @@ describe('PolygonSchema', () => {
   it('rejects out-of-range longitude', () => {
     const bad = square();
     bad.coordinates[0]![0] = [181, 32.0];
+    expect(PolygonSchema.safeParse(bad).success).toBe(false);
+  });
+
+  it('rejects out-of-range latitude', () => {
+    const bad = square();
+    bad.coordinates[0]![1] = [34.9, 91];
     expect(PolygonSchema.safeParse(bad).success).toBe(false);
   });
 

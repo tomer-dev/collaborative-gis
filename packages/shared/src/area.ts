@@ -31,6 +31,7 @@ export const BoundsQuerySchema = z.object({
         z.number().min(-90).max(90),
       ]),
     )
+    // w < e rejects antimeridian-crossing boxes by design (fine for M0's Israel-area demo)
     .refine(([w, s, e, n]) => w < e && s < n, { error: 'bbox must be w,s,e,n with w<e and s<n' }),
   zoom: z.coerce.number().int().min(0).max(22).optional(),
 });

@@ -24,4 +24,8 @@ describe('parseWsMessage', () => {
     });
     expect(() => parseWsMessage(raw)).toThrow();
   });
+
+  it('throws SyntaxError, not ZodError, on malformed JSON (callers must catch both)', () => {
+    expect(() => parseWsMessage('{nope')).toThrow(SyntaxError);
+  });
 });
