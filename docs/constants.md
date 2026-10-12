@@ -18,6 +18,8 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 | `USER_NAME_MAX` | `60` | Presence list and ghost labels stay short; attachments stay small. |
 | `USER_ID_MAX` | `128` | With both strings capped, a socket attachment cannot reach the runtime's 16 KiB limit. |
 | `BOUNDS_LIMIT` | `500` | Caps one viewport response. |
+| `PANEL_LIST_MAX` | `50` | Rows in the area panel's list of the areas in view; the rest show as one "+N more" line. |
+| `USER_ID_PREFIX` | `8` | Leading characters of a user id that name the editor in an area's history (the versions payload carries ids, not names). |
 | `PASSWORD_MIN` | `8` | Better Auth's default `minPasswordLength`; the register form's `minlength`. |
 
 ## TIMEOUTS
@@ -256,6 +258,7 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 | Name | Value | Notes |
 |---|---|---|
 | `AREAS_KEY` | `'areas'` | `[AREAS_KEY, bbox]`: the areas in one viewport (`GET /api/areas?bbox=`). |
+| `VERSIONS_KEY` | `'areaVersions'` | `[VERSIONS_KEY, id, version]`: one area's saved versions (`GET /api/areas/:id/versions`), keyed by the area's current version too, so any new version refetches the history. |
 | `CREATE_AREA_KEY` | `'createArea'` | Mutation key of the area create, whose pending entries hold the optimistic areas' ids. |
 | `RETRY_LIMIT` | `3` | Retries of a failed query (TanStack Query's default); a 401 is never retried. |
 
@@ -313,7 +316,7 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 
 ### COPY.AREAS
 
-Saved areas on /map: the save dialog, the selected-area panel and the conflict dialog (D4).
+Saved areas on /map: the save dialog, the area panel (the areas in view, the selected area and its history) and the conflict dialog (D4).
 
 | Name | Value | Notes |
 |---|---|---|
@@ -345,6 +348,20 @@ Saved areas on /map: the save dialog, the selected-area panel and the conflict d
 | `LOAD_THEIRS` | `'Load theirs'` |  |
 | `OVERWRITE_ERROR_TITLE` | `'Could not overwrite the area'` |  |
 | `ERROR_GENERIC` | `'Something went wrong. Try again.'` | A failure without an API error body (network error, proxy page). |
+| `LIST_TITLE` | `'Areas in view'` | The area panel: its title, also the name of the list of the areas in the viewport. |
+| `LIST_EMPTY` | `'No saved areas in view.'` |  |
+| `LIST_MORE` | `` (count: number) => `+${count} more` `` | Under the list when more than `LIMITS.PANEL_LIST_MAX` areas are in view. |
+| `HISTORY_TITLE` | `'History'` |  |
+| `HISTORY_LOADING` | `'Loading history…'` |  |
+| `HISTORY_ERROR_TITLE` | `'Could not load the history'` |  |
+| `VERSION_LABEL` | `` (version: number) => `Version ${version}` `` |  |
+| `VERSION_CURRENT` | `'Current'` | In place of the revert button on the version the area is at now. |
+| `VERSION_BY` | `` (who: string) => `by ${who}` `` | Who saved a version: a user id prefix (`LIMITS.USER_ID_PREFIX`). |
+| `REVERT` | `'Revert to this version'` |  |
+| `REVERT_PENDING` | `'Reverting…'` |  |
+| `REVERT_ERROR_TITLE` | `'Could not revert the area'` |  |
+| `REVERT_DELETED` | `'This area has been deleted, so it cannot be reverted.'` | 409: someone deleted the area; a revert never brings it back. |
+| `REVERT_MISSING` | `'That version is no longer available. The history has been refreshed.'` | 404: the area or that version is gone; the lists and the history refetch. |
 
 ## ERROR_CODES
 
