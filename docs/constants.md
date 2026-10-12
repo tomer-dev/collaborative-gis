@@ -4,6 +4,8 @@ Single source of truth is `packages/shared/src/constants.ts`; this doc mirrors i
 
 Import from `@cgis/shared` in app code (`@cgis/shared/constants` in Node-side config files such as `vite.config.ts` and `vitest.config.ts`). Lanes extend both files rather than writing literals. "Planned" names the M1 task that consumes a value.
 
+Visual design tokens (spacing, type, colour ramps and semantic colours, map styles, radii, z-index, motion) live in one CSS file, [`apps/web/src/styles/tokens.css`](../apps/web/src/styles/tokens.css) (design system "Grid 4", D15–D18). The map pane z-indexes are defined here and mirrored there; `apps/web/src/styles/tokens.test.ts` fails when they drift. Presence hues are `MAP.PRESENCE_COLORS` only: the server hashes each user id into that palette and sends the colour, and the web applies it per element through the `--presence` CSS variable. The draw tool splits by who needs the value: Leaflet's numbers (`MAP.HANDLE_HIT_PX`, `MAP.DRAFT_STYLE`) live here; the handle dot and the sketch colours are CSS (`--map-handle-*`, `.cgis-draw-handle`, `.cgis-draw-sketch`).
+
 ## LIMITS
 
 | Name | Value | Where used | Why |
@@ -21,6 +23,7 @@ Import from `@cgis/shared` in app code (`@cgis/shared/constants` in Node-side co
 | Name | Value | Where used | Why |
 |---|---|---|---|
 | `SRID` | `4326` | `apps/api/src/db/geometry.ts` (`geometry(Polygon,4326)` column type), `apps/api/src/db/spatial.ts` (`ST_MakeEnvelope(w, s, e, n, SRID)`) | WGS 84 lng/lat: what the map and GeoJSON use (`ST_GeomFromGeoJSON` defaults to it) |
+| `EARTH_RADIUS_M` | `6371008.8` | `apps/web/src/lib/geo/geodesic.test.ts` (exact-sphere and L'Huilier references); equals `earthRadius` in `@turf/helpers`, which `@turf/area` uses in `ringAreaM2` | WGS84 mean radius R1 = (2a + b) / 3. Versus the server's spheroidal `ST_Area(geography)` the sphere reads +0.13% at 29°N, +0.07% at 32°N, +0.03% at 34°N (Israel), +0.45% at the equator, −0.56% at 60°N (T11a report) |
 
 ## SEED
 
@@ -115,10 +118,19 @@ The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmar
 | `OSM_TILE_URL` | `'https://tile.openstreetmap.org/{z}/{x}/{y}.png'` | Planned: T10 `L.tileLayer` | OSM standard tiles |
 | `OSM_ATTRIBUTION` | `'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'` | Planned: T10 | Required by the OSM tile usage policy |
 | `OSM_MAX_ZOOM` | `19` | Planned: T10 | Highest zoom OSM serves |
-| `AREAS_PANE` / `AREAS_PANE_Z` | `'areas'` / `450` | Planned: T10 creates, T13 draws saved areas | Above tiles and Leaflet's overlay pane (400) |
-| `DRAFTS_PANE` / `DRAFTS_PANE_Z` | `'drafts'` / `460` | Planned: T10 creates, T14 draws ghost drafts | Live drafts render above saved areas |
+| `AREAS_PANE` / `AREAS_PANE_Z` | `'areas'` / `450` | `apps/web/src/ui/map-styles.ts` (path options), `tokens.css` `--z-index-map-areas` (drift-tested); planned: T10 creates, T13 draws saved areas | Above tiles and Leaflet's overlay pane (400) |
+| `DRAFTS_PANE` / `DRAFTS_PANE_Z` | `'drafts'` / `460` | `apps/web/src/ui/map-styles.ts` (path options), `tokens.css` `--z-index-map-drafts` (drift-tested); planned: T10 creates, T14 draws ghost drafts | Live drafts render above saved areas |
 | `MOVEEND_DEBOUNCE_MS` | `250` | Planned: T13 bbox query on `moveend` | One fetch per pan gesture |
-| `PRESENCE_COLORS` | `['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948']` | `apps/api/src/do/presence.ts` `presenceColor` (SHA-256 of the user id, mod 8) and `PresenceAttachmentSchema.color`; planned T14 ghosts and presence list | The 8-hue CVD-checked presence palette from the design-system brief (Grid 4) |
+| `PRESENCE_COLORS` | `['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948']` | `apps/api/src/do/presence.ts` `presenceColor` (SHA-256 of the user id, mod 8) and `PresenceAttachmentSchema.color`; the web takes that colour per user (`Avatar color`, `ghostPathOptions(color)`); Storybook Foundations/Colour | The 8-hue CVD-checked presence palette from the design-system brief (Grid 4) |
+| `HANDLE_HIT_PX` | `24` | `apps/web/src/lib/geo/draw-handler.ts` (vertex handle hit box, the `L.divIcon` size) | WCAG 2.5.8 target size (≥24 CSS px) for dragging a vertex. The dot's radius, ring and colours are CSS: `.cgis-draw-handle` / `.cgis-draw-handle--first` in the token stylesheet (T9b, PR #14) |
+| `DRAFT_STYLE` | `{ weight: 2, dashArray: '8 4', fillOpacity: 0.12 }` | `apps/web/src/lib/geo/draw-handler.ts` (live sketch, class `cgis-draw-sketch`), `apps/web/src/ui/map-styles.ts` `draftPathOptions()`; Storybook Foundations/Map; planned T14 ghost drafts | Dashed and faint: reads as unsaved next to solid saved areas. Dash 8/4 is the design brief's §4 value. Stroke and fill colours are CSS on `.cgis-draw-sketch` |
+
+## DRAW
+
+| Name | Value | Where used | Why |
+|---|---|---|---|
+| `SELF_INTERSECTION_REASON` | `'Polygon edges must not cross or touch each other'` | `draw-handler.ts` `draw:invalid` | Client mirror of the server's `ST_IsValid` rejection |
+| `MAX_VERTICES_REASON` | `'Vertex limit reached'` | `draw-handler.ts` `draw:invalid` when a click would pass `LIMITS.POLYGON_MAX_VERTICES` | The cap counts the closing vertex, so the UI should not promise a number here |
 
 ## ERROR_CODES
 
