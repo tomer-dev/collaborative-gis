@@ -22,14 +22,17 @@ const DetailsSchema = z.record(z.string(), z.unknown());
 /**
  * Appends `event` on its own client, with `details` redacted (`LOG.REDACT_KEYS`, any depth).
  * Never rejects: a failed write is logged as one JSON error line, so the request or the frame it
- * records goes on unaffected. Callers run it in `waitUntil`, after their response.
+ * records goes on unaffected. Callers run it in `waitUntil`, after their response, so it takes no
+ * abort signal from the request.
  */
 export async function recordAudit(env: Env, event: AuditEvent): Promise<void> {
   try {
     const details = event.details
       ? DetailsSchema.parse(JSON.parse(JSON.stringify(event.details, redact)))
       : null;
-    await withClient(env, (client) => writeAudit(client, { ...event, details }));
+    // Detached from the request's signal: this runs after the response, and a client that has
+    // gone (or the request deadline) must not end the write.
+    await withClient(env, (client) => writeAudit(client, { ...event, details }), { signal: null });
   } catch (err) {
     log('error', 'audit write failed', {
       action: event.action,
