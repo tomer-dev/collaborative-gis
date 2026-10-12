@@ -17,6 +17,8 @@ export const WS = {
   BAD_FRAME_STRIKES: 10,
   CLOSE_POLICY_VIOLATION: 1008,
   PING_INTERVAL_MS: 30_000,
+  AUTO_PING: 'ping',
+  AUTO_PONG: 'pong',
   RECONNECT_BACKOFF_MS: { min: 1000, max: 30_000 },
   OFFLINE_POLL_MS: 10_000,
 } as const;
@@ -43,11 +45,18 @@ export const ROUTES = {
 export const DEV = {
   API_ORIGIN: 'http://localhost:8787',
   WEB_ORIGIN: 'http://localhost:5173',
+  // `x-debug-user: <id>:<name>` stands in for a session only while env.DEBUG_STUB_AUTH === STUB_AUTH_ON.
+  STUB_AUTH_ON: '1',
+  STUB_AUTH_HEADER: 'x-debug-user',
+  STUB_AUTH_SEPARATOR: ':',
 } as const;
 
 /** The single shared map (D11). */
 export const ROOM = {
   DEFAULT_ROOM_ID: 'default',
+  USER_ID_HEADER: 'x-user-id',
+  USER_NAME_HEADER: 'x-user-name',
+  DEBUG_COUNT_PATH: '/_count',
 } as const;
 
 /** Leaflet map defaults; DEFAULT_CENTER is Leaflet's [lat, lng] order. */
@@ -63,6 +72,16 @@ export const MAP = {
   DRAFTS_PANE: 'drafts',
   DRAFTS_PANE_Z: 460,
   MOVEEND_DEBOUNCE_MS: 250,
+  PRESENCE_COLORS: [
+    '#2a78d6',
+    '#eb6834',
+    '#1baf7a',
+    '#eda100',
+    '#e87ba4',
+    '#008300',
+    '#6250d6',
+    '#e34948',
+  ],
 } as const;
 
 /** Every `ApiError.code` the API sends; apps/api/src/errors.ts maps each to its HTTP status. */
