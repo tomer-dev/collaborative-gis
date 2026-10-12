@@ -60,7 +60,7 @@ E0 ──┬── E1 (db) ──┐
 | 3.3 | `PUT /areas/:id` with optimistic concurrency: body carries `version`; mismatch → 409 with current server copy; success bumps version + writes `area_versions` | Concurrent edit test yields one 200 and one 409 | 3.1 |
 | 3.4 | `DELETE /areas/:id` soft delete + audit | Row hidden from bounds query | 3.1 |
 | 3.5 | `GET /areas/:id/versions` and `POST /areas/:id/revert/:version` | History lists all versions; revert creates a new version | 3.3 |
-| 3.6 | Cache layer: bounds responses keyed by quantized bbox tile in the Workers Cache API (`s-maxage`) with ETag; write path purges affected tile keys (KV index of tile → keys); hit ratio logged | Invalidation test | 3.2 |
+| 3.6 | Cache layer: bounds responses in the Workers Cache API keyed by quantized tile **and the map version counter** (bumped in the Room DO on every write); ETag; old versions expire by TTL | Write → next read fresh; hit ratio logged | 3.2 |
 | 3.7 | Audit log middleware: user, action, entity, ip, user-agent, payload hash for every mutation and WS action | Rows written for all mutating routes | 3.1 |
 | 3.8 | OpenAPI 3.1 via `hono-openapi` (`describeRoute`, `openAPIRouteHandler`) + Scalar/Swagger UI at `/docs` | Spec validates; UI renders | 3.1–3.5 |
 
@@ -99,7 +99,7 @@ E0 ──┬── E1 (db) ──┐
 | 6.1 | Unit tests: area calc, polygon validation, rate limiter, conflict resolution, projection utils | Vitest green in CI | E1–E5 |
 | 6.2 | Integration tests: `@cloudflare/vitest-pool-workers` for Worker + DO (WS protocol tests), ephemeral PostGIS via compose; `hono batch` JSONL contract suite run in CI (`--runtime workerd`) | Green in CI; `hono batch` reports `failed: 0` | 6.1 |
 | 6.3 | E2E: Playwright two-browser collaborative scenario | Passes locally | 5.10 |
-| 6.4 | Local parity: docker-compose (postgis) + `wrangler dev` with Hyperdrive `localConnectionString` + Dockerfile running the Hono app on Node (`@hono/node-server` with `ws` `noServer`; `@hono/node-ws` is deprecated) for the bonus docker-compose requirement | `docker compose up` serves the app | E1–E5 |
+| 6.4 | Local parity: docker-compose = `postgis/postgis` + a `wrangler dev` (workerd) container with Hyperdrive `localConnectionString`; no Node port of the Worker | `docker compose up` serves app, API, WS | E1–E5 |
 | 6.5 | README: setup, architecture, decisions, performance, security, limitations, future work, testing approach; ADRs linked | Matches submission checklist | all |
 | 6.6 | Load test: k6 WS + REST scenario, results in `docs/benchmarks.md` | Numbers recorded | 6.4 |
 | 6.7 | Telemetry: Workers Logs + Workers Analytics Engine datapoints (ws connections, msgs/s, query latency); `/metrics` counters from the room DO; OpenTelemetry as design note | Endpoint returns counters | 2.7 |
@@ -132,10 +132,9 @@ Mitigation built into the tickets: 4.1 can start against a stubbed session check
 
 ### 2. Highest-uncertainty item (risk-critical)
 **5.4 SPIKE govmap EPSG:2039** (TOM-45). Short chain (0.1 → 0.2 → 5.1 → 5.3 → 5.4 → 5.5 → 5.6, 7 deep) but the only ticket whose outcome is unknown:
-- If option **A** (CRS swap per base layer) works: frontend-only, 5.5 + 5.6 proceed as written.
-- If option **B** (reprojecting tile proxy) is needed: adds a backend ticket (Worker route that fetches ITM tiles and re-warps to 3857, cached in the Cache API) and touches E3/E7. Budget: +2 days.
-- If option **C** (fallback imagery): section 4 of the brief is only partially met; must be documented as a known limitation.
-- Licence outcome can force C regardless of technical result.
+- Decision D3: option **A** (CRS swap per base layer). The spike validates it end to end; frontend-only, 5.5 + 5.6 proceed as written.
+- If A is technically impossible the spike stops and a new decision is raised; no proxy or fallback imagery is planned.
+- govmap terms of use are recorded in the README.
 
 Because 5.4 is both uncertain and early, it is scheduled **first in M2**, immediately after 5.3, and time-boxed to one day so a B/C decision lands before E3/E7 are planned in detail.
 
