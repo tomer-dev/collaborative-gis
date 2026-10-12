@@ -1,0 +1,21 @@
+services:
+  postgis:
+    image: imresamu/postgis:18-3.6
+    environment:
+      POSTGRES_USER: cgis
+      POSTGRES_PASSWORD: cgis
+      POSTGRES_DB: cgis
+    ports:
+      # Host port 5433 to avoid clashing with a local Postgres on 5432.
+      # Bound to loopback only: dev credentials must not be reachable from the LAN.
+      - '127.0.0.1:5433:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U cgis -d cgis']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      # PG 18 images set PGDATA=/var/lib/postgresql/18/docker; mount the parent (the image VOLUME).
+      - postgis-data:/var/lib/postgresql
+volumes:
+  postgis-data:

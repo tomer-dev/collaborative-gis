@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Collaborative GIS Open Ends</title>
+<style>
+/* Same system as decisions-brief: one reading column, cards with a left stripe; action cards vs decision cards. */
+:root{
+  --bg:#f7f6f2; --fg:#15171a; --muted:#5b5f66; --line:#d9d6cd; --card:#ffffff;
+  --accent:#1f5f8b; --accent-ink:#ffffff; --chip:#e8eef4;
+  --good:#0ca30c; --warn:#fab219; --critical:#d03b3b;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --body:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+  --bg:#17191c; --fg:#ecebe6; --muted:#a6a9ad; --line:#33373d; --card:#1f2227;
+  --accent:#6fb1e3; --accent-ink:#0b1420; --chip:#26303a;
+  --good:#3ccf3c; --warn:#f0b53a; --critical:#ee6b6b; color-scheme:dark; } }
+:root[data-theme="dark"]{
+  --bg:#17191c; --fg:#ecebe6; --muted:#a6a9ad; --line:#33373d; --card:#1f2227;
+  --accent:#6fb1e3; --accent-ink:#0b1420; --chip:#26303a;
+  --good:#3ccf3c; --warn:#f0b53a; --critical:#ee6b6b; color-scheme:dark; }
+*{box-sizing:border-box} html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px;line-height:1.55;padding-block:32px 64px;padding-inline:16px}
+.wrap{max-width:860px;margin:0 auto}
+h1,h2,h3{font-family:var(--ui);text-wrap:balance;line-height:1.2;margin:0}
+h1{font-size:2rem;font-weight:650} h2{font-size:1.35rem;font-weight:600;margin-top:2.5rem;padding-top:1rem;border-top:1px solid var(--line)} h3{font-size:1.1rem;font-weight:600}
+p{margin:.6rem 0}
+.eyebrow{font-family:var(--ui);font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.lede{font-size:1.05rem;color:var(--muted);max-width:62ch}
+.status{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:12px}
+.status div{font-family:var(--ui);font-size:.9rem;background:var(--chip);border-radius:6px;padding:10px 12px}
+.status b{display:block;font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.ok::before{content:"● ";color:var(--good)} .bad::before{content:"● ";color:var(--critical)} .warn::before{content:"● ";color:var(--warn)}
+.card{background:var(--card);border:1px solid var(--line);border-left-width:6px;border-radius:8px;padding:18px 20px;margin-top:18px}
+.card.high{border-left-color:var(--critical)} .card.medium{border-left-color:var(--warn)}
+.card header{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline}
+.sev{font-family:var(--ui);font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:999px;background:var(--chip)}
+.sev::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.high .sev::before{background:var(--critical)} .medium .sev::before{background:var(--warn)}
+.affects{font-family:var(--mono);font-size:.78rem;color:var(--muted)}
+.kid{font-family:var(--ui);font-size:.95rem;background:var(--chip);border-radius:6px;padding:10px 12px;margin:10px 0}
+.kid b{color:var(--accent)}
+.opts{display:grid;gap:8px;margin:10px 0 4px}
+.opt{display:grid;grid-template-columns:22px 1fr;gap:10px;align-items:start;font-family:var(--ui);font-size:.95rem;padding:10px 12px;border:1px solid var(--line);border-radius:6px;cursor:pointer}
+.opt input{margin-top:3px;accent-color:var(--accent)}
+.opt:has(input:checked){border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.opt:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.rec{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-left:6px}
+.note{font-family:var(--ui);font-size:.85rem;color:var(--muted);margin-top:6px}
+code,pre{font-family:var(--mono);font-size:.85em}
+pre.cmd{background:var(--chip);padding:10px 12px;border-radius:6px;overflow-x:auto;margin:8px 0}
+textarea{width:100%;min-height:52px;font-family:var(--ui);font-size:.9rem;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);margin-top:8px}
+.bar{position:sticky;bottom:0;background:var(--card);border-top:1px solid var(--line);margin:32px -16px 0;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-family:var(--ui);font-size:.9rem}
+button{font-family:var(--ui);font-size:.9rem;padding:8px 14px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);cursor:pointer}
+button.ghost{background:transparent;color:var(--fg);border-color:var(--line)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#count{color:var(--muted)}
+pre#out{display:none;white-space:pre-wrap;background:var(--chip);padding:12px;border-radius:6px;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Snapland home assignment · 12 Oct 2026 · before M0 execution</div>
+  <h1>Open ends before the first line of code</h1>
+  <p class="lede">The spec is approved, the M0 plan is written, the worktree exists, and the subagent loop is ready. These are the things only you can do or decide, plus what I ruled on your behalf during pre-flight. Tick, answer, copy the summary.</p>
+
+  <h2>Where things stand</h2>
+  <div class="status">
+    <div class="ok"><b>Spec</b>Approved after §2–§9 review; D1–D14 closed</div>
+    <div class="ok"><b>Plan</b>M0, 7 tasks, TDD steps, self-reviewed</div>
+    <div class="ok"><b>Worktree</b><code>.claude/worktrees/m0-foundation</code> on <code>worktree-m0-foundation</code> from main b67b1e8</div>
+    <div class="ok"><b>Cloudflare</b>wrangler logged in (4.74, update to 4.149 available)</div>
+    <div class="ok"><b>GitHub</b>gh logged in as tomer-dev; no repo yet</div>
+    <div class="ok"><b>Neon CLI</b>neonctl 2.30 installed; API key in 1Password Dev/tomercouch-neon</div>
+    <div class="bad"><b>Docker</b>Not running</div>
+    <div class="ok"><b>Linear</b>P-TOM-1, 61 tickets; none started</div>
+  </div>
+  <div class="kid"><b>Like you're 5:</b> the drawing is approved and the toolbox is packed. Three things still need a grown-up's hands before the builders start.</div>
+
+  <h2>Actions only you can take</h2>
+
+  <section class="card high" data-id="A1">
+    <header><h3>A1 · Start Docker Desktop</h3><span class="sev">High</span><span class="affects">blocks Task 5, all @cgis/api tests, CI parity</span></header>
+    <p>The Worker tests run against a local PostGIS container, and Task 5 creates it. Nothing in the plan can substitute for this.</p>
+    <div class="opts">
+      <label class="opt"><input type="checkbox" name="A1" value="done"><span>Docker is running now</span></label>
+    </div>
+  </section>
+
+  <section class="card high" data-id="A2">
+    <header><h3>A2 · Neon credential and the permission classifier</h3><span class="sev">High</span><span class="affects">Task 5 step 2 (Neon project + PostGIS)</span></header>
+    <p>Task 5 reads the Neon API key with <code>op read "op://Dev/tomercouch-neon/credential"</code>. Earlier this session the auto-mode classifier blocked a similar 1Password read. If it blocks again, the implementer will stop and I will ask you to run three commands yourself with the <code>!</code> prefix; the key never lands in the repo either way.</p>
+    <pre class="cmd">! export NEON_API_KEY="$(op read 'op://Dev/tomercouch-neon/credential')" && neonctl projects create --name collaborative-gis --region-id aws-eu-central-1 --output json</pre>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="A2" value="let-agent"><span>Let the implementer try; fall back to me if blocked <span class="rec">recommended</span></span></label>
+      <label class="opt"><input type="radio" name="A2" value="i-run"><span>I will run the Neon commands myself when Task 5 starts</span></label>
+      <label class="opt"><input type="radio" name="A2" value="allow-rule"><span>Add a permission rule for <code>op read</code> first (I'll tell you the settings line)</span></label>
+    </div>
+    <textarea placeholder="Notes for A2 (optional)"></textarea>
+  </section>
+
+  <section class="card medium" data-id="A3">
+    <header><h3>A3 · govmap terms of use</h3><span class="sev">Medium</span><span class="affects">TOM-45 spike, README</span></header>
+    <p>The spike will use govmap aerial tiles as the brief requires. Whether that use is permitted for a demo is a licence question nobody in this session can answer from documentation; the OpenStreetMap community thread shows govmap asked to be contacted by phone. This can run in parallel with M0 and M1; it only has to be settled before the README is final.</p>
+    <div class="kid"><b>Like you're 5:</b> we are using someone else's photo book. A grown-up should ask if that is okay, but we can keep building meanwhile.</div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="A3" value="parallel"><span>I'll check the terms in parallel; record "unverified" in the README until then <span class="rec">recommended</span></span></label>
+      <label class="opt"><input type="radio" name="A3" value="assume"><span>Assume demo use is fine; note it as a known limitation</span></label>
+    </div>
+    <textarea placeholder="Notes for A3 (optional)"></textarea>
+  </section>
+
+  <h2>Decisions still open (medium and above)</h2>
+
+  <section class="card medium" data-id="O1">
+    <header><h3>O1 · Neon region</h3><span class="sev">Medium</span><span class="affects">Task 5, latency for a reviewer in Israel</span></header>
+    <p>The plan creates the Neon project in <code>aws-eu-central-1</code> (Frankfurt), the closest Neon region to Israel. Workers run at the edge everywhere; the Hyperdrive pool sits near the database, so this choice sets the round trip for every query.</p>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="O1" value="eu-central-1"><span>Frankfurt, aws-eu-central-1 <span class="rec">recommended</span></span></label>
+      <label class="opt"><input type="radio" name="O1" value="other"><span>Another region (write which)</span></label>
+    </div>
+    <textarea placeholder="Notes for O1 (optional)"></textarea>
+  </section>
+
+  <section class="card medium" data-id="O2">
+    <header><h3>O2 · Subagent model tiers</h3><span class="sev">Medium</span><span class="affects">cost and speed of the whole M0 loop</span></header>
+    <p>The SDD skill asks for an explicit model per dispatch. The plan text contains the complete code, so implementers are mostly transcribing and testing. Proposed: implementers and task reviewers on Sonnet, the final whole-branch review on Opus, Haiku only for one-file fix rounds.</p>
+    <div class="kid"><b>Like you're 5:</b> small jobs get the quick helper, the final check gets the careful one.</div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="O2" value="sonnet-opus"><span>Sonnet implement and review, Opus final review <span class="rec">recommended</span></span></label>
+      <label class="opt"><input type="radio" name="O2" value="opus-all"><span>Opus for everything (slowest, most expensive)</span></label>
+      <label class="opt"><input type="radio" name="O2" value="haiku-impl"><span>Haiku implementers, Sonnet reviewers, Opus final (cheapest; more fix rounds likely)</span></label>
+    </div>
+    <textarea placeholder="Notes for O2 (optional)"></textarea>
+  </section>
+
+  <section class="card medium" data-id="O3">
+    <header><h3>O3 · Wrangler version</h3><span class="sev">Medium</span><span class="affects">Task 3 compatibility date, Hono CLI workerd runtime</span></header>
+    <p>Your global wrangler is 4.74; 4.149 is current. The plan installs wrangler per project through pnpm, so the project will get a recent version regardless. The global one only matters for the <code>wrangler whoami</code>/login state, which is fine as is.</p>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="O3" value="project-only"><span>Leave the global one; project-local wrangler is what runs <span class="rec">recommended</span></span></label>
+      <label class="opt"><input type="radio" name="O3" value="update-global"><span>Also update global: <code>npm i -g wrangler@latest</code></span></label>
+    </div>
+  </section>
+
+  <h2>Rulings I made during pre-flight (undo any you disagree with)</h2>
+  <section class="card medium" data-id="R">
+    <header><h3>Pre-flight rulings on the M0 plan</h3><span class="sev">Info</span><span class="affects">ledger: .superpowers/sdd/2026-10-12-m0-foundation/progress.md</span></header>
+    <p>1. Add <code>@cloudflare/vitest-pool-workers</code> to the API tsconfig <code>types</code> so the <code>cloudflare:test</code> import typechecks. Cost if wrong: none.<br>
+    2. If wrangler rejects <code>compatibility_date 2026-09-01</code>, use the latest date it accepts and report it. Cost if wrong: a stale compat date.<br>
+    3. Do not install <code>@testing-library/jest-dom</code>; the web test does not use it. Cost if wrong: none.<br>
+    4. The implementer inspects Neon's JSON output and adapts the project-id extraction. Cost if wrong: none.</p>
+    <div class="opts">
+      <label class="opt"><input type="checkbox" name="R" value="ack"><span>Seen; no objections</span></label>
+    </div>
+    <textarea placeholder="Objections to any ruling (optional)"></textarea>
+  </section>
+
+  <h2>If the session compacts</h2>
+  <p>Nothing is lost. The ledger at <code>.superpowers/sdd/2026-10-12-m0-foundation/progress.md</code> inside the worktree records environment checks, pre-flight rulings and task progress; git history holds every commit; memory holds the Linear and 1Password pointers. Resume point: dispatch Task 1 of the M0 plan from the worktree once A1 is done.</p>
+
+  <div class="bar">
+    <span id="count">0 of 7 answered</span>
+    <button id="copy">Copy summary</button>
+    <button id="show" class="ghost">Show summary</button>
+    <button id="reset" class="ghost">Reset</button>
+  </div>
+  <pre id="out"></pre>
+</div>
+<script>
+(function(){
+  const KEY='cgis-open-ends-v1';
+  const cards=[...document.querySelectorAll('.card')];
+  let state={};
+  try{ state=JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ state={}; }
+  function restore(){ cards.forEach(c=>{ const s=state[c.dataset.id]||{}; if(s.value){ const r=c.querySelector(`input[value="${s.value}"]`); if(r) r.checked=true; } const t=c.querySelector('textarea'); if(s.note&&t) t.value=s.note; }); }
+  function save(){
+    cards.forEach(c=>{ const r=c.querySelector('input:checked'); const t=c.querySelector('textarea');
+      state[c.dataset.id]={ value:r?r.value:'', label:r?r.closest('.opt').textContent.replace(/\s*recommended\s*$/i,'').trim():'', note:t?t.value.trim():'' }; });
+    try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
+    document.getElementById('count').textContent=`${Object.values(state).filter(s=>s.value).length} of ${cards.length} answered`;
+  }
+  function summary(){ return cards.map(c=>{ const s=state[c.dataset.id]||{}; return `${c.querySelector('h3').textContent}\n  → ${s.value?s.label:'(open)'}${s.note?'\n  note: '+s.note:''}`; }).join('\n\n'); }
+  document.addEventListener('change',save); document.addEventListener('input',e=>{ if(e.target.tagName==='TEXTAREA') save(); });
+  document.getElementById('show').onclick=()=>{ const o=document.getElementById('out'); o.textContent=summary(); o.style.display='block'; };
+  document.getElementById('copy').onclick=async(e)=>{ const txt=summary(); const o=document.getElementById('out'); o.textContent=txt; o.style.display='block';
+    try{ await navigator.clipboard.writeText(txt); e.target.textContent='Copied'; setTimeout(()=>e.target.textContent='Copy summary',1500); }
+    catch(err){ const r=document.createRange(); r.selectNodeContents(o); const sel=getSelection(); sel.removeAllRanges(); sel.addRange(r); } };
+  document.getElementById('reset').onclick=()=>{ state={}; try{localStorage.removeItem(KEY);}catch(e){} cards.forEach(c=>{ c.querySelectorAll('input').forEach(i=>i.checked=false); const t=c.querySelector('textarea'); if(t) t.value=''; }); save(); };
+  restore(); save();
+})();
+</script>
+</body>
+</html>
