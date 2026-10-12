@@ -1,47 +1,42 @@
 import type { Polygon } from '@cgis/shared';
+import { eq } from 'drizzle-orm';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { polygonFromEwkb } from '../../src/db/geometry';
+import { db } from '../../src/db';
+import { areas } from '../../src/db/schema';
+import { insertArea, selectAreasInBounds } from '../../src/db/spatial';
 
 const client = new pg.Client({ connectionString: inject('databaseUrl') });
 beforeAll(() => client.connect());
 afterAll(() => client.end());
 
-/** Lets PostGIS encode the WKB, so the parser is checked against the real format. */
-async function wkbHex(geometrySql: string, byteOrder: 'NDR' | 'XDR'): Promise<string> {
-  const { rows } = await client.query(
-    `select encode(ST_AsBinary(${geometrySql}, $1), 'hex') as hex`,
-    [byteOrder],
-  );
-  return rows[0].hex;
-}
-
+// Its own region (lng 28, lat 48): the db test files share cgis_db and run in parallel.
 const triangle: Polygon = {
   type: 'Polygon',
   coordinates: [
     [
-      [34.78, 32.08],
-      [34.8, 32.08],
-      [34.79, 32.1],
-      [34.78, 32.08],
+      [28, 48],
+      [28.02, 48],
+      [28.01, 48.02],
+      [28, 48],
     ],
   ],
 };
 
-describe('polygonFromEwkb', () => {
-  it('reads big-endian WKB without an SRID', async () => {
-    const hex = await wkbHex(`ST_GeomFromGeoJSON('${JSON.stringify(triangle)}')`, 'XDR');
-    expect(polygonFromEwkb(hex)).toEqual(triangle);
-  });
+describe('polygon column', () => {
+  it('refuses raw geometry reads, while the spatial helpers return GeoJSON', async () => {
+    const area = await insertArea(client, {
+      name: 'raw read',
+      geometry: triangle,
+      userId: 'user-geo',
+    });
 
-  it('rejects anything but a single-ring polygon', async () => {
-    expect(() => polygonFromEwkb('0101000000000000000000F03F0000000000000040')).toThrow(
-      /expected a 2D polygon/,
-    ); // POINT(1 2)
-    const withHole = await wkbHex(
-      `'POLYGON((0 0,10 0,10 10,0 10,0 0),(2 2,2 3,3 3,3 2,2 2))'::geometry`,
-      'NDR',
+    await expect(
+      db(client).select({ geom: areas.geom }).from(areas).where(eq(areas.id, area.id)).execute(),
+    ).rejects.toThrow(
+      'read areas.geom through ST_AsGeoJSON(geom)::json (see spatial.ts); raw geometry reads are not supported',
     );
-    expect(() => polygonFromEwkb(withHole)).toThrow(/with 2 rings/);
+    expect(area.geometry).toEqual(triangle);
+    expect(await selectAreasInBounds(client, [28, 48, 28.02, 48.02])).toEqual([area]);
   });
 });
