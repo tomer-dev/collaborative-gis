@@ -11,7 +11,7 @@ import { GhostPolygons } from '../../components/GhostPolygons';
 import { MapView } from '../../components/Map';
 import { PresenceList } from '../../components/PresenceList';
 import { SaveDialog } from '../../components/SaveDialog';
-import { useAreasInBounds, type AreaEdit } from '../../lib/areas-query';
+import { useAreasInBounds, usePendingAreaIds, type AreaEdit } from '../../lib/areas-query';
 import type { LngLat } from '../../lib/geo/geodesic';
 import { useRoom } from '../../lib/use-room';
 import { ReportSelfColor } from '../-components/AppFrame';
@@ -54,6 +54,7 @@ function MapRoute() {
     return () => reportSelfColor(null);
   }, [reportSelfColor, selfColor]);
   const areas = useAreasInBounds(bbox).data?.areas ?? NO_AREAS;
+  const pendingIds = usePendingAreaIds();
   const selectedId = mode.kind === 'selected' ? mode.id : null;
 
   return (
@@ -65,6 +66,7 @@ function MapRoute() {
             map={map}
             areas={areas}
             selectedId={selectedId}
+            pendingIds={pendingIds}
             onSelect={(area) => setMode({ kind: 'selected', id: area.id })}
           />
           <DrawControl map={map} onDone={(ring) => setMode({ kind: 'draft', ring })} />
