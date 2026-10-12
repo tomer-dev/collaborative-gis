@@ -15,7 +15,7 @@ import { AreaHistory } from './AreaHistory';
 
 type SelectedAreaProps = {
   onClose: () => void;
-  /** A rename met a newer version (409): the parent asks the user (ConflictDialog). */
+  /** A rename or a revert met a newer version (409): the parent asks the user (ConflictDialog). */
   onConflict: (edit: AreaEdit, current: Area) => void;
   onDeleted: () => void;
 };
@@ -188,7 +188,7 @@ function SelectedAreaPanel({ area, onClose, onConflict, onDeleted }: SelectedAre
             </Button>
           </div>
         </form>
-        <AreaHistory area={area} />
+        <AreaHistory area={area} onConflict={onConflict} />
       </div>
     </Panel>
   );

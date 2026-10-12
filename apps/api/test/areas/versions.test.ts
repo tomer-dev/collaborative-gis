@@ -156,7 +156,7 @@ describe('POST /api/areas/:id/revert/:version', () => {
     // D12: any signed-in user edits; the new version and the audit row name the one who reverted.
     const editor = signedIn('editor');
 
-    const res = await editor.api.revert(area.id, 1);
+    const res = await editor.api.revert(area.id, 1, area.version);
 
     expect(res.status).toBe(201);
     const reverted = AreaSchema.parse(await res.json());
@@ -205,7 +205,7 @@ describe('POST /api/areas/:id/revert/:version', () => {
   it('a revert is a version like any other: the next PUT needs version 4', async () => {
     const { api } = signedIn();
     const { shapes, area } = await threeVersions(api);
-    expect((await api.revert(area.id, 2)).status).toBe(201);
+    expect((await api.revert(area.id, 2, area.version)).status).toBe(201);
 
     const stale = await api.update(area.id, { name: 'late', geometry: shapes[2], version: 3 });
     expect(stale.status).toBe(409);
@@ -220,7 +220,7 @@ describe('POST /api/areas/:id/revert/:version', () => {
     const { area } = await threeVersions(api);
     expect((await api.remove(area.id)).status).toBe(204);
 
-    const res = await api.revert(area.id, 1);
+    const res = await api.revert(area.id, 1, area.version);
 
     expect(res.status).toBe(409);
     expect(await res.json()).toEqual({
@@ -233,11 +233,41 @@ describe('POST /api/areas/:id/revert/:version', () => {
     expect((await auditRows(env, area.id)).map((r) => r.action)).not.toContain('area.revert');
   });
 
+  it('answers 409 with details.current when the area moved on since the client looked (D4), and writes nothing', async () => {
+    const { api } = signedIn();
+    const { shapes, area } = await threeVersions(api);
+    // Someone else saves version 4 while this client still shows version 3.
+    const other = signedIn('other');
+    const edit = await other.api.update(area.id, {
+      name: 'theirs',
+      geometry: shapes[1],
+      version: 3,
+    });
+    const theirs = AreaSchema.parse(await edit.json());
+
+    const res = await api.revert(area.id, 1, area.version);
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({
+      code: 'CONFLICT',
+      message: 'version conflict',
+      details: { current: theirs },
+    });
+    expect(await countRows(env, 'area_versions', 'area_id = $1', [area.id])).toBe(4);
+    expect((await auditRows(env, area.id)).map((r) => r.action)).not.toContain('area.revert');
+    // Based on the version it now shows, the same revert goes through.
+    expect((await api.revert(area.id, 1, theirs.version)).status).toBe(201);
+  });
+
   it('answers 404 for an unknown version or area and writes nothing', async () => {
     const { api } = signedIn();
     const { area } = await threeVersions(api);
 
-    for (const res of [await api.revert(area.id, 9), await api.revert(crypto.randomUUID(), 1)]) {
+    const unknown = [
+      await api.revert(area.id, 9, area.version),
+      await api.revert(crypto.randomUUID(), 1, 1),
+    ];
+    for (const res of unknown) {
       expect(res.status).toBe(404);
       expect(await res.json()).toEqual({ code: 'NOT_FOUND', message: 'Not found' });
     }
@@ -249,13 +279,16 @@ describe('POST /api/areas/:id/revert/:version', () => {
     const { api } = signedIn();
     const id = crypto.randomUUID();
     const responses = [
-      await api.revert('not-a-uuid', 1),
-      await api.revert(id, 0),
-      await api.revert(id, -1),
-      await api.revert(id, 1.5),
-      await api.revert(id, 'one'),
+      await api.revert('not-a-uuid', 1, 1),
+      await api.revert(id, 0, 1),
+      await api.revert(id, -1, 1),
+      await api.revert(id, 1.5, 1),
+      await api.revert(id, 'one', 1),
       // Past Postgres' integer range: rejected here instead of failing the query (a 500).
-      await api.revert(id, 2 ** 31),
+      await api.revert(id, 2 ** 31, 1),
+      // The expected version is required (D4), and an integer in the same range.
+      await api.revert(id, 1, undefined),
+      await api.revert(id, 1, 0),
     ];
     for (const res of responses) {
       expect(res.status).toBe(422);
@@ -282,7 +315,7 @@ describe('revert: fan-out after the response', () => {
     });
     const ctx = createExecutionContext();
     const response = areasClient(slow, user, {}, ctx)
-      .revert(area.id, 1)
+      .revert(area.id, 1, area.version)
       .then((res) => {
         order.push('response');
         return res;
@@ -310,9 +343,9 @@ describe('revert: fan-out after the response', () => {
       user,
     );
 
-    expect((await api.revert(area.id, 9)).status).toBe(404);
+    expect((await api.revert(area.id, 9, area.version)).status).toBe(404);
     expect((await api.remove(area.id)).status).toBe(204);
-    expect((await api.revert(area.id, 1)).status).toBe(409);
+    expect((await api.revert(area.id, 1, area.version)).status).toBe(409);
     expect(events).toEqual([{ type: 'area:deleted', payload: { id: area.id } }]);
   });
 });
@@ -351,7 +384,7 @@ describe('revert and its audit row commit together', () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { area } = await threeVersions(signedIn().api);
 
-    const res = await areasClient(env, freshUser(FAILING_PREFIX)).revert(area.id, 1);
+    const res = await areasClient(env, freshUser(FAILING_PREFIX)).revert(area.id, 1, area.version);
 
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ code: 'INTERNAL', message: 'Internal Server Error' });
@@ -370,8 +403,8 @@ describe('guards', () => {
     const responses = [
       await api.versions(id),
       await api.versions('not-a-uuid'),
-      await api.revert(id, 1),
-      await api.revert('not-a-uuid', 'x'),
+      await api.revert(id, 1, 1),
+      await api.revert('not-a-uuid', 'x', 1),
     ];
     for (const res of responses) {
       expect(res.status).toBe(401);
@@ -385,10 +418,10 @@ describe('guards', () => {
     const id = crypto.randomUUID();
     // Rejected reverts spend the budget too: these 422 without touching the database.
     for (let i = 0; i < RATE_LIMIT.DRAW_ACTIONS_PER_WINDOW; i++) {
-      expect((await api.revert(id, 0)).status).toBe(422);
+      expect((await api.revert(id, 0, 1)).status).toBe(422);
     }
 
-    const res = await api.revert(id, 1);
+    const res = await api.revert(id, 1, 1);
     expect(res.status).toBe(429);
     expect(Number(res.headers.get('Retry-After'))).toBeGreaterThan(0);
     expect(await res.json()).toMatchObject({ code: 'RATE_LIMITED' });

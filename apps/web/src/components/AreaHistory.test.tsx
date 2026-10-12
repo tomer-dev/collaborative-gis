@@ -1,8 +1,16 @@
-import { COPY, ERROR_CODES, ERROR_REASONS, LIMITS, type AreaList, type Bbox } from '@cgis/shared';
+import {
+  COPY,
+  ERROR_CODES,
+  ERROR_REASONS,
+  LIMITS,
+  type Area,
+  type AreaList,
+  type Bbox,
+} from '@cgis/shared';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { formatArea } from '../lib/area-readout';
-import { areasKey } from '../lib/areas-query';
+import { areasKey, type AreaEdit } from '../lib/areas-query';
 import {
   AREA_ID,
   deferred,
@@ -50,9 +58,10 @@ function renderHistory(post: () => Response | Promise<Response> = () => jsonResp
   );
   const { queryClient, wrapper } = queryWrapper();
   queryClient.setQueryData<AreaList>(areasKey(ISRAEL, ZOOM), { areas: [area] });
-  render(<AreaHistory area={area} />, { wrapper });
+  const onConflict = vi.fn<(edit: AreaEdit, current: Area) => void>();
+  render(<AreaHistory area={area} onConflict={onConflict} />, { wrapper });
   const history = screen.getByRole('region', { name: COPY.AREAS.HISTORY_TITLE });
-  return { requests, queryClient, history };
+  return { requests, queryClient, history, onConflict };
 }
 
 const rows = async (history: HTMLElement) => {
@@ -99,8 +108,9 @@ it('reverts to the chosen version and patches the 201 area into the cache', asyn
     'disabled',
     true,
   );
+  // The body names the version this panel shows (D4): a newer one stored is a 409.
   expect(posts(requests)).toEqual([
-    expect.objectContaining({ path: `/api/areas/${AREA_ID}/revert/1` }),
+    expect.objectContaining({ path: `/api/areas/${AREA_ID}/revert/1`, body: { version: 3 } }),
   ]);
 
   response.resolve(jsonResponse(201, reverted));
@@ -128,6 +138,30 @@ it('says the area is deleted on a 409', async () => {
   expect(alert.textContent).toContain(COPY.AREAS.REVERT_DELETED);
 });
 
+it('a revert met by a newer version hands the conflict to the parent (ConflictDialog)', async () => {
+  const theirs = makeArea(AREA_ID, { name: 'Renamed by someone', version: 4 });
+  const { history, onConflict } = renderHistory(() =>
+    jsonResponse(409, {
+      code: ERROR_CODES.CONFLICT,
+      message: ERROR_REASONS.VERSION_CONFLICT,
+      details: { current: theirs },
+    }),
+  );
+  const [, , oldest] = await rows(history);
+
+  fireEvent.click(within(oldest!).getByRole('button', { name: COPY.AREAS.REVERT }));
+
+  // "Overwrite with mine" then saves version 1's name and geometry on top of theirs.
+  const v1 = versions[2]!;
+  await waitFor(() =>
+    expect(onConflict).toHaveBeenCalledExactlyOnceWith(
+      { id: AREA_ID, body: { name: v1.name, geometry: v1.geometry, version: 3 } },
+      theirs,
+    ),
+  );
+  expect(within(history).queryByRole('alert')).toBeNull();
+});
+
 it('refetches the history and says so on a 404', async () => {
   const { history, requests } = renderHistory(() =>
     jsonResponse(404, { code: ERROR_CODES.NOT_FOUND, message: 'Not found' }),
@@ -144,7 +178,7 @@ it('refetches the history and says so on a 404', async () => {
 it('shows a failed history load', async () => {
   stubApi(() => jsonResponse(500, { code: ERROR_CODES.INTERNAL, message: 'Internal error' }));
   const { wrapper } = queryWrapper();
-  render(<AreaHistory area={area} />, { wrapper });
+  render(<AreaHistory area={area} onConflict={() => {}} />, { wrapper });
 
   const alert = await screen.findByRole('alert');
   expect(alert.textContent).toContain(COPY.AREAS.HISTORY_ERROR_TITLE);

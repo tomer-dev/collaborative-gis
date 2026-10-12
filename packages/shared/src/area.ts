@@ -22,6 +22,14 @@ export const AreaUpdateSchema = AreaCreateSchema.extend({
 });
 export type AreaUpdate = z.infer<typeof AreaUpdateSchema>;
 
+/**
+ * `POST /api/areas/:id/revert/:version` body: the area's version the client was looking at when it
+ * asked for the revert (D4, as `PUT`'s `version`). A newer stored version is a 409 with
+ * `details.current`, so a revert never silently undoes someone else's edit.
+ */
+export const RevertRequestSchema = AreaUpdateSchema.pick({ version: true });
+export type RevertRequest = z.infer<typeof RevertRequestSchema>;
+
 /** `GET /api/areas?bbox=…` response body: the live areas in the viewport. */
 export const AreaListSchema = z.object({ areas: z.array(AreaSchema) });
 export type AreaList = z.infer<typeof AreaListSchema>;
