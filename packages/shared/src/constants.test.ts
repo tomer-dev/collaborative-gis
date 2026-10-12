@@ -18,6 +18,8 @@ describe('constants', () => {
       'ERROR_MESSAGES',
       'WS_MESSAGES',
       'COPY',
+      'OPENAPI',
+      'AUDIT',
     ] as const;
     for (const name of groups) {
       const group: unknown = shared[name];

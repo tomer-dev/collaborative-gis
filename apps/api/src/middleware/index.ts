@@ -6,9 +6,12 @@ import { HTTPException } from 'hono/http-exception';
 import { secureHeaders } from 'hono/secure-headers';
 import { timeout } from 'hono/timeout';
 import type { AppEnv } from '../app';
+import { attachUser } from './attach-user';
 import { requestId } from './request-id';
 
+export { attachUser } from './attach-user';
 export { log, type LogLevel } from './logger';
+export { requireUser, type SignedIn } from './require-user';
 
 /**
  * The cross-cutting chain `app.ts` mounts on every route, outermost first:
@@ -18,6 +21,9 @@ export { log, type LogLevel } from './logger';
  * - `secureHeaders()`: Hono's defaults (nosniff, HSTS, frame and referrer policies, ...).
  * - `timeout()`: past `TIMEOUTS.REQUEST_MS` it throws `HTTPException(504)`, which `app.onError`
  *   turns into the ApiError `{ code: 'TIMEOUT', message: 'timeout' }`.
+ * - `attachUser()`: `c.get('user')` from the session cookie, else unset; never answers by itself.
+ *   Last, so a preflight never reaches it, the lookup counts against the request budget, and an
+ *   error it throws (database down) still leaves with the CORS and request-id headers.
  */
 export function middleware(): MiddlewareHandler<AppEnv> {
   return every(
@@ -28,5 +34,6 @@ export function middleware(): MiddlewareHandler<AppEnv> {
     }),
     secureHeaders(),
     timeout(TIMEOUTS.REQUEST_MS, () => new HTTPException(504, { message: ERROR_MESSAGES.TIMEOUT })),
+    attachUser(),
   );
 }
