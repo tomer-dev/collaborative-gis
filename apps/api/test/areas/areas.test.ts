@@ -93,7 +93,7 @@ describe('POST /api/areas', () => {
     expect(await countRows(env, 'areas', 'created_by = $1', [user.id])).toBe(0);
   });
 
-  it('answers 422 with the ST_IsValid reason for a bowtie and writes no area or audit row', async () => {
+  it('answers 422 with the ST_IsValid reason for a bowtie and writes no area or area audit row', async () => {
     const { user, api } = signedIn();
 
     const res = await api.create({ name: 'bowtie', geometry: bowtieAt(randomSpot()) });
@@ -103,7 +103,10 @@ describe('POST /api/areas', () => {
     expect(body).toMatchObject({ code: 'UNPROCESSABLE', message: 'invalid geometry' });
     expect(body.details.reason).toContain('Self-intersection');
     expect(await countRows(env, 'areas', 'created_by = $1', [user.id])).toBe(0);
-    expect(await countRows(env, 'audit_log', 'user_id = $1', [user.id])).toBe(0);
+    // The rejection itself is audited (`request.rejected`, test/audit) once app.ts mounts it.
+    expect(await countRows(env, 'audit_log', "user_id = $1 and entity = 'area'", [user.id])).toBe(
+      0,
+    );
   });
 
   it('answers 422 for a missing name and for a body that is not JSON', async () => {

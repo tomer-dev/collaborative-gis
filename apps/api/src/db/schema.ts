@@ -56,10 +56,12 @@ export const areaVersions = pgTable(
 );
 
 /**
- * Append-only record of who did what (D20): `action` and `entity` from `AUDIT` in @cgis/shared.
- * An area event's `(entity_id, version)` points at the `area_versions` row it produced, instead of
- * hashing the request body; `version` is NULL for events that have no versioned entity. `details`
- * holds an event's own facts (e.g. the retention purge's deleted counts), never a request body.
+ * Append-only record of who did what (D20): `action` and `entity` (the entity type) from `AUDIT` in
+ * @cgis/shared. An area event's `(entity_id, version)` points at the `area_versions` row it
+ * produced, instead of hashing the request body; `version` is NULL for events that have no
+ * versioned entity. `details` holds an event's own facts (e.g. the retention purge's deleted
+ * counts, a rejection's code), never a request body. `request_id` is the request's
+ * `x-request-id`; NULL for events no HTTP request carried (Room draw sessions, the purge).
  */
 export const auditLog = pgTable('audit_log', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),
@@ -72,4 +74,5 @@ export const auditLog = pgTable('audit_log', {
   userAgent: text('user_agent'),
   at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
   details: jsonb('details').$type<Record<string, unknown>>(),
+  requestId: text('request_id'),
 });
