@@ -333,6 +333,47 @@ describe('updateAreaIfVersion', () => {
     });
   });
 
+  it('reports a stale version before an invalid polygon (409 before 422)', async () => {
+    const area = await insertArea(client, {
+      name: 'stale-bowtie',
+      geometry: box(27, 47, 27.01, 47.01),
+      userId,
+    });
+    const current = updated(
+      await updateAreaIfVersion(client, area.id, {
+        name: 'v2',
+        geometry: area.geometry,
+        userId,
+        version: 1,
+      }),
+    );
+
+    const result = await updateAreaIfVersion(client, area.id, {
+      name: 'x',
+      geometry: bowtie,
+      userId,
+      version: 1,
+    });
+
+    expect(result).toEqual({ ok: false, current });
+  });
+
+  it('reports a missing or deleted area before an invalid polygon (404 before 422)', async () => {
+    const area = await insertArea(client, {
+      name: 'gone-bowtie',
+      geometry: box(28, 48, 28.01, 48.01),
+      userId,
+    });
+    await softDeleteArea(client, area.id, userId);
+    const input = { name: 'x', geometry: bowtie, userId, version: 2 };
+
+    expect(await updateAreaIfVersion(client, area.id, input)).toEqual({ ok: false, current: null });
+    expect(await updateAreaIfVersion(client, crypto.randomUUID(), input)).toEqual({
+      ok: false,
+      current: null,
+    });
+  });
+
   it('rejects a self-intersecting polygon and leaves the row as it was', async () => {
     const area = await insertArea(client, {
       name: 'keep',
