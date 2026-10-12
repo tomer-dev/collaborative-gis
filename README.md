@@ -51,6 +51,10 @@ See ADRs 0001–0003 and the spec. Filled further by tickets 4.9 and 6.5.
 
 Spatial index, geodesic area, cache keys, benchmarks: tickets 1.3, 1.4, 1.7, 3.6, 6.6.
 
+Viewport cache (D6): `GET /api/areas` snaps the bbox outward to a `CACHE.TILE_QUANT_DEG` grid and answers from the Workers Cache API under a key of that tile, the zoom and the Room's map version, which every area change bumps. A write therefore moves later reads to a new key in every data center without a purge, old entries expire after `CACHE.BOUNDS_TTL_S`, a browser revalidates with a 304 from the version-and-tile `ETag`, and a Room that does not answer within `TIMEOUTS.DO_PING_MS` sends the read to the database uncached (`X-Cache: BYPASS`).
+
+Hyperdrive's own query cache stays off for this config ([ADR-0004](docs/adr/0004-horizontal-scaling-on-cloudflare.md); `wrangler hyperdrive update <id> --caching-disabled`, applied at deploy): it keeps results for up to 60 s and writes do not invalidate it, so a Cache API miss right after a write could store pre-write rows under the new version key.
+
 ## Security measures
 
 Tickets 2.1–2.8, 7.5. In place since M0: no secrets in the repository, the local database is bound to loopback only, and 404, 500 and failed `/readyz` responses return fixed `ApiError` bodies that never echo internal errors.
