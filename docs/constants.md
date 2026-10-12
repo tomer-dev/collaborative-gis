@@ -10,6 +10,8 @@ Import from `@cgis/shared` in app code (`@cgis/shared/constants` in Node-side co
 |---|---|---|---|
 | `POLYGON_MAX_VERTICES` | `1000` | `packages/shared/src/geo.ts` (ring max; re-exported under the old name), `apps/web/src/App.tsx` | Spec §5 polygon rule; bounds payload and `ST_IsValid` cost |
 | `AREA_NAME_MAX` | `120` | `packages/shared/src/area.ts` (`AreaSchema.name`) | D13 name length cap |
+| `USER_NAME_MAX` | `60` | `apps/api/src/do/handoff.ts` (Room trims and caps the user name), `apps/api/src/do/presence.ts` `PresenceAttachmentSchema.name` | Presence list and ghost labels stay short; attachments stay small |
+| `USER_ID_MAX` | `128` | `apps/api/src/do/handoff.ts` (Room rejects longer ids with 400), `PresenceAttachmentSchema.userId` | With both strings capped, a socket attachment cannot reach the runtime's 16 KiB limit |
 | `BOUNDS_LIMIT` | `500` | `apps/api/src/db/spatial.ts` `selectAreasInBounds` default `limit`; planned: T15 `GET /api/areas` | Caps one viewport response |
 | `SIMPLIFY_ZOOM_BELOW` | `12` | Planned: T15 (zoom below this gets simplified geometry) | Fewer vertices when zoomed out |
 | `SIMPLIFY_TOLERANCE` | `0.0005` | Planned: T15 / T2 `ST_SimplifyPreserveTopology` tolerance (degrees) | ~50 m at the equator: invisible at zoom < 12 |
@@ -41,7 +43,9 @@ The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmar
 | `ALARM_INTERVAL_MS` | `30_000` | Planned: T7 `Room.alarm()` cadence | Sweeps idle state twice per idle window |
 | `BAD_FRAME_STRIKES` | `10` | Planned: T7 (strikes before closing a socket) | Tolerates a few bad frames, stops a flood |
 | `CLOSE_POLICY_VIOLATION` | `1008` | Planned: T7 close code after the strikes | RFC 6455 "policy violation" |
+| `CLOSE_INTERNAL_ERROR` | `1011` | `apps/api/src/do/room.ts` closes an open socket without a valid attachment | RFC 6455 "internal error": the server cannot attribute the socket |
 | `PING_INTERVAL_MS` | `30_000` | Planned: T14 client ping (DO auto-responds ping→pong) | Keeps idle sockets and proxies alive |
+| `AUTO_PING` / `AUTO_PONG` | `'ping'` / `'pong'` | `apps/api/src/do/room.ts` `setWebSocketAutoResponse`; planned T14 client ping | The runtime answers without waking a hibernated Room |
 | `RECONNECT_BACKOFF_MS` | `{ min: 1000, max: 30_000 }` | Planned: T14 reconnect backoff (+ jitter) | Fast first retry, bounded worst case |
 | `OFFLINE_POLL_MS` | `10_000` | Planned: T14 polling while the socket is offline | Degraded mode still converges |
 
@@ -59,7 +63,14 @@ The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmar
 |---|---|---|---|
 | `DB_CONNECT_MS` | `3000` | `apps/api/src/db/index.ts` `withClient`: `connectionTimeoutMillis` and a hard `Promise.race` deadline (workerd cannot abort a TCP connect in flight) | `/readyz` and every DB call fail fast when the DB is unreachable |
 | `DB_QUERY_MS` | `3000` | `apps/api/src/db/index.ts` `withClient` (`query_timeout`) | Bounds one query inside the request budget |
-| `REQUEST_MS` | `10_000` | Planned: T3 `timeout()` middleware → 504 `TIMEOUT` | Whole-request budget (§6) |
+| `REQUEST_MS` | `10_000` | `apps/api/src/middleware/index.ts` `timeout()` → 504 `TIMEOUT` | Whole-request budget (§6) |
+
+## LOG
+
+| Name | Value | Where used | Why |
+|---|---|---|---|
+| `REDACT_KEYS` | `['password', 'secret', 'cookie', 'authorization']` | `apps/api/src/middleware/logger.ts` `log()`: a key containing one of these (any case, any depth) is redacted | Spec §6: secrets never reach Workers Logs (`set-cookie`, `BETTER_AUTH_SECRET`, `Authorization` all match) |
+| `REDACTED` | `'[redacted]'` | `apps/api/src/middleware/logger.ts` | Replacement value; keeps the key so the log still shows the field was present |
 
 ## ROUTES
 
@@ -85,6 +96,7 @@ The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmar
 | Name | Value | Where used | Why |
 |---|---|---|---|
 | `DEFAULT_ROOM_ID` | `'default'` | `apps/api/test/scaffold.test.ts`; planned T6 `ROOM.idFromName`, T8 fan-out | D11: one shared map, one Room DO |
+| `USER_ID_HEADER` / `USER_NAME_HEADER` | `'x-user-id'` / `'x-user-name'` | `apps/api/src/do/handoff.ts`: `withRoomUser` (used by `ws.ts`) sets them, name percent-encoded; `readRoomUser` (used by `room.ts`) validates them | The Worker hands the session user to the Room; client-sent copies are overwritten |
 
 ## MAP
 
@@ -98,6 +110,7 @@ The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmar
 | `AREAS_PANE` / `AREAS_PANE_Z` | `'areas'` / `450` | Planned: T10 creates, T13 draws saved areas | Above tiles and Leaflet's overlay pane (400) |
 | `DRAFTS_PANE` / `DRAFTS_PANE_Z` | `'drafts'` / `460` | Planned: T10 creates, T14 draws ghost drafts | Live drafts render above saved areas |
 | `MOVEEND_DEBOUNCE_MS` | `250` | Planned: T13 bbox query on `moveend` | One fetch per pan gesture |
+| `PRESENCE_COLORS` | `['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948']` | `apps/api/src/do/presence.ts` `presenceColor` (SHA-256 of the user id, mod 8) and `PresenceAttachmentSchema.color`; planned T14 ghosts and presence list | The 8-hue CVD-checked presence palette from the design-system brief (Grid 4) |
 
 ## ERROR_CODES
 
@@ -113,7 +126,7 @@ Every `ApiError.code` the API sends; `ApiErrorCodeSchema = z.enum(ERROR_CODES)`.
 | `UNPROCESSABLE` | `'UNPROCESSABLE'` | 422 | `unprocessableError`; planned T15 Zod and `ST_IsValid` failures | Validation |
 | `PAYLOAD_TOO_LARGE` | `'PAYLOAD_TOO_LARGE'` | 413 | `payloadTooLargeError` | Body limit |
 | `RATE_LIMITED` | `'RATE_LIMITED'` | 429 | `rateLimitedError`; planned T7 draft bucket | D13 rate limits |
-| `TIMEOUT` | `'TIMEOUT'` | 504 | `codeFor(504)`; planned T3 timeout middleware | Request budget exceeded |
+| `TIMEOUT` | `'TIMEOUT'` | 504 | `codeFor(504)` for the `apps/api/src/middleware/index.ts` timeout | Request budget exceeded |
 | `NOT_READY` | `'NOT_READY'` | 503 | `apps/api/src/routes/health.ts` `/readyz` | DB unreachable |
 | `INTERNAL` | `'INTERNAL'` | 500 | `apps/api/src/app.ts` `onError` | Sanitised server error |
 | `NOT_IMPLEMENTED` | `'NOT_IMPLEMENTED'` | 501 | T0 stubs `apps/api/src/auth.ts`, `apps/api/src/ws.ts` | Mounted route whose lane has not landed |
@@ -133,7 +146,7 @@ Default `ApiError.message` per code, same keys as `ERROR_CODES` (`satisfies` + a
 | `UNPROCESSABLE` | `'Unprocessable'` | `unprocessableError` default | Generic 422 |
 | `PAYLOAD_TOO_LARGE` | `'Payload too large'` | `payloadTooLargeError` default | Generic 413 |
 | `RATE_LIMITED` | `'Too many requests'` | `rateLimitedError` default | Generic 429 |
-| `TIMEOUT` | `'timeout'` | Planned: T3 `HTTPException(504, { message: ERROR_MESSAGES.TIMEOUT })` | 504 body |
+| `TIMEOUT` | `'timeout'` | `apps/api/src/middleware/index.ts` `HTTPException(504, { message: ERROR_MESSAGES.TIMEOUT })` | 504 body |
 | `NOT_READY` | `'database unreachable'` | `apps/api/src/routes/health.ts` | `/readyz` 503 body |
 | `INTERNAL` | `'Internal Server Error'` | `apps/api/src/app.ts` `onError` | 5xx bodies never leak `err.message` |
 | `NOT_IMPLEMENTED` | `'not implemented'` | T0 stubs `auth.ts`, `ws.ts` | 501 until the lane fills the stub |
