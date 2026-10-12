@@ -18,8 +18,6 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 | `USER_NAME_MAX` | `60` | Presence list and ghost labels stay short; attachments stay small. |
 | `USER_ID_MAX` | `128` | With both strings capped, a socket attachment cannot reach the runtime's 16 KiB limit. |
 | `BOUNDS_LIMIT` | `500` | Caps one viewport response. |
-| `SIMPLIFY_ZOOM_BELOW` | `12` | Fewer vertices when zoomed out. |
-| `SIMPLIFY_TOLERANCE` | `0.0005` | ~50 m at the equator: invisible at zoom < 12. |
 | `PASSWORD_MIN` | `8` | Better Auth's default `minPasswordLength`; the register form's `minlength`. |
 
 ## TIMEOUTS
@@ -130,12 +128,11 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 
 ## DEV
 
-`routes.ts`. Local dev origins: `wrangler dev` (API) and `vite` (SPA); wrangler.jsonc CLIENT_ORIGIN mirrors WEB_ORIGIN.
+`routes.ts`. Local dev origins.
 
 | Name | Value | Notes |
 |---|---|---|
-| `API_ORIGIN` | `'http://localhost:8787'` | `wrangler dev` default port. |
-| `WEB_ORIGIN` | `'http://localhost:5173'` | `vite` default port; CORS and Better Auth trusted origin. |
+| `API_ORIGIN` | `'http://localhost:8787'` | `wrangler dev` default port: the Vite proxy target and the tests' `BETTER_AUTH_URL`. |
 
 ## HEADERS
 
