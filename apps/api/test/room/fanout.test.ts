@@ -69,38 +69,14 @@ async function createArea(user: User) {
 }
 
 /**
- * `base` with the Room stub's `broadcast` replaced by `broadcast`; every other property is the
- * real binding's. Test-only: production code has no switch to make the Room fail.
+ * `env` with a stand-in `ROOM` for the two namespace calls `fanout` makes: `idFromName`, then
+ * `get(...).broadcast`, here `broadcast`. POST reaches the Room only through `fanout`. Test-only:
+ * production code has no switch to make the Room fail.
  */
-function withBroadcast(base: Env, broadcast: (event: AreaEvent) => Promise<void>): Env {
-  const namespace = new Proxy(base.ROOM, {
-    get(target, key) {
-      if (key === 'get') {
-        return (id: DurableObjectId) =>
-          new Proxy(target.get(id), {
-            get: (stub, k) => (k === 'broadcast' ? broadcast : Reflect.get(stub, k)),
-          });
-      }
-      const value: unknown = Reflect.get(target, key);
-      return typeof value === 'function' ? value.bind(target) : value;
-    },
-  });
-  return { ...base, ROOM: namespace };
-}
-
-/** `POST /api/areas` as a fresh user against `target`, with its own ExecutionContext. */
-async function postArea(target: Env, ctx: ExecutionContext): Promise<Response> {
-  return appWithUser(freshUser()).request(
-    ROUTES.AREAS,
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(newSquare()),
-    },
-    target,
-    ctx,
-  );
-}
+const withBroadcast = (broadcast: (event: AreaEvent) => Promise<void>) => ({
+  ...env,
+  ROOM: { idFromName: () => ({}), get: () => ({ broadcast }) },
+});
 
 describe('fan-out from the area routes', () => {
   it('POST: a joined socket receives area:created with the 201 area, seq, ts and mapVersion', async () => {
@@ -196,16 +172,18 @@ describe('fan-out from the area routes', () => {
       release = resolve;
     });
     const order: string[] = [];
-    const slow = withBroadcast(env, async () => {
+    const slow = withBroadcast(async () => {
       order.push('broadcast called');
       await released;
       order.push('broadcast settled');
     });
     const ctx = createExecutionContext();
-    const response = postArea(slow, ctx).then((res) => {
-      order.push('response');
-      return res;
-    });
+    const response = areasClient(slow, freshUser(), {}, ctx)
+      .create(newSquare())
+      .then((res) => {
+        order.push('response');
+        return res;
+      });
     // Bounded, so a route that awaited the broadcast fails on `order` instead of hanging.
     await Promise.race([response, scheduler.wait(RESPONSE_PATIENCE_MS)]);
     release();
@@ -217,12 +195,12 @@ describe('fan-out from the area routes', () => {
   });
 
   it('a Room that rejects: still 201, one error log line, nothing thrown into waitUntil', async () => {
-    const failing = withBroadcast(env, async () => {
+    const failing = withBroadcast(async () => {
       throw new Error('room unavailable');
     });
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
     const ctx = createExecutionContext();
-    const res = await postArea(failing, ctx);
+    const res = await areasClient(failing, freshUser(), {}, ctx).create(newSquare());
     await waitOnExecutionContext(ctx);
     expect(res.status).toBe(201);
     const area = AreaSchema.parse(await res.json());

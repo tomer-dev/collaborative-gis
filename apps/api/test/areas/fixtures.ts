@@ -61,22 +61,31 @@ export function openRingAt(spot: [number, number]): Polygon {
 export const bboxAround = ([lng, lat]: [number, number], pad = 0.05): string =>
   [lng - pad, lat - pad, lng + pad, lat + pad].join(',');
 
+/** The bindings `app.request` takes: the real `Env`, or a test stand-in for part of it. */
+type Bindings = Parameters<ReturnType<typeof createApp>['request']>[2];
+
 /**
  * The real app as `user` (`appWithUser`), or anonymous (`createApp()`) without one. Each request
  * gets an ExecutionContext, as the Workers runtime gives one (the routes call `waitUntil`), and is
- * awaited until its `waitUntil` work settles.
+ * awaited until its `waitUntil` work settles. With `ctx`, requests run in that one instead and the
+ * caller waits on it.
  */
-export function areasClient(env: Env, user?: User, headers: Record<string, string> = {}) {
+export function areasClient(
+  env: Bindings,
+  user?: User,
+  headers: Record<string, string> = {},
+  ctx?: ExecutionContext,
+) {
   const app = user ? appWithUser(user) : createApp();
   const send = async (path: string, init: RequestInit = {}) => {
-    const ctx = createExecutionContext();
+    const context = ctx ?? createExecutionContext();
     const res = await app.request(
       path,
       { ...init, headers: { 'content-type': 'application/json', ...headers } },
       env,
-      ctx,
+      context,
     );
-    await waitOnExecutionContext(ctx);
+    if (!ctx) await waitOnExecutionContext(context);
     return res;
   };
   const json = (method: string, path: string, body: unknown) =>
