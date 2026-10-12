@@ -1,9 +1,11 @@
+// Node also runs the db modules natively (`db:seed`, `db:explain`), so within src/db relative
+// imports name the .ts file (see tsconfig.base.json); type-only imports are erased.
 import { TIMEOUTS } from '@cgis/shared';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import type { Env } from '../app';
-import { log } from '../log';
-import * as schema from './schema';
+import { log } from '../log.ts';
+import * as schema from './schema.ts';
 
 /**
  * Runs `fn` with a fresh `pg.Client` on `env.HYPERDRIVE` and closes it afterwards.

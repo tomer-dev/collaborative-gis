@@ -41,15 +41,29 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 
 ## SEED
 
-`db.ts`. The small test seed (apps/api/src/db/seed.ts); the 10k benchmark seed is M2.
+`db.ts`. Random seed polygons (apps/api/src/db/seed.ts, `pnpm --filter @cgis/api db:seed [--count N]`): the tests' small set, and the 10k benchmark set with `--count 10000`.
 
 | Name | Value | Notes |
 |---|---|---|
-| `COUNT` | `50` | Enough rows for the planner to have statistics, fast to insert. |
+| `COUNT` | `50` | Default row count: enough for the planner to have statistics, fast to insert. |
+| `BATCH` | `500` | Rows per insert statement; each row binds 4 parameters (Postgres allows 65,535). |
+| `NAME_PREFIX` | `'seed-'` | Every seeded name starts with it; a rerun counts those rows and only tops up to the count. |
 | `BBOX` | `[34.27, 29.49, 35.9, 33.34]` | Israel as [w, s, e, n] in degrees: the demo region (MAP.DEFAULT_CENTER sits inside it). |
-| `MAX_RADIUS_DEG` | `0.02` | Largest distance from a polygon's centre to a vertex, in degrees (~2 km). |
-| `VERTICES` | `{ min: 4, max: 8 }` | Small, varied rings. |
-| `USER_ID` | `'seed'` | Seeded rows are recognisable. |
+| `MIN_RADIUS_DEG` | `0.003` | Smallest polygon scale (centre to farthest vertex), in degrees: every polygon ≥ 0.2 km across. |
+| `MAX_RADIUS_DEG` | `0.013` | Largest distance from a polygon's centre to a vertex, in degrees: ≤ 3 km across. |
+| `VERTICES` | `{ min: 4, max: 12 }` | Small, varied rings. |
+| `USER_ID` | `'seed'` | Seeded rows are recognisable by `created_by`. |
+
+## BENCH
+
+`db.ts`. The bounds-query benchmark (`pnpm --filter @cgis/api db:explain`): EXPLAIN ANALYZE with and without the GiST index, written to docs/benchmarks.md.
+
+| Name | Value | Notes |
+|---|---|---|
+| `ROWS` | `10_000` | Table size the benchmark seeds up to before measuring. |
+| `RUNS` | `20` | Runs per plan; p50 and p95 are taken over these. |
+| `VIEWPORT` | `[34.72, 32.02, 34.88, 32.12]` | A ~15 x 11 km viewport over Tel Aviv as [w, s, e, n] in degrees. |
+| `BOUNDS_P95_MS` | `100` | p95 budget for the bounds query's execution time: recorded next to the result, not asserted. |
 
 ## AUDIT
 

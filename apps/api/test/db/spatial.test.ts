@@ -198,10 +198,10 @@ describe('selectAreasInBounds', () => {
   });
 
   it('uses the areas_geom_gist index once seeded and analysed', async () => {
-    const seeded = await seedAreas(client);
+    const { inserted: seeded } = await seedAreas(client);
     expect(seeded).toHaveLength(SEED.COUNT);
     const inSeedBbox = await selectAreasInBounds(client, SEED.BBOX, { limit: LIMITS.BOUNDS_LIMIT });
-    expect(inSeedBbox.map((a) => a.id)).toEqual(expect.arrayContaining(seeded.map((a) => a.id)));
+    expect(inSeedBbox.map((a) => a.id)).toEqual(expect.arrayContaining(seeded));
 
     await client.query('analyze areas');
     // A ~10 km viewport over Tel Aviv. At this table size a sequential scan costs less than any
@@ -324,6 +324,47 @@ describe('updateAreaIfVersion', () => {
     });
     await softDeleteArea(client, area.id, userId);
     const input = { name: 'x', geometry: area.geometry, userId, version: 2 };
+
+    expect(await updateAreaIfVersion(client, area.id, input)).toEqual({ ok: false, current: null });
+    expect(await updateAreaIfVersion(client, crypto.randomUUID(), input)).toEqual({
+      ok: false,
+      current: null,
+    });
+  });
+
+  it('reports a stale version before an invalid polygon (409 before 422)', async () => {
+    const area = await insertArea(client, {
+      name: 'stale-bowtie',
+      geometry: box(27, 47, 27.01, 47.01),
+      userId,
+    });
+    const current = updated(
+      await updateAreaIfVersion(client, area.id, {
+        name: 'v2',
+        geometry: area.geometry,
+        userId,
+        version: 1,
+      }),
+    );
+
+    const result = await updateAreaIfVersion(client, area.id, {
+      name: 'x',
+      geometry: bowtie,
+      userId,
+      version: 1,
+    });
+
+    expect(result).toEqual({ ok: false, current });
+  });
+
+  it('reports a missing or deleted area before an invalid polygon (404 before 422)', async () => {
+    const area = await insertArea(client, {
+      name: 'gone-bowtie',
+      geometry: box(28, 48, 28.01, 48.01),
+      userId,
+    });
+    await softDeleteArea(client, area.id, userId);
+    const input = { name: 'x', geometry: bowtie, userId, version: 2 };
 
     expect(await updateAreaIfVersion(client, area.id, input)).toEqual({ ok: false, current: null });
     expect(await updateAreaIfVersion(client, crypto.randomUUID(), input)).toEqual({

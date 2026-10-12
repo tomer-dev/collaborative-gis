@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { LIMITS } from './constants';
+import { LIMITS } from './constants/index.ts';
 
 export const PositionSchema = z.tuple([
   z.number().min(-180).max(180), // lng

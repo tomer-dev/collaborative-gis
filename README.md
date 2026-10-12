@@ -51,9 +51,16 @@ Migrations always run against a **direct** database URL, never through Hyperdriv
 - Locally, the direct URL is `postgresql://cgis:cgis@127.0.0.1:5433/cgis`; migrate it before running the workerd tests that need tables. A lane database from `scripts/db-lane.sh` works the same way.
 - In production, use the Neon direct (non-pooled) URL (`NEON_DATABASE_URL` in `.env.example`), injected from 1Password with `op run`.
 - CI migrates the runner's PostGIS before `pnpm test`.
-- `apps/api/test/db` is a Node Vitest project (`db` in `apps/api/vitest.config.ts`), because `migrate()` reads the SQL files from disk. On every run, its global setup creates `cgis_db_<lane>` with `scripts/db-lane.sh`, empties it and migrates it from scratch.
+- `apps/api/test/db` is a Node Vitest project (`db` in `apps/api/vitest.config.ts`), because `migrate()` reads the SQL files from disk. On every run, its global setup creates `cgis_db_<lane>` and `cgis_db_seed_<lane>` (the seed test's own) with `scripts/db-lane.sh`, empties them and migrates them from scratch.
+- Seed: `DATABASE_URL=<direct URL> pnpm --filter @cgis/api db:seed [--count N]` tops the random `seed-*` polygons up to N (default 50; `--count 10000` for the benchmark set), so a rerun adds nothing. `db:explain` seeds 10,000 and writes the bounds-query EXPLAIN table to [`docs/benchmarks.md`](docs/benchmarks.md).
 
 Coordinate order: all GeoJSON in this project is `[longitude, latitude]`; Leaflet's own API is `[lat, lng]`. The shared schema cannot detect a swap when both values are in range.
+
+## Database access rules
+
+- Reads use the Drizzle query builder with explicit column lists; geometry leaves the database only as `ST_AsGeoJSON(geom)::json` (the `polygon` column type refuses raw reads).
+- `sql` is for PostGIS fragments (`ST_MakeEnvelope`, `ST_Area`, `ST_GeomFromGeoJSON`) and for the write CTEs in `apps/api/src/db/spatial.ts` that write an area and its version row in one statement (D23's exception, marked in a comment each); ESLint rejects a `sql` template starting with `SELECT` in `apps/api/src`.
+- Rows from those raw statements are Zod-parsed before they leave `spatial.ts`; the Worker reaches the database only through `withClient` (Hyperdrive), scripts and migrations through a direct URL.
 
 ## Technical decisions and architecture
 
