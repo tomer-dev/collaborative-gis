@@ -1,0 +1,330 @@
+import { MAP } from '@cgis/shared';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { map as leafletMap } from 'leaflet';
+import { useRef, useState } from 'react';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { Avatar, initials, PRESENCE_SLOT_CLASSES, presenceSlotClass } from './Avatar';
+import { Banner } from './Banner';
+import { Button } from './Button';
+import { Dialog } from './Dialog';
+import { Field } from './Field';
+import { IconLayers, IconPencil, IconPlus } from './icons';
+import { Input } from './Input';
+import { MapControl, MapControlButton } from './MapControl';
+import { areaPathOptions, ghostPathOptions } from './map-styles';
+import { PresenceList } from './PresenceList';
+import { Stat } from './Stat';
+import { syncColorScheme } from './theme';
+import { Tooltip } from './Tooltip';
+
+beforeAll(() => {
+  // jsdom has HTMLDialogElement but no modal API; this stand-in mirrors the parts Dialog uses.
+  HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
+    this.setAttribute('open', '');
+  };
+  HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
+    this.removeAttribute('open');
+    this.dispatchEvent(new Event('close'));
+  };
+});
+
+afterEach(cleanup);
+
+describe('Button', () => {
+  it('defaults to type="button" and is square when icon-only', () => {
+    render(<Button icon={IconPlus} aria-label="Zoom in" />);
+    const button = screen.getByRole('button', { name: 'Zoom in' });
+    expect(button.getAttribute('type')).toBe('button');
+    expect(button.className).toContain('w-10');
+    expect(button.className).not.toContain('px-4');
+  });
+
+  it('applies variant and size classes and stays inert when disabled', () => {
+    const onClick = vi.fn();
+    render(
+      <Button variant="danger" size="lg" disabled onClick={onClick}>
+        Delete area
+      </Button>,
+    );
+    const button = screen.getByRole('button', { name: 'Delete area' });
+    expect(button.className).toContain('bg-danger-strong');
+    expect(button.className).toContain('h-12');
+    fireEvent.click(button);
+    expect(onClick).not.toHaveBeenCalled();
+  });
+});
+
+describe('Field + Input', () => {
+  it('labels the input and links hint and error through aria-describedby', () => {
+    render(
+      <Field label="Area name" hint="Up to 120 characters" error="Name is required" required>
+        <Input />
+      </Field>,
+    );
+    const input = screen.getByLabelText(/Area name/);
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(input.hasAttribute('required')).toBe(true);
+    const described = (input.getAttribute('aria-describedby') ?? '')
+      .split(' ')
+      .map((id) => document.getElementById(id)?.textContent);
+    expect(described).toEqual(['Up to 120 characters', 'Name is required']);
+  });
+
+  it('is valid and undescribed without hint or error', () => {
+    render(
+      <Field label="Search">
+        <Input />
+      </Field>,
+    );
+    const input = screen.getByLabelText('Search');
+    expect(input.hasAttribute('aria-invalid')).toBe(false);
+    expect(input.hasAttribute('aria-describedby')).toBe(false);
+  });
+});
+
+function DialogHarness({ onClose }: { onClose?: () => void }) {
+  const [open, setOpen] = useState(false);
+  const keepRef = useRef<HTMLButtonElement>(null);
+  return (
+    <>
+      <Button onClick={() => setOpen(true)}>Save</Button>
+      <Dialog
+        open={open}
+        role="alertdialog"
+        initialFocusRef={keepRef}
+        onClose={() => {
+          onClose?.();
+          setOpen(false);
+        }}
+        title="Someone else changed this area"
+        description="Keep your version or load theirs."
+        footer={
+          <>
+            <Button ref={keepRef} variant="secondary" onClick={() => setOpen(false)}>
+              Load theirs
+            </Button>
+            <Button onClick={() => setOpen(false)}>Overwrite with mine</Button>
+          </>
+        }
+      />
+    </>
+  );
+}
+
+describe('Dialog', () => {
+  it('opens modally, is named by its title, focuses the initial element, closes on Escape and returns focus', () => {
+    const onClose = vi.fn();
+    render(<DialogHarness onClose={onClose} />);
+    const opener = screen.getByRole('button', { name: 'Save' });
+    opener.focus();
+    fireEvent.click(opener);
+
+    const dialog = screen.getByRole('alertdialog', { name: 'Someone else changed this area' });
+    expect(dialog.hasAttribute('open')).toBe(true);
+    expect(dialog.getAttribute('aria-describedby')).toBeTruthy();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Load theirs' }));
+
+    // Escape fires `cancel` on a modal dialog.
+    fireEvent(dialog, new Event('cancel', { cancelable: true }));
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(dialog.hasAttribute('open')).toBe(false);
+    expect(document.activeElement).toBe(opener);
+  });
+});
+
+describe('Tooltip', () => {
+  it('shows on focus, describes its trigger and hides on Escape', () => {
+    render(
+      <Tooltip content="Saved areas only">
+        <Button>Filter</Button>
+      </Tooltip>,
+    );
+    const trigger = screen.getByRole('button', { name: 'Filter' });
+    const tooltip = screen.getByText('Saved areas only');
+    expect(trigger.getAttribute('aria-describedby')).toBe(tooltip.id);
+    expect(tooltip.closest('[hidden]')).not.toBeNull();
+
+    fireEvent.focus(trigger);
+    expect(tooltip.closest('[hidden]')).toBeNull();
+    expect(tooltip.getAttribute('role')).toBe('tooltip');
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(tooltip.closest('[hidden]')).not.toBeNull();
+  });
+
+  it('can be the accessible name of an icon-only trigger', () => {
+    render(
+      <Tooltip content="Layers" relation="label">
+        <Button icon={IconLayers} />
+      </Tooltip>,
+    );
+    expect(screen.getByRole('button', { name: 'Layers' })).toBeTruthy();
+  });
+});
+
+function Toolbar(props: { map?: ReturnType<typeof leafletMap> }) {
+  return (
+    <MapControl label="Drawing tools" {...props}>
+      <MapControlButton label="Pan" icon={IconLayers} />
+      <MapControlButton label="Draw polygon" icon={IconPencil} pressed />
+      <MapControlButton label="Zoom in" icon={IconPlus} />
+    </MapControl>
+  );
+}
+
+describe('MapControl', () => {
+  it('is one Tab stop and moves focus with arrows, Home and End', () => {
+    render(<Toolbar />);
+    const toolbar = screen.getByRole('toolbar', { name: 'Drawing tools' });
+    expect(toolbar.getAttribute('aria-orientation')).toBe('vertical');
+    const [pan, draw, zoom] = ['Pan', 'Draw polygon', 'Zoom in'].map((name) =>
+      screen.getByRole('button', { name }),
+    );
+    expect([pan, draw, zoom].map((b) => b!.tabIndex)).toEqual([0, -1, -1]);
+    expect(draw!.getAttribute('aria-pressed')).toBe('true');
+
+    pan!.focus();
+    fireEvent.keyDown(pan!, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(draw);
+    expect([pan, draw, zoom].map((b) => b!.tabIndex)).toEqual([-1, 0, -1]);
+    fireEvent.keyDown(draw!, { key: 'End' });
+    expect(document.activeElement).toBe(zoom);
+    fireEvent.keyDown(zoom!, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(pan);
+    fireEvent.keyDown(pan!, { key: 'ArrowUp' });
+    expect(document.activeElement).toBe(zoom);
+    fireEvent.keyDown(zoom!, { key: 'Home' });
+    expect(document.activeElement).toBe(pan);
+  });
+
+  it('mounts inside a Leaflet control when given a map', () => {
+    const element = document.createElement('div');
+    document.body.append(element);
+    const map = leafletMap(element, { center: [...MAP.DEFAULT_CENTER], zoom: MAP.DEFAULT_ZOOM });
+    render(<Toolbar map={map} />);
+    const toolbar = screen.getByRole('toolbar', { name: 'Drawing tools' });
+    expect(toolbar.closest('.leaflet-control')).not.toBeNull();
+    expect(toolbar.closest('.leaflet-top.leaflet-left')).not.toBeNull();
+    cleanup();
+    expect(element.querySelector('[role="toolbar"]')).toBeNull();
+    map.remove();
+    element.remove();
+  });
+});
+
+describe('Avatar', () => {
+  it('has one hue class per MAP.PRESENCE_COLORS entry and a neutral past it', () => {
+    expect(PRESENCE_SLOT_CLASSES).toHaveLength(MAP.PRESENCE_COLORS.length);
+    expect(presenceSlotClass(0)).toContain('presence-1');
+    expect(presenceSlotClass(MAP.PRESENCE_COLORS.length - 1)).toContain(
+      `presence-${MAP.PRESENCE_COLORS.length}`,
+    );
+    expect(presenceSlotClass(MAP.PRESENCE_COLORS.length)).toContain('presence-none');
+    expect(presenceSlotClass(null)).toContain('presence-none');
+  });
+
+  it('derives initials and is an image named after the user unless decorative', () => {
+    expect(initials('Ada Lovelace')).toBe('AL');
+    expect(initials('  grace  brewster murray hopper ')).toBe('GH');
+    expect(initials('Émile')).toBe('É');
+    expect(initials('')).toBe('?');
+    render(
+      <>
+        <Avatar name="Ada Lovelace" colorSlot={2} />
+        <Avatar name="Hidden" decorative />
+      </>,
+    );
+    expect(screen.getByRole('img', { name: 'Ada Lovelace' }).className).toContain('presence-3');
+    expect(screen.queryByRole('img', { name: 'Hidden' })).toBeNull();
+  });
+});
+
+describe('Banner', () => {
+  it('announces danger assertively and other tones politely', () => {
+    render(
+      <>
+        <Banner tone="danger" title="Offline">
+          Changes stay on this device.
+        </Banner>
+        <Banner tone="warn" title="Reconnecting" />
+      </>,
+    );
+    expect(screen.getByRole('alert').textContent).toContain('Offline');
+    expect(screen.getByRole('status').textContent).toContain('Reconnecting');
+  });
+});
+
+describe('Stat', () => {
+  it('formats the value with its unit and shows an em dash without one', () => {
+    const { rerender } = render(<Stat label="Area" value={12.3456} unit="km²" />);
+    const output = screen.getByRole('status', { name: 'Area' });
+    expect(output.textContent).toBe(`${(12.35).toLocaleString()}km²`);
+    expect(output.getAttribute('aria-live')).toBe('off');
+    rerender(<Stat label="Area" value={null} unit="km²" live />);
+    expect(screen.getByRole('status', { name: 'Area' }).textContent).toBe('—No value');
+    expect(screen.getByRole('status', { name: 'Area' }).getAttribute('aria-live')).toBe('polite');
+  });
+});
+
+describe('PresenceList', () => {
+  const users = [
+    { id: 'a', name: 'Ada Lovelace', colorSlot: 0, state: 'drawing' as const, self: true },
+    { id: 'b', name: 'Grace Hopper', colorSlot: 1 },
+    { id: 'c', name: 'Alan Turing', colorSlot: 2 },
+  ];
+
+  it('lists names with "(you)" and the drawing state', () => {
+    render(<PresenceList users={users} />);
+    const [ada, grace, alan] = screen.getAllByRole('listitem');
+    expect(ada!.textContent).toMatch(/Ada Lovelace \(you\)Drawing$/);
+    expect(grace!.textContent).toMatch(/Grace Hopper$/);
+    expect(alan!.textContent).toMatch(/Alan Turing$/);
+    // The avatar beside each name is decorative.
+    expect(screen.queryAllByRole('img')).toHaveLength(0);
+  });
+
+  it('stacks avatars with a "+N more" counter', () => {
+    render(<PresenceList users={users} variant="stack" max={2} />);
+    expect(screen.getByRole('img', { name: 'Ada Lovelace (you)' })).toBeTruthy();
+    expect(screen.getByRole('img', { name: '1 more' })).toBeTruthy();
+    expect(screen.queryByRole('img', { name: 'Alan Turing' })).toBeNull();
+  });
+
+  it('says so when nobody is here', () => {
+    render(<PresenceList users={[]} emptyText="Nobody else is here yet." />);
+    expect(screen.getByText('Nobody else is here yet.')).toBeTruthy();
+  });
+});
+
+describe('map styles', () => {
+  it('puts saved areas and drafts in the panes from MAP, with hue classes by slot', () => {
+    expect(areaPathOptions()).toEqual({ pane: MAP.AREAS_PANE, className: 'map-area' });
+    expect(areaPathOptions(true).className).toBe('map-area-selected');
+    expect(ghostPathOptions(2)).toEqual({
+      pane: MAP.DRAFTS_PANE,
+      className: 'map-ghost map-ghost-3',
+    });
+    expect(ghostPathOptions(MAP.PRESENCE_COLORS.length).className).toBe('map-ghost');
+  });
+});
+
+describe('syncColorScheme', () => {
+  it('toggles the dark class with the OS preference', () => {
+    let listener: (() => void) | undefined;
+    const query = {
+      matches: true,
+      addEventListener: (_: string, fn: () => void) => (listener = fn),
+      removeEventListener: vi.fn(),
+    };
+    vi.stubGlobal('matchMedia', () => query);
+    const root = document.createElement('div');
+    const stop = syncColorScheme(root);
+    expect(root.classList.contains('dark')).toBe(true);
+    query.matches = false;
+    act(() => listener?.());
+    expect(root.classList.contains('dark')).toBe(false);
+    stop();
+    expect(query.removeEventListener).toHaveBeenCalledOnce();
+    vi.unstubAllGlobals();
+  });
+});
