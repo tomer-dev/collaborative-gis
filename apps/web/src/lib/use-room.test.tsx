@@ -16,6 +16,7 @@ import * as L from 'leaflet';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeSockets, serverFrame } from './fake-websocket';
+import { createPolygonDraw } from './geo';
 import {
   applyDraftOp,
   applyRemoteDraftOp,
@@ -296,7 +297,7 @@ describe('useRoom', () => {
     const room = renderRoom();
     room.open();
     const target = line(30);
-    // 30 clicks and some drags in 600 ms: far more draw:change events than the budget.
+    // 30 clicks in 600 ms, each reported twice: far more draw:change events than the budget.
     for (let i = 1; i <= target.length; i++) {
       room.draw(target.slice(0, i));
       room.advance(10);
@@ -324,6 +325,54 @@ describe('useRoom', () => {
     expect(room.socket().frames().at(-1)).toEqual(
       expect.objectContaining({ type: 'presence:set', payload: { state: 'viewing' } }),
     );
+  });
+
+  it('streams the real draw tool: a click is an add, a vertex drag one move at drag end, Finish a clear', () => {
+    const room = renderRoom();
+    room.open();
+    const draw = createPolygonDraw(map, { pane: MAP.DRAFTS_PANE });
+    act(() => draw.enable());
+    // A Leaflet.Editable drawing click: map mousedown + mouseup with the left button.
+    const click = (lat: number, lng: number) =>
+      act(() => {
+        const originalEvent = new MouseEvent('mousedown', { which: 1, clientX: 10, clientY: 10 });
+        map.fire('mousedown', { latlng: L.latLng(lat, lng), originalEvent });
+        map.fire('mouseup', { latlng: L.latLng(lat, lng), originalEvent });
+      });
+    click(32, 35);
+    room.advance(DRAFT_INTERVAL_MS);
+    click(32, 35.05);
+    room.advance(DRAFT_INTERVAL_MS);
+    click(32.05, 35.05);
+    room.advance(DRAFT_INTERVAL_MS);
+    expect(room.drafts().map((frame) => frame.payload.op)).toEqual(['add', 'add', 'add']);
+
+    // A real marker drag on the second handle: mousedown, mousemoves, mouseup.
+    const handle = map.getContainer().querySelectorAll('.cgis-draw-handle')[1];
+    expect(handle).toBeDefined();
+    const mouse = (type: string, x: number, y: number) =>
+      act(
+        () =>
+          void handle?.dispatchEvent(
+            new MouseEvent(type, { bubbles: true, button: 0, which: 1, clientX: x, clientY: y }),
+          ),
+      );
+    mouse('mousedown', 100, 100);
+    mouse('mousemove', 120, 80);
+    mouse('mousemove', 140, 60);
+    expect(room.drafts()).toHaveLength(3);
+    mouse('mouseup', 140, 60);
+    room.advance(DRAFT_INTERVAL_MS);
+    expect(room.drafts().at(-1)?.payload).toEqual({
+      op: 'move',
+      index: 1,
+      vertex: draw.getVertices()[1],
+    });
+    expect(room.drafts()).toHaveLength(4);
+
+    act(() => void draw.finish());
+    expect(room.drafts().at(-1)?.payload).toEqual({ op: 'clear' });
+    expect(replay(room.drafts().map((frame) => frame.payload))).toEqual([]);
   });
 
   it('sends the first op at once and draw:cancel as clear', () => {
