@@ -106,6 +106,18 @@ afterEach(() => {
 });
 
 describe('/login', () => {
+  it('shows the session status on the first check only, not during a later refetch', async () => {
+    renderAppAt(ROUTES.APP.LOGIN, { data: null, isPending: true });
+    expect(screen.getByRole('status').textContent).toBe(COPY.AUTH.SESSION_CHECKING);
+    await act(async () => auth.set(signedOut));
+    await screen.findByRole('heading', { name: COPY.AUTH.LOGIN_TITLE });
+
+    // What Better Auth does while signed out and refetching (after a sign-in, for one).
+    await act(async () => auth.set({ data: null, isPending: true }));
+    expect(screen.queryByText(COPY.AUTH.SESSION_CHECKING)).toBeNull();
+    expect(screen.getByRole('heading', { name: COPY.AUTH.LOGIN_TITLE })).toBeTruthy();
+  });
+
   it('signs in through authClient, then lands on /map once Better Auth has the session', async () => {
     auth.signInEmail.mockResolvedValue(ok({ redirect: false, token: 'tok_1', user: ada }));
     const { router, resolved } = renderAppAt(ROUTES.APP.LOGIN, signedOut);
