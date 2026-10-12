@@ -14,7 +14,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import type * as L from 'leaflet';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { onDraw } from './geo/draw-handler';
+import { onDraw } from './geo';
 import {
   createRoomConnection,
   roomUrl,
@@ -65,7 +65,8 @@ const same = (a: Position | undefined, b: Position | undefined) =>
  * The one op that takes the Room's copy (`sent`) a step toward the draw tool's (`target`), or
  * null when they match. Past the common prefix and suffix, a pure insertion is an `add`, a pure
  * deletion a `remove`, anything else a `move` at the first difference; an empty target is
- * `clear`. A click is one `add`, a drag one `move` per frame sent, an undo one `remove`.
+ * `clear`. A click is one `add`, a vertex drag one `move` (the draw tool reports it at drag end),
+ * an undo one `remove`.
  */
 export function nextDraftOp(
   sent: readonly Position[],

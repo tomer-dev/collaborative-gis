@@ -44,6 +44,10 @@ describe('constants', () => {
     expect(shared.MAP.DRAFT_STYLE.weight).toBeGreaterThan(0);
   });
 
+  it('POLYGON_MAX_PLACED_VERTICES is the ring cap minus the closing vertex', () => {
+    expect(shared.LIMITS.POLYGON_MAX_PLACED_VERTICES).toBe(shared.LIMITS.POLYGON_MAX_VERTICES - 1);
+  });
+
   it('POLYGON_MAX_VERTICES keeps its old import path and matches LIMITS', () => {
     expect(shared.POLYGON_MAX_VERTICES).toBe(shared.LIMITS.POLYGON_MAX_VERTICES);
   });
