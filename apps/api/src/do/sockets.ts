@@ -5,9 +5,20 @@ import { attachmentOf, type PresenceAttachment } from './presence';
 /** An open socket with its parsed attachment. */
 export type Socket = { ws: WebSocket; attachment: PresenceAttachment };
 
-/** Creates `counters`: the outgoing `seq` here, and the map version (`Room.bumpMapVersion`, T8). */
+/** Creates `counters`, the SQLite table behind the outgoing `seq` and the map version (T8). */
 export function createSeqCounter(sql: SqlStorage): void {
   sql.exec('CREATE TABLE IF NOT EXISTS counters (name TEXT PRIMARY KEY, value INTEGER NOT NULL)');
+}
+
+/** Adds one to the `name` counter (the first value is 1) and returns the new value. */
+export function bump(sql: SqlStorage, name: 'seq' | 'mapVersion'): number {
+  return sql
+    .exec<{ value: number }>(
+      `INSERT INTO counters (name, value) VALUES (?, 1)
+       ON CONFLICT (name) DO UPDATE SET value = value + 1 RETURNING value`,
+      name,
+    )
+    .one().value;
 }
 
 /**
@@ -74,11 +85,5 @@ export function sendError(
 
 /** The wire frame: `event` with the next `seq` from the SQLite counter and `ts = Date.now()`. */
 function stamp(sql: SqlStorage, event: RoomEvent): string {
-  const { seq } = sql
-    .exec<{ seq: number }>(
-      `INSERT INTO counters (name, value) VALUES ('seq', 1)
-       ON CONFLICT (name) DO UPDATE SET value = value + 1 RETURNING value AS seq`,
-    )
-    .one();
-  return JSON.stringify({ ...event, seq, ts: Date.now() });
+  return JSON.stringify({ ...event, seq: bump(sql, 'seq'), ts: Date.now() });
 }

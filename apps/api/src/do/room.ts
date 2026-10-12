@@ -24,7 +24,7 @@ import {
 } from './handlers';
 import { isWebSocketUpgrade, readRoomUser, type RoomUser } from './handoff';
 import { attachmentOf, type PresenceAttachment, presenceColor } from './presence';
-import { createSeqCounter, sendAll, sockets } from './sockets';
+import { bump, createSeqCounter, sendAll, sockets } from './sockets';
 
 /**
  * The single map room (id `ROOM.DEFAULT_ROOM_ID`). Sockets use the WebSocket Hibernation API:
@@ -89,7 +89,7 @@ export class Room extends DurableObject<Env> {
       );
       return;
     }
-    sendAll(this.ctx, { ...parsed.data, mapVersion: this.bumpMapVersion() });
+    sendAll(this.ctx, { ...parsed.data, mapVersion: bump(this.ctx.storage.sql, 'mapVersion') });
   }
 
   /**
@@ -175,16 +175,5 @@ export class Room extends DurableObject<Env> {
     server.serializeAttachment(attachment);
     this.ctx.acceptWebSocket(server);
     return new Response(null, { status: SWITCHING_PROTOCOLS, webSocket: client });
-  }
-
-  /** The next map version from the SQLite `counters` table (1 for the first area change). */
-  private bumpMapVersion(): number {
-    const { version } = this.ctx.storage.sql
-      .exec<{ version: number }>(
-        `INSERT INTO counters (name, value) VALUES ('mapVersion', 1)
-         ON CONFLICT (name) DO UPDATE SET value = value + 1 RETURNING value AS version`,
-      )
-      .one();
-    return version;
   }
 }
