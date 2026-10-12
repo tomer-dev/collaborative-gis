@@ -1,8 +1,8 @@
-import { COPY } from '@cgis/shared';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { COPY } from '@cgis/shared/constants';
+import { useMutation } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { signOut } from '../../lib/auth';
-import { refreshSession, setSession, type SessionUser } from '../../lib/session';
+import type { SessionUser } from '../../lib/session';
 import { Avatar, Button } from '../../ui';
 
 type AppFrameProps = {
@@ -25,17 +25,12 @@ export function AppFrame({ headerEnd, children }: AppFrameProps) {
 }
 
 /**
- * User chip and sign-out button for the top bar. Sign-out clears the session query; the _authed
- * guard then sends the visitor to /login. If the call fails the session is re-read from the
- * server: still valid keeps the user here with an alert, already ended goes to /login.
+ * User chip and sign-out button for the top bar. After a successful sign-out Better Auth
+ * refetches its session (now empty) and the _authed guard sends the visitor to /login; a
+ * failed one leaves the session as it was and shows an alert.
  */
 export function SessionMenu({ user }: { user: SessionUser }) {
-  const queryClient = useQueryClient();
-  const signOutMutation = useMutation({
-    mutationFn: signOut,
-    onSuccess: () => setSession(queryClient, null),
-    onError: () => refreshSession(queryClient),
-  });
+  const signOutMutation = useMutation({ mutationFn: signOut });
 
   return (
     <div className="flex items-center gap-3 text-sm">

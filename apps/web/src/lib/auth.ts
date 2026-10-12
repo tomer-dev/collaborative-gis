@@ -1,41 +1,51 @@
-import {
-  type AuthUser,
-  COPY,
-  ROUTES,
-  type SignInRequest,
-  SignInResponseSchema,
-  SignOutResponseSchema,
-  type SignUpRequest,
-  SignUpResponseSchema,
-} from '@cgis/shared';
-import { apiPost, ApiRequestError } from './api';
+import { COPY } from '@cgis/shared/constants';
+import { authClient } from './auth-client';
 
-// Better Auth's email + password endpoints over apiPost (D19: no Better Auth client). Each call
-// sets or clears the httpOnly session cookie server-side; callers update the session query.
+// Sign-up, sign-in and sign-out through the official Better Auth client. Each call sets or
+// clears the httpOnly session cookie server-side; on success the client refetches its own
+// session store, which `useSession()` reads, so callers never write the session themselves.
 
-/** Creates an account and signs it in; resolves to the new user. */
-export async function signUp({ email, password, name }: SignUpRequest): Promise<AuthUser> {
-  const body = await apiPost(ROUTES.AUTH_SIGN_UP, { email, password, name }, SignUpResponseSchema);
-  return body.user;
+export type Credentials = { email: string; password: string };
+export type SignUpInput = Credentials & { name: string };
+
+/** A Better Auth call answered with an error; `message` is the server's text or the generic copy. */
+export class AuthError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string | undefined) {
+    super(message || COPY.AUTH.ERROR_GENERIC);
+    this.name = 'AuthError';
+    this.status = status;
+  }
 }
 
-/** Signs in; resolves to the user. A wrong password rejects with a 401 `ApiRequestError`. */
-export async function signIn({ email, password }: SignInRequest): Promise<AuthUser> {
-  const body = await apiPost(ROUTES.AUTH_SIGN_IN, { email, password }, SignInResponseSchema);
-  return body.user;
+/** The error half of Better Auth's `{ data, error }` result (fields this app reads). */
+type ClientError = { status: number; message?: string | undefined } | null;
+
+// Better Auth resolves failures as `{ error }`; mutations need a rejection to enter their error state.
+function throwOnError(error: ClientError): void {
+  if (error) throw new AuthError(error.status, error.message);
 }
 
-/** Ends the session. Better Auth answers 400 when the request carries no session cookie. */
+/** Creates an account; Better Auth signs it in (session cookie) in the same request. */
+export async function signUp({ email, password, name }: SignUpInput): Promise<void> {
+  const { error } = await authClient.signUp.email({ email, password, name });
+  throwOnError(error);
+}
+
+/** Signs in. A wrong password rejects with a 401 `AuthError` carrying the server's message. */
+export async function signIn({ email, password }: Credentials): Promise<void> {
+  const { error } = await authClient.signIn.email({ email, password });
+  throwOnError(error);
+}
+
+/** Ends the session (Better Auth answers success even when the cookie was already gone). */
 export async function signOut(): Promise<void> {
-  await apiPost(ROUTES.AUTH_SIGN_OUT, {}, SignOutResponseSchema);
+  const { error } = await authClient.signOut();
+  throwOnError(error);
 }
 
-/**
- * Text to show for a failed auth call: the server's message when the response carried an
- * `ApiError` body (Better Auth's `{ code, message }`), otherwise the generic copy.
- */
+/** Text to show for a failed auth call: the server's message, else the generic copy. */
 export function authErrorMessage(error: unknown): string {
-  return error instanceof ApiRequestError && error.body
-    ? error.body.message
-    : COPY.AUTH.ERROR_GENERIC;
+  return error instanceof AuthError ? error.message : COPY.AUTH.ERROR_GENERIC;
 }

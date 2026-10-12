@@ -1,9 +1,8 @@
-import { COPY, LIMITS } from '@cgis/shared';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { COPY, LIMITS, ROUTES } from '@cgis/shared/constants';
+import { useMutation } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useState, type FormEvent, type InputHTMLAttributes } from 'react';
 import { authErrorMessage, signIn, signUp } from '../../lib/auth';
-import { setSession, type SessionUser } from '../../lib/session';
 import { Banner, Button, Field, Input, Panel } from '../../ui';
 import { focusRing } from '../../ui/focus';
 
@@ -51,10 +50,10 @@ type ModeSpec = {
   submitLabel: string;
   pendingLabel: string;
   errorTitle: string;
-  submit: (values: Values) => Promise<SessionUser>;
+  submit: (values: Values) => Promise<void>;
   switchPrompt: string;
   switchLabel: string;
-  switchTo: '/login' | '/register';
+  switchTo: typeof ROUTES.APP.LOGIN | typeof ROUTES.APP.REGISTER;
 };
 
 const MODES: Record<AuthMode, ModeSpec> = {
@@ -67,7 +66,7 @@ const MODES: Record<AuthMode, ModeSpec> = {
     submit: signIn,
     switchPrompt: COPY.AUTH.LOGIN_SWITCH_PROMPT,
     switchLabel: COPY.AUTH.LOGIN_SWITCH_LINK,
-    switchTo: '/register',
+    switchTo: ROUTES.APP.REGISTER,
   },
   register: {
     title: COPY.AUTH.REGISTER_TITLE,
@@ -78,25 +77,21 @@ const MODES: Record<AuthMode, ModeSpec> = {
     submit: signUp,
     switchPrompt: COPY.AUTH.REGISTER_SWITCH_PROMPT,
     switchLabel: COPY.AUTH.REGISTER_SWITCH_LINK,
-    switchTo: '/login',
+    switchTo: ROUTES.APP.LOGIN,
   },
 };
 
 const EMPTY: Values = { name: '', email: '', password: '' };
 
 /**
- * Sign-in or sign-up card; `mode` picks the fields, copy and call from MODES. On success it
- * stores the returned user in the session query and nothing else: the /login and /register
- * guard then sends the now signed-in user to /map.
+ * Sign-in or sign-up card; `mode` picks the fields, copy and call from MODES. Success needs no
+ * handler: Better Auth refetches its session, `AppRouterProvider` re-runs the guards, and the
+ * /login and /register guard sends the now signed-in user to the map.
  */
 export function AuthForm({ mode }: { mode: AuthMode }) {
   const spec = MODES[mode];
-  const queryClient = useQueryClient();
   const [values, setValues] = useState<Values>(EMPTY);
-  const auth = useMutation({
-    mutationFn: spec.submit,
-    onSuccess: (user) => setSession(queryClient, user),
-  });
+  const auth = useMutation({ mutationFn: spec.submit });
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

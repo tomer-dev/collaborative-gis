@@ -1,38 +1,72 @@
 // The leading '-' keeps the TanStack Router generator from treating this file as a route.
-import { COPY, LIMITS, ROUTES } from '@cgis/shared';
+import { COPY, LIMITS, ROUTES } from '@cgis/shared/constants';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory } from '@tanstack/react-router';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { sessionQuery, type SessionUser } from '../lib/session';
 import { AppRouterProvider, createAppRouter } from '../router';
 
-const ada: SessionUser = { id: 'user_1', name: 'Ada Lovelace' };
-const betterAuthUser = {
-  ...ada,
-  email: 'ada@example.com',
-  emailVerified: false,
-  image: null,
-  createdAt: '2026-10-12T00:00:00.000Z',
-  updatedAt: '2026-10-12T00:00:00.000Z',
+// What Better Auth's authClient.useSession() returns (only the fields the app reads).
+type BetterAuthSession = {
+  data: { user: { id: string; name: string } } | null;
+  isPending: boolean;
 };
-const signedIn = { session: { id: 'sess_1', userId: ada.id }, user: betterAuthUser };
 
-type Handler = () => Response | Promise<Response>;
+// A fake Better Auth client: useSession reads a tiny external store, the calls are mocks.
+const auth = vi.hoisted(() => {
+  let state: BetterAuthSession = { data: null, isPending: true };
+  const listeners = new Set<() => void>();
+  return {
+    get: (): BetterAuthSession => state,
+    set(next: BetterAuthSession) {
+      state = next;
+      for (const listener of listeners) listener();
+    },
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    signInEmail: vi.fn(),
+    signUpEmail: vi.fn(),
+    signOut: vi.fn(),
+  };
+});
 
-/** Stubs fetch with one handler per "METHOD path"; any other request rejects. */
-function stubApi(handlers: Record<string, Handler>) {
-  const fetchMock = vi.fn(async (input: string, init?: RequestInit) => {
-    const key = `${init?.method ?? 'GET'} ${input}`;
-    const handler = handlers[key];
-    if (!handler) throw new Error(`unexpected request: ${key}`);
-    return handler();
-  });
-  vi.stubGlobal('fetch', fetchMock);
-  return fetchMock;
+vi.mock('../lib/auth-client', async () => {
+  const { useSyncExternalStore } = await import('react');
+  return {
+    authClient: {
+      useSession: () => useSyncExternalStore(auth.subscribe, auth.get),
+      signIn: { email: auth.signInEmail },
+      signUp: { email: auth.signUpEmail },
+      signOut: auth.signOut,
+    },
+  };
+});
+
+const ada = { id: 'user_1', name: 'Ada Lovelace' };
+const signedIn: BetterAuthSession = { data: { user: ada }, isPending: false };
+const signedOut: BetterAuthSession = { data: null, isPending: false };
+const ok = (data: unknown) => ({ data, error: null });
+const failed = (status: number, message?: string) => ({
+  data: null,
+  error: { status, statusText: '', ...(message ? { message } : {}) },
+});
+
+/**
+ * What Better Auth's client does after a successful sign-in, sign-up or sign-out: refetch
+ * get-session. It is pending while the old session was empty, then holds the new session.
+ */
+async function betterAuthRefetch(next: BetterAuthSession['data']) {
+  const { data } = auth.get();
+  await act(async () => auth.set({ data, isPending: data === null }));
+  await act(async () => auth.set({ data: next, isPending: false }));
 }
 
-function renderAppAt(path: string, seededUser?: SessionUser) {
+function renderAppAt(path: string, session: BetterAuthSession) {
+  auth.set(session);
   // jsdom has no scrollTo; the router resets scroll after each navigation.
   vi.stubGlobal('scrollTo', vi.fn());
   // jsdom has no ResizeObserver; the map view observes its container.
@@ -45,9 +79,8 @@ function renderAppAt(path: string, seededUser?: SessionUser) {
     },
   );
   const queryClient = new QueryClient();
-  if (seededUser) queryClient.setQueryData(sessionQuery.queryKey, seededUser);
   const router = createAppRouter(queryClient, createMemoryHistory({ initialEntries: [path] }));
-  // Every path the router settles on, to prove a sign-in never passes back through /login.
+  // Every path the router settles on, to prove a sign-in never lands back on /login.
   const resolved: string[] = [];
   router.subscribe('onResolved', (event) => resolved.push(event.toLocation.pathname));
   render(
@@ -55,7 +88,7 @@ function renderAppAt(path: string, seededUser?: SessionUser) {
       <AppRouterProvider router={router} />
     </QueryClientProvider>,
   );
-  return { queryClient, router, resolved };
+  return { router, resolved };
 }
 
 function fill(label: string, value: string) {
@@ -66,47 +99,40 @@ function fill(label: string, value: string) {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.resetAllMocks();
 });
 
 describe('/login', () => {
-  it('signs in, stores the user in the session query, then lands on /map', async () => {
-    const fetchMock = stubApi({
-      [`GET ${ROUTES.AUTH_GET_SESSION}`]: () => Response.json(null),
-      [`POST ${ROUTES.AUTH_SIGN_IN}`]: () =>
-        Response.json({ redirect: false, token: 'tok_1', user: betterAuthUser }),
-    });
-    const { queryClient, router, resolved } = renderAppAt('/login');
+  it('signs in through authClient, then lands on /map once Better Auth has the session', async () => {
+    auth.signInEmail.mockResolvedValue(ok({ redirect: false, token: 'tok_1', user: ada }));
+    const { router, resolved } = renderAppAt(ROUTES.APP.LOGIN, signedOut);
     await screen.findByRole('heading', { name: COPY.AUTH.LOGIN_TITLE });
 
     fill(COPY.AUTH.EMAIL_LABEL, 'ada@example.com');
     fill(COPY.AUTH.PASSWORD_LABEL, 'correct horse');
     fireEvent.click(screen.getByRole('button', { name: COPY.AUTH.LOGIN_SUBMIT }));
 
-    expect(await screen.findByTestId('map-root')).toBeTruthy();
-    expect(router.state.location.pathname).toBe('/map');
-    expect(queryClient.getQueryData(sessionQuery.queryKey)).toEqual(ada);
-    expect(fetchMock).toHaveBeenCalledWith(
-      ROUTES.AUTH_SIGN_IN,
-      expect.objectContaining({
-        method: 'POST',
-        body: JSON.stringify({ email: 'ada@example.com', password: 'correct horse' }),
+    await waitFor(() =>
+      expect(auth.signInEmail).toHaveBeenCalledWith({
+        email: 'ada@example.com',
+        password: 'correct horse',
       }),
     );
-    // /login, then straight to /map: the _authed guard never bounced the user back.
-    expect(resolved).toEqual(['/login', '/map']);
+    // The form writes no session itself: the route only changes when Better Auth's does.
+    expect(router.state.location.pathname).toBe(ROUTES.APP.LOGIN);
+
+    await betterAuthRefetch(signedIn.data);
+
+    expect(await screen.findByTestId('map-root')).toBeTruthy();
+    expect(router.state.location.pathname).toBe(ROUTES.APP.MAP);
     expect(screen.getByText(ada.name)).toBeTruthy();
+    // /login, then straight to /map: the _authed guard never bounced the user back.
+    expect(resolved).toEqual([ROUTES.APP.LOGIN, ROUTES.APP.MAP]);
   });
 
   it('shows the server message in an alert on a wrong password and stays on /login', async () => {
-    stubApi({
-      [`GET ${ROUTES.AUTH_GET_SESSION}`]: () => Response.json(null),
-      [`POST ${ROUTES.AUTH_SIGN_IN}`]: () =>
-        Response.json(
-          { code: 'INVALID_EMAIL_OR_PASSWORD', message: 'Invalid email or password' },
-          { status: 401 },
-        ),
-    });
-    const { queryClient, router } = renderAppAt('/login');
+    auth.signInEmail.mockResolvedValue(failed(401, 'Invalid email or password'));
+    const { router } = renderAppAt(ROUTES.APP.LOGIN, signedOut);
     await screen.findByRole('heading', { name: COPY.AUTH.LOGIN_TITLE });
 
     fill(COPY.AUTH.EMAIL_LABEL, 'ada@example.com');
@@ -116,8 +142,7 @@ describe('/login', () => {
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('Invalid email or password');
     expect(alert.textContent).toContain(COPY.AUTH.LOGIN_ERROR_TITLE);
-    expect(router.state.location.pathname).toBe('/login');
-    expect(queryClient.getQueryData(sessionQuery.queryKey)).toBeNull();
+    expect(router.state.location.pathname).toBe(ROUTES.APP.LOGIN);
     // The form keeps what was typed and can be submitted again.
     expect(screen.getByRole('textbox', { name: COPY.AUTH.EMAIL_LABEL })).toHaveProperty(
       'value',
@@ -129,16 +154,26 @@ describe('/login', () => {
     );
   });
 
+  it('shows the generic copy when the failure carries no message', async () => {
+    auth.signInEmail.mockResolvedValue(failed(502));
+    renderAppAt(ROUTES.APP.LOGIN, signedOut);
+    await screen.findByRole('heading', { name: COPY.AUTH.LOGIN_TITLE });
+
+    fill(COPY.AUTH.EMAIL_LABEL, 'ada@example.com');
+    fill(COPY.AUTH.PASSWORD_LABEL, 'correct horse');
+    fireEvent.click(screen.getByRole('button', { name: COPY.AUTH.LOGIN_SUBMIT }));
+
+    expect((await screen.findByRole('alert')).textContent).toContain(COPY.AUTH.ERROR_GENERIC);
+  });
+
   it('disables the submit button while the request is pending', async () => {
-    let respond: (response: Response) => void = () => {};
-    const pending = new Promise<Response>((resolve) => {
-      respond = resolve;
-    });
-    stubApi({
-      [`GET ${ROUTES.AUTH_GET_SESSION}`]: () => Response.json(null),
-      [`POST ${ROUTES.AUTH_SIGN_IN}`]: () => pending,
-    });
-    const { router } = renderAppAt('/login');
+    let respond: (result: unknown) => void = () => {};
+    auth.signInEmail.mockReturnValue(
+      new Promise((resolve) => {
+        respond = resolve;
+      }),
+    );
+    renderAppAt(ROUTES.APP.LOGIN, signedOut);
     await screen.findByRole('heading', { name: COPY.AUTH.LOGIN_TITLE });
 
     fill(COPY.AUTH.EMAIL_LABEL, 'ada@example.com');
@@ -148,13 +183,15 @@ describe('/login', () => {
     const busy = await screen.findByRole('button', { name: COPY.AUTH.LOGIN_PENDING });
     expect(busy).toHaveProperty('disabled', true);
 
-    respond(Response.json({ redirect: false, token: 'tok_1', user: betterAuthUser }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/map'));
+    await act(async () => respond(ok({ redirect: false, token: 'tok_1', user: ada })));
+    expect(await screen.findByRole('button', { name: COPY.AUTH.LOGIN_SUBMIT })).toHaveProperty(
+      'disabled',
+      false,
+    );
   });
 
   it('marks the fields required and uses sign-in autocomplete hints', async () => {
-    stubApi({ [`GET ${ROUTES.AUTH_GET_SESSION}`]: () => Response.json(null) });
-    renderAppAt('/login');
+    renderAppAt(ROUTES.APP.LOGIN, signedOut);
     await screen.findByRole('heading', { name: COPY.AUTH.LOGIN_TITLE });
 
     const email = screen.getByLabelText(COPY.AUTH.EMAIL_LABEL, { exact: false });
@@ -169,24 +206,19 @@ describe('/login', () => {
   });
 
   it('links to /register', async () => {
-    stubApi({ [`GET ${ROUTES.AUTH_GET_SESSION}`]: () => Response.json(null) });
-    const { router } = renderAppAt('/login');
+    const { router } = renderAppAt(ROUTES.APP.LOGIN, signedOut);
 
     fireEvent.click(await screen.findByRole('link', { name: COPY.AUTH.LOGIN_SWITCH_LINK }));
 
     expect(await screen.findByRole('heading', { name: COPY.AUTH.REGISTER_TITLE })).toBeTruthy();
-    expect(router.state.location.pathname).toBe('/register');
+    expect(router.state.location.pathname).toBe(ROUTES.APP.REGISTER);
   });
 });
 
 describe('/register', () => {
-  it('signs up with name, email and password, then lands on /map', async () => {
-    const fetchMock = stubApi({
-      [`GET ${ROUTES.AUTH_GET_SESSION}`]: () => Response.json(null),
-      [`POST ${ROUTES.AUTH_SIGN_UP}`]: () =>
-        Response.json({ token: 'tok_1', user: betterAuthUser }),
-    });
-    const { queryClient, router, resolved } = renderAppAt('/register');
+  it('signs up through authClient with name, then lands on /map once Better Auth has the session', async () => {
+    auth.signUpEmail.mockResolvedValue(ok({ token: 'tok_1', user: ada }));
+    const { router } = renderAppAt(ROUTES.APP.REGISTER, signedOut);
     await screen.findByRole('heading', { name: COPY.AUTH.REGISTER_TITLE });
 
     fill(COPY.AUTH.NAME_LABEL, 'Ada Lovelace');
@@ -194,26 +226,21 @@ describe('/register', () => {
     fill(COPY.AUTH.PASSWORD_LABEL, 'correct horse');
     fireEvent.click(screen.getByRole('button', { name: COPY.AUTH.REGISTER_SUBMIT }));
 
-    expect(await screen.findByTestId('map-root')).toBeTruthy();
-    expect(router.state.location.pathname).toBe('/map');
-    expect(queryClient.getQueryData(sessionQuery.queryKey)).toEqual(ada);
-    expect(fetchMock).toHaveBeenCalledWith(
-      ROUTES.AUTH_SIGN_UP,
-      expect.objectContaining({
-        method: 'POST',
-        body: JSON.stringify({
-          email: 'ada@example.com',
-          password: 'correct horse',
-          name: 'Ada Lovelace',
-        }),
+    await waitFor(() =>
+      expect(auth.signUpEmail).toHaveBeenCalledWith({
+        email: 'ada@example.com',
+        password: 'correct horse',
+        name: 'Ada Lovelace',
       }),
     );
-    expect(resolved).toEqual(['/register', '/map']);
+    await betterAuthRefetch(signedIn.data);
+
+    expect(await screen.findByTestId('map-root')).toBeTruthy();
+    expect(router.state.location.pathname).toBe(ROUTES.APP.MAP);
   });
 
   it('asks for a new password of at least LIMITS.PASSWORD_MIN characters', async () => {
-    stubApi({ [`GET ${ROUTES.AUTH_GET_SESSION}`]: () => Response.json(null) });
-    renderAppAt('/register');
+    renderAppAt(ROUTES.APP.REGISTER, signedOut);
     await screen.findByRole('heading', { name: COPY.AUTH.REGISTER_TITLE });
 
     const password = screen.getByLabelText(COPY.AUTH.PASSWORD_LABEL, { exact: false });
@@ -231,83 +258,51 @@ describe('/register', () => {
   });
 
   it('links to /login', async () => {
-    stubApi({ [`GET ${ROUTES.AUTH_GET_SESSION}`]: () => Response.json(null) });
-    const { router } = renderAppAt('/register');
+    const { router } = renderAppAt(ROUTES.APP.REGISTER, signedOut);
 
     fireEvent.click(await screen.findByRole('link', { name: COPY.AUTH.REGISTER_SWITCH_LINK }));
 
     expect(await screen.findByRole('heading', { name: COPY.AUTH.LOGIN_TITLE })).toBeTruthy();
-    expect(router.state.location.pathname).toBe('/login');
+    expect(router.state.location.pathname).toBe(ROUTES.APP.LOGIN);
   });
 });
 
 describe('signed-in visitor', () => {
-  it.each(['/login', '/register'])('on %s lands on /map', async (path) => {
-    stubApi({ [`GET ${ROUTES.AUTH_GET_SESSION}`]: () => Response.json(signedIn) });
-    const { router } = renderAppAt(path, ada);
+  it.each([ROUTES.APP.LOGIN, ROUTES.APP.REGISTER])('on %s lands on /map', async (path) => {
+    const { router } = renderAppAt(path, signedIn);
 
     expect(await screen.findByTestId('map-root')).toBeTruthy();
-    expect(router.state.location.pathname).toBe('/map');
+    expect(router.state.location.pathname).toBe(ROUTES.APP.MAP);
     expect(screen.queryByRole('heading', { name: COPY.AUTH.LOGIN_TITLE })).toBeNull();
     expect(screen.queryByRole('heading', { name: COPY.AUTH.REGISTER_TITLE })).toBeNull();
   });
 });
 
 describe('sign-out', () => {
-  it('calls sign-out, clears the session and lands on /login', async () => {
-    const fetchMock = stubApi({
-      [`GET ${ROUTES.AUTH_GET_SESSION}`]: () => Response.json(signedIn),
-      [`POST ${ROUTES.AUTH_SIGN_OUT}`]: () => Response.json({ success: true }),
-    });
-    const { queryClient, router } = renderAppAt('/map');
+  it('calls authClient.signOut, then lands on /login once Better Auth drops the session', async () => {
+    auth.signOut.mockResolvedValue(ok({ success: true }));
+    const { router } = renderAppAt(ROUTES.APP.MAP, signedIn);
     await screen.findByTestId('map-root');
 
     fireEvent.click(screen.getByRole('button', { name: COPY.AUTH.SIGN_OUT }));
 
+    await waitFor(() => expect(auth.signOut).toHaveBeenCalledTimes(1));
+    await betterAuthRefetch(null);
+
     expect(await screen.findByRole('heading', { name: COPY.AUTH.LOGIN_TITLE })).toBeTruthy();
-    expect(router.state.location.pathname).toBe('/login');
-    expect(queryClient.getQueryData(sessionQuery.queryKey)).toBeNull();
-    expect(fetchMock).toHaveBeenCalledWith(
-      ROUTES.AUTH_SIGN_OUT,
-      expect.objectContaining({ method: 'POST' }),
-    );
+    expect(router.state.location.pathname).toBe(ROUTES.APP.LOGIN);
     expect(screen.queryByText(ada.name)).toBeNull();
   });
 
-  it('keeps the user on /map with an alert when sign-out fails and the session is still valid', async () => {
-    const fetchMock = stubApi({
-      [`GET ${ROUTES.AUTH_GET_SESSION}`]: () => Response.json(signedIn),
-      [`POST ${ROUTES.AUTH_SIGN_OUT}`]: () =>
-        Response.json({ code: 'INTERNAL', message: 'Internal Server Error' }, { status: 500 }),
-    });
-    const { router } = renderAppAt('/map');
+  it('keeps the user on /map with an alert when sign-out fails', async () => {
+    auth.signOut.mockResolvedValue(failed(500, 'Internal Server Error'));
+    const { router } = renderAppAt(ROUTES.APP.MAP, signedIn);
     await screen.findByTestId('map-root');
 
     fireEvent.click(screen.getByRole('button', { name: COPY.AUTH.SIGN_OUT }));
 
     expect((await screen.findByRole('alert')).textContent).toContain(COPY.AUTH.SIGN_OUT_ERROR);
-    expect(router.state.location.pathname).toBe('/map');
-    // The failure re-checked the session with the server.
-    const sessionChecks = fetchMock.mock.calls.filter(([url]) => url === ROUTES.AUTH_GET_SESSION);
-    expect(sessionChecks).toHaveLength(2);
-  });
-
-  it('lands on /login when sign-out fails because the session had already ended', async () => {
-    const sessions: unknown[] = [signedIn, null];
-    stubApi({
-      [`GET ${ROUTES.AUTH_GET_SESSION}`]: () => Response.json(sessions.shift() ?? null),
-      [`POST ${ROUTES.AUTH_SIGN_OUT}`]: () =>
-        Response.json(
-          { code: 'FAILED_TO_GET_SESSION', message: 'Failed to get session' },
-          { status: 400 },
-        ),
-    });
-    const { router } = renderAppAt('/map');
-    await screen.findByTestId('map-root');
-
-    fireEvent.click(screen.getByRole('button', { name: COPY.AUTH.SIGN_OUT }));
-
-    expect(await screen.findByRole('heading', { name: COPY.AUTH.LOGIN_TITLE })).toBeTruthy();
-    expect(router.state.location.pathname).toBe('/login');
+    expect(router.state.location.pathname).toBe(ROUTES.APP.MAP);
+    expect(screen.getByText(ada.name)).toBeTruthy();
   });
 });
