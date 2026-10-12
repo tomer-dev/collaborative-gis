@@ -16,7 +16,14 @@ describe('Room map version: getVersion / bumpVersion (RPC)', () => {
     expect((await room.getVersion()).version).toBe(2);
   });
 
-  it('every area:* broadcast bumps the same counter exactly once', async () => {
+  it('a broadcast handed the version its route already bumped does not bump again', async () => {
+    const room = freshRoom();
+    const bumped = await room.bumpVersion();
+    await room.broadcast(deleted(), bumped);
+    expect((await room.getVersion()).version).toBe(1);
+  });
+
+  it('a broadcast without a version (the route’s bump failed) bumps the counter exactly once', async () => {
     const room = freshRoom();
     await room.broadcast(deleted());
     expect((await room.getVersion()).version).toBe(1);

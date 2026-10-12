@@ -1,9 +1,10 @@
-import { ApiErrorSchema, HEADERS } from '@cgis/shared';
+import { ApiErrorSchema, type AreaEvent, HEADERS } from '@cgis/shared';
 import type { Context } from 'hono';
 import { resolver } from 'hono-openapi';
 import type { AppEnv } from '../app';
 import type { SignedIn } from '../middleware';
 import type { Actor } from '../services/areas';
+import { bumpMapVersion, fanout } from '../services/fanout';
 
 // What the area routes (areas.ts) and their version routes (versions.ts) share.
 
@@ -15,6 +16,17 @@ export function actor(c: Context<AppEnv & SignedIn>): Actor {
     userAgent: c.req.header(HEADERS.USER_AGENT) ?? null,
     requestId: c.get('requestId'),
   };
+}
+
+/**
+ * A committed area change, before the response: bumps the map version (awaited, so no bounds read
+ * after this response finds or stores the pre-write tile under the old key), then broadcasts the
+ * event in `waitUntil`, stamped with that version, without holding the response.
+ */
+export async function publish(c: Context<AppEnv & SignedIn>, event: AreaEvent): Promise<void> {
+  const requestId = c.get('requestId');
+  const mapVersion = await bumpMapVersion(c.env, requestId);
+  c.executionCtx.waitUntil(fanout(c.env, event, requestId, mapVersion));
 }
 
 /** OpenAPI `content` for a JSON body described by `schema`. */
