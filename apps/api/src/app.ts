@@ -4,6 +4,7 @@ import { HTTPException } from 'hono/http-exception';
 import { openAPIRouteHandler } from 'hono-openapi';
 import { authHandler } from './auth';
 import { httpExceptionError, internalError, notFoundError } from './errors';
+import { log, requestFields } from './log';
 import { middleware } from './middleware';
 import { areas } from './routes/areas';
 import { health } from './routes/health';
@@ -46,14 +47,7 @@ export function createApp() {
   app.onError((err, c) => {
     // Deliberate HTTP errors (auth, validation, ...) keep their status and message.
     if (err instanceof HTTPException) return httpExceptionError(c, err);
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        msg: err.message,
-        path: c.req.path,
-        stack: err instanceof Error ? err.stack : undefined,
-      }),
-    );
+    log('error', err.message, { ...requestFields(c), stack: err.stack });
     return internalError(c);
   });
 
