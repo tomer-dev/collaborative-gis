@@ -1,6 +1,7 @@
-import { ROUTES } from '@cgis/shared';
+import { OPENAPI, ROUTES } from '@cgis/shared';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
+import { openAPIRouteHandler } from 'hono-openapi';
 import { authHandler } from './auth';
 import { httpExceptionError, internalError, notFoundError } from './errors';
 import { middleware } from './middleware';
@@ -16,15 +17,29 @@ export type AppEnv = {
   Variables: { user?: { id: string; name: string }; requestId: string };
 };
 
-/** The one composition point: lanes fill the mounted modules, not this file. */
-export function createApp(): Hono<AppEnv> {
+/**
+ * The one composition point: lanes fill the mounted modules, not this file. Returns the app typed
+ * with the `/api/areas` routes' schema (`AppType`).
+ */
+export function createApp() {
   const app = new Hono<AppEnv>();
 
   app.use('*', middleware());
   app.route('/', health);
   app.all(`${ROUTES.AUTH}/*`, authHandler);
-  app.route(ROUTES.AREAS, areas);
+  // `route` returns this same app, typed with the areas schema: that is the type createApp returns.
+  const typed = app.route(ROUTES.AREAS, areas);
   app.get(ROUTES.WS, wsUpgrade);
+  // Documents the routes that carry `describeRoute`/`validate` metadata (today: /api/areas).
+  // Public, like the routes' shapes in the SPA bundle; validation failures are documented as the
+  // 422s the routes declare, not hono-openapi's default 400.
+  app.get(
+    ROUTES.OPENAPI,
+    openAPIRouteHandler(app, {
+      documentation: { info: { title: OPENAPI.TITLE, version: OPENAPI.VERSION } },
+      defaultValidationErrorResponse: false,
+    }),
+  );
 
   app.notFound((c) => notFoundError(c));
 
@@ -42,5 +57,8 @@ export function createApp(): Hono<AppEnv> {
     return internalError(c);
   });
 
-  return app;
+  return typed;
 }
+
+/** D19: the SPA's Hono `hc` client is typed from this (`hc<AppType>(origin)`). */
+export type AppType = ReturnType<typeof createApp>;
