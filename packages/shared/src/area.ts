@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { LIMITS } from './constants';
-import { PolygonSchema } from './geo';
+import { LIMITS } from './constants/index.ts';
+import { PolygonSchema } from './geo.ts';
 
 export const AreaSchema = z.object({
   id: z.uuid(),
