@@ -67,7 +67,10 @@ export const ERROR_MESSAGES = {
   DRAFT_OP_MISFIT: 'draft op does not fit the current draft',
 } as const satisfies Record<keyof typeof ERROR_CODES, string>;
 
-/** `ApiError.message`s more specific than their code's default in ERROR_MESSAGES. */
+/**
+ * `ApiError.message`s more specific than their code's default in ERROR_MESSAGES, and the
+ * `details.reason`s the API itself names.
+ */
 export const ERROR_REASONS = {
   /**
    * Cross-site WebSocket hijacking: Better Auth's `getSession` ignores Origin, so without this a
@@ -80,6 +83,11 @@ export const ERROR_REASONS = {
   VERSION_CONFLICT: 'version conflict',
   /** 422 on sign-up: the trimmed name is longer than `LIMITS.USER_NAME_MAX`. */
   NAME_TOO_LONG: 'name too long',
+  /**
+   * 409 `details.reason` (the message is the code's default): a revert on a soft-deleted area,
+   * which stays deleted.
+   */
+  AREA_DELETED: 'area deleted',
 } as const;
 
 /**
