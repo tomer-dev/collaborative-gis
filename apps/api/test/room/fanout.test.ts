@@ -69,13 +69,17 @@ async function createArea(user: User) {
 }
 
 /**
- * `env` with a stand-in `ROOM` for the two namespace calls `fanout` makes: `idFromName`, then
- * `get(...).broadcast`, here `broadcast`. POST reaches the Room only through `fanout`. Test-only:
- * production code has no switch to make the Room fail.
+ * `env` with a stand-in `ROOM` for the namespace calls a mutation makes: `idFromName`, then
+ * `get(...).bumpVersion` before the response (`bumpVersion`, default: answers 1) and
+ * `get(...).broadcast` in `waitUntil` (`broadcast`). POST reaches the Room only through `publish`.
+ * Test-only: production code has no switch to make the Room fail.
  */
-const withBroadcast = (broadcast: (event: AreaEvent) => Promise<void>) => ({
+const withRoom = (
+  broadcast: (event: AreaEvent, mapVersion?: number) => Promise<void>,
+  bumpVersion: () => Promise<number> = async () => 1,
+) => ({
   ...env,
-  ROOM: { idFromName: () => ({}), get: () => ({ broadcast }) },
+  ROOM: { idFromName: () => ({}), get: () => ({ broadcast, bumpVersion }) },
 });
 
 describe('fan-out from the area routes', () => {
@@ -172,7 +176,7 @@ describe('fan-out from the area routes', () => {
       release = resolve;
     });
     const order: string[] = [];
-    const slow = withBroadcast(async () => {
+    const slow = withRoom(async () => {
       order.push('broadcast called');
       await released;
       order.push('broadcast settled');
@@ -195,7 +199,7 @@ describe('fan-out from the area routes', () => {
   });
 
   it('a Room that rejects: still 201, one error log line, nothing thrown into waitUntil', async () => {
-    const failing = withBroadcast(async () => {
+    const failing = withRoom(async () => {
       throw new Error('room unavailable');
     });
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -213,6 +217,52 @@ describe('fan-out from the area routes', () => {
       areaId: area.id,
       error: expect.stringContaining('room unavailable'),
     });
+  });
+
+  it('the bump before the response hands its version to the broadcast', async () => {
+    const broadcast = vi.fn<(event: AreaEvent, mapVersion?: number) => Promise<void>>(
+      async () => {},
+    );
+    const ctx = createExecutionContext();
+    const res = await areasClient(
+      withRoom(broadcast, async () => 41),
+      freshUser(),
+      {},
+      ctx,
+    ).create(newSquare());
+    await waitOnExecutionContext(ctx);
+    expect(res.status).toBe(201);
+    const area = AreaSchema.parse(await res.json());
+    expect(broadcast).toHaveBeenCalledExactlyOnceWith(
+      { type: 'area:created', payload: { area } },
+      41,
+    );
+  });
+
+  it('a bump that fails: still 201, one error log line, and the broadcast bumps instead', async () => {
+    const broadcast = vi.fn<(event: AreaEvent, mapVersion?: number) => Promise<void>>(
+      async () => {},
+    );
+    const failing = withRoom(broadcast, async () => {
+      throw new Error('room unavailable');
+    });
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const ctx = createExecutionContext();
+    const res = await areasClient(failing, freshUser(), {}, ctx).create(newSquare());
+    await waitOnExecutionContext(ctx);
+    expect(res.status).toBe(201);
+    const area = AreaSchema.parse(await res.json());
+    expect(logged).toHaveBeenCalledOnce();
+    expect(JSON.parse(String(logged.mock.calls[0]?.[0]))).toEqual({
+      level: 'error',
+      msg: 'version bump failed',
+      requestId: res.headers.get('x-request-id'),
+      error: expect.stringContaining('room unavailable'),
+    });
+    expect(broadcast).toHaveBeenCalledExactlyOnceWith(
+      { type: 'area:created', payload: { area } },
+      undefined,
+    );
   });
 });
 

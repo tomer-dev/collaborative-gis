@@ -86,12 +86,12 @@ export class Room extends DurableObject<Env> {
   /**
    * RPC from `fanout` (T8): a committed area change for every open socket. The event is checked
    * against the shared `AreaEventSchema` first; an invalid one is logged and dropped (nothing
-   * sent, version unchanged) and never thrown back to the Worker. A valid one bumps the map
-   * version once (`bumpVersion`) and goes out stamped with that `mapVersion`, the next `seq` and
-   * `ts = Date.now()`. Both counters are written with no I/O in between, so they commit together
-   * before any frame leaves.
+   * sent, version unchanged) and never thrown back to the Worker. A valid one goes out stamped
+   * with its `mapVersion`, the next `seq` and `ts = Date.now()`. The mutation routes bump the
+   * version before their response and pass it here; without one (that bump failed), the
+   * broadcast bumps it once itself, so every change still moves the version.
    */
-  async broadcast(event: AreaEvent): Promise<void> {
+  async broadcast(event: AreaEvent, mapVersion?: number): Promise<void> {
     const parsed = AreaEventSchema.safeParse(event);
     if (!parsed.success) {
       log('error', 'room broadcast rejected an invalid event', {
@@ -99,7 +99,7 @@ export class Room extends DurableObject<Env> {
       });
       return;
     }
-    sendAll(this.ctx, { ...parsed.data, mapVersion: await this.bumpVersion() });
+    sendAll(this.ctx, { ...parsed.data, mapVersion: mapVersion ?? (await this.bumpVersion()) });
   }
 
   /**
@@ -116,8 +116,9 @@ export class Room extends DurableObject<Env> {
   }
 
   /**
-   * RPC: adds one to the map version and returns the new value. Every `area:*` broadcast calls it
-   * once; a direct call moves every version-keyed cache entry out of use without a broadcast.
+   * RPC: adds one to the map version and returns the new value, once per area change: by the
+   * mutation route before its response (`bumpMapVersion`), or by `broadcast` when that bump
+   * failed. Every version-keyed cache entry goes out of use at once.
    */
   async bumpVersion(): Promise<number> {
     return bump(this.ctx.storage.sql, 'mapVersion');

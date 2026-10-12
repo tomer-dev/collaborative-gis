@@ -165,6 +165,34 @@ describe('GET /api/areas through the bounds cache', () => {
     expect(await idsOf(after)).toEqual([id]);
   });
 
+  it('a read right after a write misses the old key, even while the fan-out has not run', async () => {
+    // The real Room's counter, but a broadcast that never settles: only the write's own bump,
+    // awaited before its response, can move the version the next read keys on.
+    const { room } = ownRoom();
+    const env = {
+      ...base,
+      ROOM: {
+        idFromName: () => ({}),
+        get: () => ({
+          getVersion: () => room.getVersion(),
+          bumpVersion: () => room.bumpVersion(),
+          broadcast: () => new Promise<void>(() => {}),
+        }),
+      },
+    };
+    const api = areasClient(env, freshUser(), {}, createExecutionContext());
+    const cell = randomCell();
+    expect((await api.list(query(inCell(cell), 12))).headers.get('x-cache')).toBe('MISS');
+    expect((await api.list(query(inCell(cell), 12))).headers.get('x-cache')).toBe('HIT');
+
+    const id = await createAt(api, (cell[0] + 0.3) * STEP, (cell[1] + 0.3) * STEP);
+    const after = await api.list(query(inCell(cell), 12));
+
+    expect(after.headers.get('x-cache')).toBe('MISS');
+    expect(await idsOf(after)).toEqual([id]);
+    expect((await room.getVersion()).version).toBe(1);
+  });
+
   it('the zoom is part of the key', async () => {
     const { env } = ownRoom();
     const api = areasClient(env, freshUser());
