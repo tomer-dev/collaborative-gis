@@ -53,7 +53,7 @@ Tickets 2.1–2.8, 7.5. In place since M0: no secrets in the repository, the loc
 
 ## Future improvements and scaling
 
-Ticket 4.9 ADR.
+See [ADR-0004: Horizontal scaling on Cloudflare](docs/adr/0004-horizontal-scaling-on-cloudflare.md) (ticket 4.9): where state lives, platform limits, and the growth path (tile-sharded rooms, Queues, metrics export, multi-region).
 
 ## Testing approach
 
