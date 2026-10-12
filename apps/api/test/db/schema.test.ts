@@ -101,7 +101,7 @@ describe('areas', () => {
     ]);
   });
 
-  it('maps geom to GeoJSON both ways through Drizzle', async () => {
+  it('writes geom from GeoJSON through Drizzle, stored with SRID 4326', async () => {
     const orm = drizzle(client, { schema });
     const square: Polygon = {
       type: 'Polygon',
@@ -118,11 +118,20 @@ describe('areas', () => {
     const [inserted] = await orm
       .insert(areas)
       .values({ name: 'square', geom: square, areaKm2: 0.9, createdBy: 'user-1' })
-      .returning();
+      .returning({
+        id: areas.id,
+        name: areas.name,
+        areaKm2: areas.areaKm2,
+        version: areas.version,
+      });
     try {
-      expect(inserted).toMatchObject({ name: 'square', geom: square, areaKm2: 0.9, version: 1 });
+      expect(inserted).toMatchObject({ name: 'square', areaKm2: 0.9, version: 1 });
+      // Raw geom reads throw by design (see geometry.ts); GeoJSON comes back via ST_AsGeoJSON.
       const [stored] = await orm
-        .select({ srid: sql<number>`ST_SRID(${areas.geom})`, geom: areas.geom })
+        .select({
+          srid: sql<number>`ST_SRID(${areas.geom})`,
+          geom: sql<Polygon>`ST_AsGeoJSON(${areas.geom})::json`,
+        })
         .from(areas)
         .where(eq(areas.id, inserted!.id));
       expect(stored).toEqual({ srid: 4326, geom: square });

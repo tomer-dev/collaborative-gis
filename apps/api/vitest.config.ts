@@ -14,8 +14,6 @@ export default defineConfig({
         plugins: [
           cloudflareTest({
             wrangler: { configPath: './wrangler.jsonc' },
-            // Tests may authenticate with the x-debug-user header (see wrangler.jsonc vars).
-            miniflare: { bindings: { DEBUG_STUB_AUTH: '1' } },
           }),
         ],
         test: {
