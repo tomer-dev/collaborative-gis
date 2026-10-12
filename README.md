@@ -51,7 +51,7 @@ Migrations always run against a **direct** database URL, never through Hyperdriv
 - Locally, the direct URL is `postgresql://cgis:cgis@127.0.0.1:5433/cgis`; migrate it before running the workerd tests that need tables. A lane database from `scripts/db-lane.sh` works the same way.
 - In production, use the Neon direct (non-pooled) URL (`NEON_DATABASE_URL` in `.env.example`), injected from 1Password with `op run`.
 - CI migrates the runner's PostGIS before `pnpm test`.
-- `apps/api/test/db` is a Node Vitest project (`db` in `apps/api/vitest.config.ts`), because `migrate()` reads the SQL files from disk. On every run, its global setup creates `cgis_db` with `scripts/db-lane.sh`, empties it and migrates it from scratch.
+- `apps/api/test/db` is a Node Vitest project (`db` in `apps/api/vitest.config.ts`), because `migrate()` reads the SQL files from disk. On every run, its global setup creates `cgis_db_<lane>` with `scripts/db-lane.sh`, empties it and migrates it from scratch.
 
 Coordinate order: all GeoJSON in this project is `[longitude, latitude]`; Leaflet's own API is `[lat, lng]`. The shared schema cannot detect a swap when both values are in range.
 
@@ -96,3 +96,5 @@ See [ADR-0004: Horizontal scaling on Cloudflare](docs/adr/0004-horizontal-scalin
 ## Testing approach
 
 Unit (Vitest), Worker + Durable Object integration (`@cloudflare/vitest-plugin`), API contract suite (`hono batch`), two-browser Playwright E2E: tickets 6.1–6.3. In place since M0: Vitest in all three packages (api tests run in workerd against the local PostGIS), and CI (`.github/workflows/ci.yml`) runs lint, format check, typecheck, tests with a PostGIS service and `wrangler deploy --dry-run` on every pull request and push to `main`.
+
+Test databases are per lane: every api test database is named `<base>_<lane>` (`cgis_auth_<lane>`, `cgis_api_<lane>`, `cgis_db_<lane>`, ...), where the lane is `CGIS_TEST_LANE` or, unset, the current git branch (`m2/integration` → `cgis_api_m2_integration`). Worktrees on different branches share the one compose PostGIS without resetting each other's databases; set `CGIS_TEST_LANE` to run two checkouts of one branch side by side (`apps/api/test/lane.ts`).
