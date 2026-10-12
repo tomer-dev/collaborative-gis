@@ -11,6 +11,23 @@ export const LIMITS = {
   SIMPLIFY_TOLERANCE: 0.0005,
 } as const;
 
+/** Spatial reference of every stored geometry. */
+export const GEO = {
+  /** WGS 84 lng/lat: the `geometry(Polygon,4326)` columns, bbox envelopes, and GeoJSON's default. */
+  SRID: 4326,
+} as const;
+
+/** The small test seed (apps/api/src/db/seed.ts); the 10k benchmark seed is M2. */
+export const SEED = {
+  COUNT: 50,
+  /** Israel as [w, s, e, n] in degrees: the demo region (MAP.DEFAULT_CENTER sits inside it). */
+  BBOX: [34.27, 29.49, 35.9, 33.34],
+  /** Largest distance from a polygon's centre to a vertex, in degrees (~2 km). */
+  MAX_RADIUS_DEG: 0.02,
+  VERTICES: { min: 4, max: 8 },
+  USER_ID: 'seed',
+} as const;
+
 /** Realtime room behaviour, server and client (D13). */
 export const WS = {
   DRAFT_RATE_PER_SEC: 10,
@@ -26,6 +43,16 @@ export const WS = {
   RECONNECT_BACKOFF_MS: { min: 1000, max: 30_000 },
   OFFLINE_POLL_MS: 10_000,
 } as const;
+
+/** Per-user budget shared by REST mutations and WS drawing actions (D5): an exact sliding window. */
+export const RATE_LIMIT = {
+  DRAW_ACTIONS_PER_WINDOW: 50,
+  WINDOW_MS: 60_000,
+  /** The only labels `RateLimiter.take` accepts; every action spends the same budget. */
+  ACTIONS: { DRAW: 'draw', MUTATE: 'mutate' },
+} as const;
+
+export type RateLimitAction = (typeof RATE_LIMIT.ACTIONS)[keyof typeof RATE_LIMIT.ACTIONS];
 
 /** Time budgets for the database and for a whole request. */
 export const TIMEOUTS = {

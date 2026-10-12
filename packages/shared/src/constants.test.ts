@@ -5,6 +5,8 @@ describe('constants', () => {
   it('the barrel exports every constant group as a non-empty object', () => {
     const groups = [
       'LIMITS',
+      'GEO',
+      'SEED',
       'WS',
       'TIMEOUTS',
       'ROUTES',
@@ -13,6 +15,7 @@ describe('constants', () => {
       'MAP',
       'ERROR_CODES',
       'ERROR_MESSAGES',
+      'WS_MESSAGES',
     ] as const;
     for (const name of groups) {
       const group: unknown = shared[name];
