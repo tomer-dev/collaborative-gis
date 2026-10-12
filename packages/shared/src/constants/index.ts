@@ -8,6 +8,7 @@ export * from './rate-limit.ts';
 export * from './auth.ts';
 export * from './routes.ts';
 export * from './http.ts';
+export * from './cache.ts';
 export * from './map.ts';
 export * from './query.ts';
 export * from './copy.ts';
