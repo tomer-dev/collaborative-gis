@@ -15,6 +15,7 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, presence
 | `BOUNDS_LIMIT` | `500` | Planned: T15 `GET /api/areas` row limit | Caps one viewport response |
 | `SIMPLIFY_ZOOM_BELOW` | `12` | Planned: T15 (zoom below this gets simplified geometry) | Fewer vertices when zoomed out |
 | `SIMPLIFY_TOLERANCE` | `0.0005` | Planned: T15 / T2 `ST_SimplifyPreserveTopology` tolerance (degrees) | ~50 m at the equator: invisible at zoom < 12 |
+| `PASSWORD_MIN` | `8` | `packages/shared/src/auth.ts` (`SignUpRequestSchema`), `apps/web/src/routes/-components/AuthForm.tsx` (register `minlength`), `COPY.AUTH.PASSWORD_HINT` | Better Auth's default `minPasswordLength`; the form rejects what the server would |
 
 ## WS
 
@@ -44,7 +45,11 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, presence
 | `API_PREFIX` | `'/api'` | `apps/web/vite.config.ts` dev proxy | Everything under it goes to `wrangler dev` |
 | `HEALTHZ` | `'/healthz'` | `apps/api/src/routes/health.ts` | Liveness |
 | `READYZ` | `'/readyz'` | `apps/api/src/routes/health.ts` | Readiness (DB reachable) |
-| `AUTH` | `'/api/auth'` | `apps/api/src/app.ts` (`${AUTH}/*` → `authHandler`); planned T12 auth client `baseURL` | Better Auth mount |
+| `AUTH` | `'/api/auth'` | `apps/api/src/app.ts` (`${AUTH}/*` → `authHandler`); prefix of the `AUTH_*` paths below | Better Auth mount |
+| `AUTH_SIGN_UP` | `'/api/auth/sign-up/email'` | `apps/web/src/lib/auth.ts` `signUp` | Better Auth email + password sign-up (sets the session cookie) |
+| `AUTH_SIGN_IN` | `'/api/auth/sign-in/email'` | `apps/web/src/lib/auth.ts` `signIn` | Better Auth email + password sign-in (sets the session cookie) |
+| `AUTH_SIGN_OUT` | `'/api/auth/sign-out'` | `apps/web/src/lib/auth.ts` `signOut` | Ends the session and clears the cookie |
+| `AUTH_GET_SESSION` | `'/api/auth/get-session'` | `apps/web/src/lib/session.ts` `sessionQuery` | Current session or `null` |
 | `AREAS` | `'/api/areas'` | `apps/api/src/app.ts` (mounts `routes/areas.ts`); planned T13 fetch wrappers | Area CRUD + bbox query |
 | `WS` | `'/ws'` | `apps/api/src/app.ts` (`wsUpgrade`), `apps/web/vite.config.ts` ws proxy; planned T14 | Room WebSocket upgrade |
 | `OPENAPI` | `'/openapi.json'` | Planned: T15 `openAPIRouteHandler` | OpenAPI document |
@@ -75,6 +80,31 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, presence
 | `DRAFTS_PANE` / `DRAFTS_PANE_Z` | `'drafts'` / `460` | `apps/web/src/ui/map-styles.ts` (path options), `tokens.css` `--z-index-map-drafts` (drift-tested); planned: T10 creates, T14 draws ghost drafts | Live drafts render above saved areas |
 | `MOVEEND_DEBOUNCE_MS` | `250` | Planned: T13 bbox query on `moveend` | One fetch per pan gesture |
 | `PRESENCE_COLORS` | `['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948']` | `apps/web/src/styles/tokens.css` `--color-presence-1..8` (drift-tested), `apps/web/src/ui/Avatar.tsx` slot count; planned T14 ghost drafts | Design brief §3: categorical, CVD-checked, assigned by join order; the 9th user gets a neutral |
+
+## QUERY
+
+| Name | Value | Where used | Why |
+|---|---|---|---|
+| `SESSION_RETRY` | `0` | `apps/web/src/lib/session.ts` `sessionQuery.retry` | A failed session check counts as signed out; TanStack Query's default (3 retries, ~7 s) delayed the redirect to `/login` |
+
+## COPY
+
+User-facing text in the SPA, one group per screen. Components read it from here instead of writing literals.
+
+| Name | Value | Where used |
+|---|---|---|
+| `APP.NAME` | `'Collaborative GIS'` | `apps/web/src/routes/-components/AppFrame.tsx` header |
+| `AUTH.LOGIN_TITLE` / `AUTH.REGISTER_TITLE` | `'Sign in'` / `'Create an account'` | `AuthForm` panel heading |
+| `AUTH.LOGIN_SUBMIT` / `AUTH.REGISTER_SUBMIT` | `'Sign in'` / `'Create account'` | `AuthForm` submit button |
+| `AUTH.LOGIN_PENDING` / `AUTH.REGISTER_PENDING` | `'Signing in…'` / `'Creating account…'` | `AuthForm` submit button while the request runs |
+| `AUTH.LOGIN_ERROR_TITLE` / `AUTH.REGISTER_ERROR_TITLE` | `'Could not sign in'` / `'Could not create the account'` | `AuthForm` error banner title |
+| `AUTH.LOGIN_SWITCH_PROMPT` / `AUTH.LOGIN_SWITCH_LINK` | `'No account yet?'` / `'Create one'` | `/login` footer link to `/register` |
+| `AUTH.REGISTER_SWITCH_PROMPT` / `AUTH.REGISTER_SWITCH_LINK` | `'Already have an account?'` / `'Sign in'` | `/register` footer link to `/login` |
+| `AUTH.NAME_LABEL` / `AUTH.EMAIL_LABEL` / `AUTH.PASSWORD_LABEL` | `'Name'` / `'Email'` / `'Password'` | `AuthForm` field labels |
+| `AUTH.PASSWORD_HINT` | `` `At least ${LIMITS.PASSWORD_MIN} characters.` `` | `AuthForm` register password hint |
+| `AUTH.ERROR_GENERIC` | `'Something went wrong. Try again.'` | `apps/web/src/lib/auth.ts` `authErrorMessage` when the failure carries no server message |
+| `AUTH.SIGN_OUT` | `'Sign out'` | `AppFrame.tsx` `SessionMenu` button |
+| `AUTH.SIGN_OUT_ERROR` | `'Could not sign out. Try again.'` | `SessionMenu` alert when sign-out fails and the session is still valid |
 
 ## ERROR_CODES
 

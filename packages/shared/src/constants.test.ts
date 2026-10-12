@@ -13,6 +13,8 @@ describe('constants', () => {
       'MAP',
       'ERROR_CODES',
       'ERROR_MESSAGES',
+      'QUERY',
+      'COPY',
     ] as const;
     for (const name of groups) {
       const group: unknown = shared[name];
@@ -27,5 +29,19 @@ describe('constants', () => {
 
   it('POLYGON_MAX_VERTICES keeps its old import path and matches LIMITS', () => {
     expect(shared.POLYGON_MAX_VERTICES).toBe(shared.LIMITS.POLYGON_MAX_VERTICES);
+  });
+
+  it('the Better Auth endpoint paths sit under ROUTES.AUTH', () => {
+    const { AUTH, AUTH_SIGN_UP, AUTH_SIGN_IN, AUTH_SIGN_OUT, AUTH_GET_SESSION } = shared.ROUTES;
+    expect([AUTH_SIGN_UP, AUTH_SIGN_IN, AUTH_SIGN_OUT, AUTH_GET_SESSION]).toEqual([
+      `${AUTH}/sign-up/email`,
+      `${AUTH}/sign-in/email`,
+      `${AUTH}/sign-out`,
+      `${AUTH}/get-session`,
+    ]);
+  });
+
+  it('the password hint states LIMITS.PASSWORD_MIN', () => {
+    expect(shared.COPY.AUTH.PASSWORD_HINT).toContain(String(shared.LIMITS.PASSWORD_MIN));
   });
 });
