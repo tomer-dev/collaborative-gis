@@ -7,6 +7,8 @@ export const LIMITS = {
   BOUNDS_LIMIT: 500,
   SIMPLIFY_ZOOM_BELOW: 12,
   SIMPLIFY_TOLERANCE: 0.0005,
+  /** Better Auth's default `minPasswordLength`; the register form's `minlength`. */
+  PASSWORD_MIN: 8,
 } as const;
 
 /** Realtime room behaviour, server and client (D13). */
@@ -28,12 +30,19 @@ export const TIMEOUTS = {
   REQUEST_MS: 10_000,
 } as const;
 
+// Better Auth mount; the endpoint paths below are built on it.
+const AUTH = '/api/auth';
+
 /** HTTP paths the Worker serves and the SPA calls. */
 export const ROUTES = {
   API_PREFIX: '/api',
   HEALTHZ: '/healthz',
   READYZ: '/readyz',
-  AUTH: '/api/auth',
+  AUTH,
+  AUTH_SIGN_UP: `${AUTH}/sign-up/email`,
+  AUTH_SIGN_IN: `${AUTH}/sign-in/email`,
+  AUTH_SIGN_OUT: `${AUTH}/sign-out`,
+  AUTH_GET_SESSION: `${AUTH}/get-session`,
   AREAS: '/api/areas',
   WS: '/ws',
   OPENAPI: '/openapi.json',
@@ -74,6 +83,41 @@ export const MAP = {
     '#6250d6',
     '#e34948',
   ],
+} as const;
+
+/** TanStack Query options the SPA sets per query. */
+export const QUERY = {
+  /** GET get-session retries: a failed check counts as signed out, so the guard redirects at once. */
+  SESSION_RETRY: 0,
+} as const;
+
+/** User-facing text in the SPA, grouped by screen. */
+export const COPY = {
+  APP: {
+    NAME: 'Collaborative GIS',
+  },
+  AUTH: {
+    LOGIN_TITLE: 'Sign in',
+    LOGIN_SUBMIT: 'Sign in',
+    LOGIN_PENDING: 'Signing in…',
+    LOGIN_ERROR_TITLE: 'Could not sign in',
+    LOGIN_SWITCH_PROMPT: 'No account yet?',
+    LOGIN_SWITCH_LINK: 'Create one',
+    REGISTER_TITLE: 'Create an account',
+    REGISTER_SUBMIT: 'Create account',
+    REGISTER_PENDING: 'Creating account…',
+    REGISTER_ERROR_TITLE: 'Could not create the account',
+    REGISTER_SWITCH_PROMPT: 'Already have an account?',
+    REGISTER_SWITCH_LINK: 'Sign in',
+    NAME_LABEL: 'Name',
+    EMAIL_LABEL: 'Email',
+    PASSWORD_LABEL: 'Password',
+    PASSWORD_HINT: `At least ${LIMITS.PASSWORD_MIN} characters.`,
+    /** Shown when a failed auth call carries no server message (network error, non-JSON body). */
+    ERROR_GENERIC: 'Something went wrong. Try again.',
+    SIGN_OUT: 'Sign out',
+    SIGN_OUT_ERROR: 'Could not sign out. Try again.',
+  },
 } as const;
 
 /** Every `ApiError.code` the API sends; apps/api/src/errors.ts maps each to its HTTP status. */
