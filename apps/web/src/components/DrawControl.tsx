@@ -1,6 +1,7 @@
 import { AREA_FORMAT, DRAW, LIMITS, MAP } from '@cgis/shared';
 import * as L from 'leaflet';
-import { useEffect, useEffectEvent, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState, type Ref } from 'react';
+import { flushSync } from 'react-dom';
 import { onDraw, PolygonDraw } from '../lib/geo/draw-handler';
 import { ringAreaKm2, type LngLat } from '../lib/geo/geodesic';
 import { Banner, Button, IconPolygon, MapControl, MapControlButton, Panel, Stat } from '../ui';
@@ -27,7 +28,8 @@ function formatArea(km2: number): string {
     : `${km2Format.format(km2)} ${AREA_FORMAT.KM2_UNIT}`;
 }
 
-const formatVertexCount = (count: number) => `${count} / ${LIMITS.POLYGON_MAX_VERTICES}`;
+/** Placed vertices against the cap a user can reach (the closing vertex is not placed). */
+const formatVertexCount = (count: number) => `${count} / ${LIMITS.POLYGON_MAX_PLACED_VERTICES}`;
 
 /**
  * Polygon draw control floating over the map's top-right corner: a "Draw polygon" toolbar
@@ -47,8 +49,15 @@ function MapDrawControl({ map, onDone }: DrawControlProps) {
   const [handler] = useState(() => new PolygonDraw(map, { pane: MAP.DRAFTS_PANE }));
   const [drawing, setDrawing] = useState(false);
   const [sketch, setSketch] = useState(EMPTY_SKETCH);
+  const startButton = useRef<HTMLButtonElement>(null);
   // Always the latest onDone, without resubscribing (which would disable the handler mid-sketch).
   const finished = useEffectEvent((ring: LngLat[]) => onDone(ring));
+
+  // The panel that had focus is gone: render the start button now and put focus back on it.
+  const backToIdle = () => {
+    flushSync(() => setDrawing(false));
+    startButton.current?.focus();
+  };
 
   useEffect(() => {
     const unsubscribe = [
@@ -57,10 +66,10 @@ function MapDrawControl({ map, onDone }: DrawControlProps) {
         setSketch((current) => ({ ...current, invalidReason: reason })),
       ),
       onDraw(map, 'draw:done', ({ ring }) => {
-        setDrawing(false);
+        backToIdle();
         finished(ring);
       }),
-      onDraw(map, 'draw:cancel', () => setDrawing(false)),
+      onDraw(map, 'draw:cancel', backToIdle),
     ];
     return () => {
       for (const off of unsubscribe) off();
@@ -84,16 +93,17 @@ function MapDrawControl({ map, onDone }: DrawControlProps) {
           onCancel={() => handler.cancel()}
         />
       ) : (
-        <IdleControls onStart={start} />
+        <IdleControls ref={startButton} onStart={start} />
       )}
     </div>
   );
 }
 
-function IdleControls({ onStart }: { onStart: () => void }) {
+function IdleControls({ ref, onStart }: { ref: Ref<HTMLButtonElement>; onStart: () => void }) {
   return (
     <MapControl label={DRAW.TOOLBAR_LABEL}>
       <MapControlButton
+        ref={ref}
         label={DRAW.START_LABEL}
         icon={IconPolygon}
         tooltipSide="left"

@@ -83,6 +83,8 @@ it('starts idle with the draw button; clicking it enables the handler and shows 
 
   expect(screen.getByRole('toolbar', { name: DRAW.TOOLBAR_LABEL })).toBeTruthy();
   expect(panel()).toBeNull();
+  // Mounting does not take focus; only the end of a sketch moves it to the button.
+  expect(document.activeElement).toBe(document.body);
 
   startDrawing();
 
@@ -96,7 +98,7 @@ it('starts idle with the draw button; clicking it enables the handler and shows 
   expect(
     within(screen.getByRole('status', { name: DRAW.AREA_LABEL })).getByText('No value'),
   ).toBeTruthy();
-  expect(readout(DRAW.VERTICES_LABEL)).toBe('0 / 1000');
+  expect(readout(DRAW.VERTICES_LABEL)).toBe('0 / 999');
   expect(button(DRAW.UNDO_LABEL).disabled).toBe(true);
 });
 
@@ -108,7 +110,7 @@ it('shows the live area in km² with 3 decimals and the vertex count on draw:cha
   // The readout is ringAreaKm2's value, rounded for display.
   expect(ringAreaKm2(square).toFixed(AREA_FORMAT.KM2_DECIMALS)).toBe('104.798');
   expect(readout(DRAW.AREA_LABEL)).toBe('104.798 km²');
-  expect(readout(DRAW.VERTICES_LABEL)).toBe('4 / 1000');
+  expect(readout(DRAW.VERTICES_LABEL)).toBe('4 / 999');
 
   fire('draw:change', { vertices: degreeBox });
   expect(readout(DRAW.AREA_LABEL)).toBe('10,542.204 km²');
@@ -122,7 +124,7 @@ it('shows an area under 1 km² in whole m²', () => {
 
   expect(Math.round(ringAreaKm2(triangle) * AREA_FORMAT.M2_PER_KM2)).toBe(262132);
   expect(readout(DRAW.AREA_LABEL)).toBe('262,132 m²');
-  expect(readout(DRAW.VERTICES_LABEL)).toBe('3 / 1000');
+  expect(readout(DRAW.VERTICES_LABEL)).toBe('3 / 999');
 });
 
 it('shows the draw:invalid reason as an alert until the next draw:change', () => {
@@ -144,8 +146,8 @@ it('hands the ring to onDone on draw:done and returns to idle', () => {
   fire('draw:done', { ring: closedSquare });
 
   expect(onDone).toHaveBeenCalledExactlyOnceWith(closedSquare);
-  expect(button(DRAW.START_LABEL)).toBeTruthy();
   expect(panel()).toBeNull();
+  expect(document.activeElement).toBe(button(DRAW.START_LABEL));
 });
 
 it('returns to idle on draw:cancel without calling onDone', () => {
@@ -155,8 +157,8 @@ it('returns to idle on draw:cancel without calling onDone', () => {
   fire('draw:cancel');
 
   expect(onDone).not.toHaveBeenCalled();
-  expect(button(DRAW.START_LABEL)).toBeTruthy();
   expect(panel()).toBeNull();
+  expect(document.activeElement).toBe(button(DRAW.START_LABEL));
 });
 
 it('drives the handler from Undo and Finish: a too-small ring alerts, a valid one is done', () => {
@@ -168,20 +170,20 @@ it('drives the handler from Undo and Finish: a too-small ring alerts, a valid on
     });
 
   add(square.slice(0, 2));
-  expect(readout(DRAW.VERTICES_LABEL)).toBe('2 / 1000');
+  expect(readout(DRAW.VERTICES_LABEL)).toBe('2 / 999');
   fireEvent.click(button(DRAW.FINISH_LABEL));
   expect(screen.getByRole('alert').textContent).toBe(invalidReason(square.slice(0, 2)));
   expect(handler().enabled()).toBe(true);
 
   add(square.slice(2));
   fireEvent.click(button(DRAW.UNDO_LABEL));
-  expect(readout(DRAW.VERTICES_LABEL)).toBe('3 / 1000');
+  expect(readout(DRAW.VERTICES_LABEL)).toBe('3 / 999');
   expect(screen.queryByRole('alert')).toBeNull();
 
   fireEvent.click(button(DRAW.FINISH_LABEL));
   expect(onDone).toHaveBeenCalledExactlyOnceWith(square.slice(0, 3).concat(square.slice(0, 1)));
   expect(handler().enabled()).toBe(false);
-  expect(button(DRAW.START_LABEL)).toBeTruthy();
+  expect(document.activeElement).toBe(button(DRAW.START_LABEL));
 });
 
 it('discards the sketch from Cancel', () => {
@@ -194,7 +196,22 @@ it('discards the sketch from Cancel', () => {
   expect(handler().enabled()).toBe(false);
   expect(handler().getVertices()).toEqual([]);
   expect(onDone).not.toHaveBeenCalled();
-  expect(button(DRAW.START_LABEL)).toBeTruthy();
+  expect(document.activeElement).toBe(button(DRAW.START_LABEL));
+});
+
+it('counts placed vertices up to the reachable cap, 999, where the handler stops', () => {
+  const { handler } = renderOnMap();
+  startDrawing();
+
+  act(() => {
+    for (let i = 0; i < 999; i++) handler().addVertex([32 + i * 1e-4, 35 + (i % 2) * 1e-4]);
+  });
+  expect(readout(DRAW.VERTICES_LABEL)).toBe('999 / 999');
+  expect(screen.queryByRole('alert')).toBeNull();
+
+  act(() => handler().addVertex([33, 36]));
+  expect(readout(DRAW.VERTICES_LABEL)).toBe('999 / 999');
+  expect(screen.getByRole('alert').textContent).toBe(DRAW.MAX_VERTICES_REASON);
 });
 
 it('disables the handler and stops listening on unmount', () => {
@@ -245,7 +262,7 @@ it('starts over on a new map: the old handler is disabled and unsubscribed', () 
   // `fire` targets the old map, which nothing listens to any more.
   fire('draw:change', { vertices: square });
   fire('draw:done', { ring: closedSquare });
-  expect(readout(DRAW.VERTICES_LABEL)).toBe('0 / 1000');
+  expect(readout(DRAW.VERTICES_LABEL)).toBe('0 / 999');
   expect(onDone).not.toHaveBeenCalled();
 
   other.map.remove();
