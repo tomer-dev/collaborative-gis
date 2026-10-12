@@ -5,6 +5,7 @@ import {
   type AreaUpdate,
   type AreaVersion,
   type Bbox,
+  type Polygon,
 } from '@cgis/shared';
 import type pg from 'pg';
 import type { Env } from '../app';
@@ -51,12 +52,16 @@ export function listAreas(env: Env, bbox: Bbox): Promise<Area[]> {
   return withClient(env, (client) => selectAreasInBounds(client, bbox));
 }
 
-/** Inserts the area (version 1) and its `area.create` audit row. */
+/**
+ * Inserts the area (version 1) with its `area.create` audit row and the `draw.session` row of the
+ * draft it was drawn as (D20: a saved draft is one draw session), all in one transaction.
+ */
 export function createArea(env: Env, input: AreaCreate, actor: Actor): Promise<CreateOutcome> {
   return orInvalid(
     inTransaction(env, async (client): Promise<CreateOutcome> => {
       const area = await insertArea(client, { ...input, userId: actor.userId });
       await writeAudit(client, auditRow(actor, AUDIT.ACTIONS.AREA_CREATE, area.id, area.version));
+      await writeAudit(client, drawSessionRow(actor, input.geometry));
       return { status: 'created', area };
     }),
   );
@@ -122,6 +127,21 @@ export function revertAreaToVersion(
     await writeAudit(client, auditRow(actor, AUDIT.ACTIONS.AREA_REVERT, area.id, area.version));
     return result;
   });
+}
+
+/** The `draw.session` row of a saved draft: its vertex count (without the ring's closing one). */
+function drawSessionRow(actor: Actor, geometry: Polygon): AuditRow {
+  const { userId, ip, userAgent, requestId } = actor;
+  const [ring] = geometry.coordinates;
+  return {
+    userId,
+    action: AUDIT.ACTIONS.DRAW_SESSION,
+    entity: AUDIT.ENTITIES.DRAFT,
+    ip,
+    userAgent,
+    requestId,
+    details: { vertices: ring.length - 1 },
+  };
 }
 
 function auditRow(actor: Actor, action: AuditAction, entityId: string, version: number): AuditRow {
