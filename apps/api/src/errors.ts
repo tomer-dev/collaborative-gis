@@ -29,11 +29,13 @@ function errorBody(code: string, message: string, details?: unknown): ApiError {
 
 /**
  * Responds with `{ code, message, details? }` and the status that belongs to `code`; the message
- * defaults to `ERROR_MESSAGES[code]`.
+ * defaults to `ERROR_MESSAGES[code]`. Generic in `code`, so the response is typed with that one
+ * status (`404` for `NOT_FOUND`) and Hono's `hc` client tells error bodies from success bodies by
+ * `status`.
  */
-export function apiError(
+export function apiError<C extends ApiErrorCode>(
   c: Context,
-  code: ApiErrorCode,
+  code: C,
   message: string = ERROR_MESSAGES[code],
   details?: unknown,
 ) {

@@ -45,8 +45,9 @@ async function requestError(res: ApiResponse): Promise<ApiRequestError> {
 
 /**
  * The body of `res` parsed with `schema` when the status is `expected`; any other status throws an
- * `ApiRequestError`. `hc` cannot tell success bodies from errors by status (the api's error helper
- * is typed with every status), so each body goes through its Zod schema here.
+ * `ApiRequestError`. `hc` already types each status's body (the api's `apiError` is typed per
+ * code); the Zod parse is the run-time check at the boundary, which a stale deploy or a proxy page
+ * would otherwise slip past.
  */
 export async function readBody<T>(
   res: ApiResponse,
