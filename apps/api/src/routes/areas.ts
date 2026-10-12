@@ -7,19 +7,19 @@ import {
   BoundsQuerySchema,
   ERROR_CODES,
   ERROR_REASONS,
-  HEADERS,
   ROUTES,
 } from '@cgis/shared';
 import { type Context, Hono } from 'hono';
-import { describeRoute, resolver } from 'hono-openapi';
+import { describeRoute } from 'hono-openapi';
 import { z } from 'zod';
 import type { AppEnv } from '../app';
 import { boundsCache, tileOf } from '../cache/bounds';
 import { apiError } from '../errors';
-import { mutationGuards, requireUser, type SignedIn } from '../middleware';
-import { type Actor, createArea, deleteArea, listAreas, updateArea } from '../services/areas';
+import { mutationGuards, requireUser } from '../middleware';
+import { createArea, deleteArea, listAreas, updateArea } from '../services/areas';
 import { fanout } from '../services/fanout';
 import { IdParamSchema, validate } from '../validate';
+import { actor, error, json, RATE_LIMITED, UNAUTHORIZED } from './common';
 import { revert, versions } from './versions';
 
 // Every path under /api/areas needs a session (401 first, from the one `use` below; an unrouted
@@ -28,32 +28,14 @@ import { revert, versions } from './versions';
 // rejected attempts count too. Handlers stay thin: services/areas.ts owns the transaction and the
 // audit row, and a committed change is broadcast after the response.
 
-/** The session user, the client hints and the request id the audit row records. */
-function actor(c: Context<AppEnv & SignedIn>, userId: string): Actor {
-  return {
-    userId,
-    ip: c.req.header(HEADERS.CF_CONNECTING_IP) ?? null,
-    userAgent: c.req.header(HEADERS.USER_AGENT) ?? null,
-    requestId: c.get('requestId'),
-  };
-}
-
 /** 422 for a polygon PostGIS rejected: `details.reason` is the `ST_IsValidReason` text. */
 const invalidGeometry = (c: Context, reason: string) =>
   apiError(c, ERROR_CODES.UNPROCESSABLE, ERROR_REASONS.INVALID_GEOMETRY, { reason });
 
 const ConflictSchema = ApiErrorSchema.extend({ details: z.object({ current: AreaSchema }) });
 
-const json = (schema: Parameters<typeof resolver>[0]) => ({
-  'application/json': { schema: resolver(schema) },
-});
-const error = (description: string) => ({ description, content: json(ApiErrorSchema) });
-const UNAUTHORIZED = error('No session (`UNAUTHORIZED`)');
 const UNPROCESSABLE = error(
   'Invalid request (`UNPROCESSABLE`): `details.issues` from the schema, or `details.reason` when PostGIS rejects the polygon',
-);
-const RATE_LIMITED = error(
-  'Over the per-user mutation budget (`RATE_LIMITED`), with `Retry-After`',
 );
 const PAYLOAD_TOO_LARGE = error('Body over `LIMITS.BODY_MAX_BYTES` (`PAYLOAD_TOO_LARGE`)');
 const NOT_FOUND = error('No live area with this id (`NOT_FOUND`)');
@@ -78,7 +60,7 @@ export const areas = new Hono<AppEnv>()
     mutationGuards(),
     validate('json', AreaCreateSchema),
     async (c) => {
-      const result = await createArea(c.env, c.req.valid('json'), actor(c, c.get('user').id));
+      const result = await createArea(c.env, c.req.valid('json'), actor(c));
       if (result.status === 'invalid') return invalidGeometry(c, result.reason);
       const { area } = result;
       c.executionCtx.waitUntil(
@@ -132,7 +114,7 @@ export const areas = new Hono<AppEnv>()
     validate('json', AreaUpdateSchema),
     async (c) => {
       const { id } = c.req.valid('param');
-      const result = await updateArea(c.env, id, c.req.valid('json'), actor(c, c.get('user').id));
+      const result = await updateArea(c.env, id, c.req.valid('json'), actor(c));
       switch (result.status) {
         case 'invalid':
           return invalidGeometry(c, result.reason);
@@ -170,7 +152,7 @@ export const areas = new Hono<AppEnv>()
     validate('param', IdParamSchema),
     async (c) => {
       const { id } = c.req.valid('param');
-      const result = await deleteArea(c.env, id, actor(c, c.get('user').id));
+      const result = await deleteArea(c.env, id, actor(c));
       if (result.status === 'missing') return apiError(c, ERROR_CODES.NOT_FOUND);
       c.executionCtx.waitUntil(
         fanout(c.env, { type: 'area:deleted', payload: { id } }, c.get('requestId')),
