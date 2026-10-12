@@ -21,7 +21,8 @@
     "class-variance-authority": "^0.7.1",
     "leaflet": "^1.9.4",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@storybook/addon-a11y": "^10.6.1",
