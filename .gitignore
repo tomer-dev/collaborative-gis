@@ -11,3 +11,5 @@ worker-configuration.d.ts
 .wrangler/
 .dev.vars
 coverage/
+storybook-static/
+*storybook.log
