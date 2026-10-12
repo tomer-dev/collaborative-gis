@@ -1,29 +1,16 @@
-import { cva, cx } from 'class-variance-authority';
 import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
+import { cx } from './cx';
 import { IconCheckCircle, IconError, IconInfo, IconWarning, type IconComponent } from './icons';
 
 export type BannerTone = 'ok' | 'warn' | 'danger' | 'info';
 
-export const bannerVariants = cva(
-  'flex items-start gap-3 rounded-md border px-4 py-3 text-sm text-fg',
-  {
-    variants: {
-      tone: {
-        ok: 'border-ok bg-ok-bg',
-        warn: 'border-warn bg-warn-bg',
-        danger: 'border-danger bg-danger-bg',
-        info: 'border-info bg-info-bg',
-      },
-    },
-    defaultVariants: { tone: 'info' },
-  },
-);
+const base = 'flex items-start gap-3 rounded-md border px-4 py-3 text-sm text-fg';
 
-const toneIcon: Record<BannerTone, { Icon: IconComponent; className: string }> = {
-  ok: { Icon: IconCheckCircle, className: 'text-ok-strong' },
-  warn: { Icon: IconWarning, className: 'text-warn-strong' },
-  danger: { Icon: IconError, className: 'text-danger-strong' },
-  info: { Icon: IconInfo, className: 'text-info-strong' },
+const tones: Record<BannerTone, { box: string; Icon: IconComponent; icon: string }> = {
+  ok: { box: 'border-ok bg-ok-bg', Icon: IconCheckCircle, icon: 'text-ok-strong' },
+  warn: { box: 'border-warn bg-warn-bg', Icon: IconWarning, icon: 'text-warn-strong' },
+  danger: { box: 'border-danger bg-danger-bg', Icon: IconError, icon: 'text-danger-strong' },
+  info: { box: 'border-info bg-info-bg', Icon: IconInfo, icon: 'text-info-strong' },
 };
 
 export interface BannerProps extends Omit<HTMLAttributes<HTMLDivElement>, 'title'> {
@@ -45,15 +32,15 @@ export const Banner = forwardRef<HTMLDivElement, BannerProps>(function Banner(
   { tone = 'info', title, children, action, className, ...rest },
   ref,
 ) {
-  const { Icon, className: iconClass } = toneIcon[tone];
+  const { box, Icon, icon } = tones[tone];
   return (
     <div
       ref={ref}
       role={tone === 'danger' ? 'alert' : 'status'}
-      className={cx(bannerVariants({ tone }), className)}
+      className={cx(base, box, className)}
       {...rest}
     >
-      <Icon className={cx('size-5', iconClass)} />
+      <Icon className={cx('size-5 shrink-0', icon)} />
       <div className="flex min-w-0 flex-1 flex-wrap gap-x-2">
         <p className="font-semibold">{title}</p>
         {children ? <p>{children}</p> : null}

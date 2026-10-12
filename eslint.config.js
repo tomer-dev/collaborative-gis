@@ -30,15 +30,12 @@ export default tseslint.config(
       'no-restricted-syntax': [
         'error',
         {
-          selector: `JSXAttribute[name.name='className'] Literal[value=${ARBITRARY_VALUE}]`,
+          // Any string in web TSX: classes live in className, cx() calls and Record variant maps.
+          selector: `Literal[value=${ARBITRARY_VALUE}]`,
           message: ARBITRARY_MESSAGE,
         },
         {
-          selector: `JSXAttribute[name.name='className'] TemplateElement[value.raw=${ARBITRARY_VALUE}]`,
-          message: ARBITRARY_MESSAGE,
-        },
-        {
-          selector: `CallExpression[callee.name=/^(cva|cx)$/] Literal[value=${ARBITRARY_VALUE}]`,
+          selector: `TemplateElement[value.raw=${ARBITRARY_VALUE}]`,
           message: ARBITRARY_MESSAGE,
         },
         {
