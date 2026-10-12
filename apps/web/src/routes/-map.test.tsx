@@ -1,8 +1,10 @@
 // The leading '-' keeps the TanStack Router generator from treating this file as a route.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory } from '@tanstack/react-router';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { COPY, MAP, ROUTES } from '@cgis/shared';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
+import { FakeSocket } from '../lib/fake-websocket';
 import { AppRouterProvider, createAppRouter } from '../router';
 
 // What Better Auth's authClient.useSession() returns (only the fields the app reads).
@@ -26,8 +28,19 @@ const auth = vi.hoisted(() => {
 
 vi.mock('../lib/auth-client', () => ({ authClient: { useSession: () => auth.current } }));
 
+/** The room sockets the map route opened (the browser WebSocket is replaced by FakeSocket). */
+const sockets: FakeSocket[] = [];
+class RecordedSocket extends FakeSocket {
+  constructor(url: string) {
+    super(url);
+    sockets.push(this);
+  }
+}
+
 function renderAppAt(path: string, session: BetterAuthSessionState) {
   auth.current = session;
+  sockets.length = 0;
+  vi.stubGlobal('WebSocket', RecordedSocket);
   // jsdom has no scrollTo; the router resets scroll after each navigation.
   vi.stubGlobal('scrollTo', vi.fn());
   // jsdom has no ResizeObserver; the map view observes its container.
@@ -110,4 +123,34 @@ it('sends the user to /login when the session ends while on /map', async () => {
   await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
   expect(await screen.findByRole('heading', { name: /sign in/i })).toBeTruthy();
   expect(screen.queryByText('Ada Lovelace')).toBeNull();
+});
+
+it('connects the map to the room and lists who is there', async () => {
+  renderAppAt('/map', signedIn);
+  await screen.findByTestId('map-root');
+
+  const socket = sockets.at(-1);
+  expect(socket && new URL(socket.url).pathname).toBe(ROUTES.WS);
+  act(() => socket?.open());
+  expect(socket?.frames().map((frame) => frame.type)).toEqual(['join']);
+  act(() =>
+    socket?.receive({
+      type: 'presence',
+      seq: 1,
+      ts: 1,
+      payload: {
+        users: [
+          {
+            userId: 'user_1',
+            name: 'Ada Lovelace',
+            color: MAP.PRESENCE_COLORS[0],
+            state: 'viewing',
+          },
+        ],
+      },
+    }),
+  );
+
+  const presence = screen.getByRole('region', { name: COPY.PRESENCE.TITLE });
+  expect(within(presence).getByText('(you)')).toBeTruthy();
 });
