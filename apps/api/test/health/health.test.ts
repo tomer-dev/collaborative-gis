@@ -95,6 +95,7 @@ describe('GET /readyz: the database and the Room', () => {
       level: 'error',
       msg: 'not ready',
       path: '/readyz',
+      requestId: expect.any(String),
       db: expect.any(String),
     });
   });
@@ -125,6 +126,7 @@ describe('GET /readyz: the database and the Room', () => {
       level: 'error',
       msg: 'not ready',
       path: '/readyz',
+      requestId: expect.any(String),
       room: `room ping exceeded ${TIMEOUTS.DO_PING_MS} ms`,
     });
   });

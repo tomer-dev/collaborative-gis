@@ -17,6 +17,7 @@ describe('ApiErrorCodeSchema', () => {
       'INTERNAL',
       'NOT_IMPLEMENTED',
       'UPGRADE_REQUIRED',
+      'DRAFT_OP_MISFIT',
     ]);
     expect(ApiErrorCodeSchema.safeParse('NOPE').success).toBe(false);
   });
