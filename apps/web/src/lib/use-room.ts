@@ -218,8 +218,8 @@ export type Room = {
 /**
  * The map room: one WebSocket to the Room, joined on every open. Presence and other users'
  * drafts come back as state; `area:*` events patch every cached `[QUERY.AREAS_KEY, …]` list;
- * each (re)open invalidates those queries (the resync), and while offline they are invalidated
- * every `WS.OFFLINE_POLL_MS`. The map's draw events stream your draft and presence state.
+ * each reopen invalidates those queries (the resync; not the first open of a healthy connection),
+ * and while offline they are invalidated every `WS.OFFLINE_POLL_MS`. The map's draw events stream your draft and presence state.
  */
 export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
   const queryClient = useQueryClient();
@@ -245,10 +245,15 @@ export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
     const areasKey = { queryKey: [QUERY.AREAS_KEY] };
     const patch = (event: AreaWsEvent) =>
       queryClient.setQueriesData<AreaList>(areasKey, (list) => patchAreas(list, event));
+    // The viewport lists are refetched on an open only once events may have been missed: after an
+    // earlier open, or after the connection degraded. The first open of a healthy connection skips
+    // it, so loading the map costs one GET, not two (the list was fetched moments before).
+    let resyncOnOpen = false;
 
     const unsubscribe = [
       connection.onState((next) => {
         setState(next);
+        if (next === 'degraded' || next === 'offline') resyncOnOpen = true;
         if (next === 'open') return;
         // Nothing live arrives while closed: drop what would go stale; the next join resends it.
         setUsers([]);
@@ -260,7 +265,8 @@ export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
           connection.send({ type: 'presence:set', payload: { state: presenceRef.current } });
         }
         connection.send({ type: 'join', payload: { mapId: ROOM.DEFAULT_ROOM_ID } });
-        void queryClient.invalidateQueries(areasKey);
+        if (resyncOnOpen) void queryClient.invalidateQueries(areasKey);
+        resyncOnOpen = true;
         sender.restart();
       }),
       connection.on('presence', ({ payload }) => setUsers(payload.users)),
