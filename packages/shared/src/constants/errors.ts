@@ -28,6 +28,11 @@ export const ERROR_CODES = {
   NOT_IMPLEMENTED: 'NOT_IMPLEMENTED',
   /** `/ws` only speaks WebSocket. */
   UPGRADE_REQUIRED: 'UPGRADE_REQUIRED',
+  /**
+   * WebSocket only: a `draft:update` op does not fit the Room's copy of the sender's draft (the
+   * two diverged), so it is not relayed; the client clears its draft and sends it again.
+   */
+  DRAFT_OP_MISFIT: 'DRAFT_OP_MISFIT',
 } as const;
 
 /** Default `ApiError.message` per code (clients and tests match on them); same keys as ERROR_CODES. */
@@ -58,6 +63,8 @@ export const ERROR_MESSAGES = {
   NOT_IMPLEMENTED: 'not implemented',
   /** 426 body. */
   UPGRADE_REQUIRED: 'websocket upgrade required',
+  /** `error` frame text for a draft op the Room's copy cannot take. */
+  DRAFT_OP_MISFIT: 'draft op does not fit the current draft',
 } as const satisfies Record<keyof typeof ERROR_CODES, string>;
 
 /** `ApiError.message`s more specific than their code's default in ERROR_MESSAGES. */
@@ -71,14 +78,17 @@ export const ERROR_REASONS = {
   INVALID_GEOMETRY: 'invalid geometry',
   /** 409: the area's stored `version` is not the one the client edited; `details.current` is. */
   VERSION_CONFLICT: 'version conflict',
+  /** 422 on sign-up: the trimmed name is longer than `LIMITS.USER_NAME_MAX`. */
+  NAME_TOO_LONG: 'name too long',
 } as const;
 
-/** `error` frame messages the Room sends where ERROR_MESSAGES' per-code default says too little. */
+/**
+ * `error` frame messages the Room sends where ERROR_MESSAGES' per-code default says too little.
+ * Clients branch on the code, never on these texts.
+ */
 export const WS_MESSAGES = {
   /** Says what the Room accepts; a schema failure sends Zod's issue text instead. */
   NOT_JSON: 'frames must be JSON text',
   /** Drafts come only from users in presence. */
   NOT_JOINED: 'send join first',
-  /** The client's draft and the Room's have diverged; the op is not relayed. */
-  DRAFT_OP_MISFIT: 'draft op does not fit the current draft',
 } as const;

@@ -1,9 +1,9 @@
+import type { AuthUser } from '@cgis/shared';
 import { COPY } from '@cgis/shared/constants';
 import { useMutation } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import { createContext, type ReactNode } from 'react';
 import { signOut } from '../../lib/auth';
-import type { SessionUser } from '../../lib/session';
-import { Button } from '../../ui';
+import { Avatar, Button } from '../../ui';
 
 type AppFrameProps = {
   /** Right side of the top bar; the `_authed` layout puts `SessionMenu` here. */
@@ -25,11 +25,18 @@ export function AppFrame({ headerEnd, children }: AppFrameProps) {
 }
 
 /**
- * User chip and sign-out button for the top bar. After a successful sign-out Better Auth
+ * Lets the page under the top bar report the signed-in user's presence colour, which only the
+ * map's room knows (the server assigns it); `null` when there is none.
+ */
+export const ReportSelfColor = createContext<(color: string | null) => void>(() => {});
+
+/**
+ * User chip and sign-out button for the top bar. The avatar shows once the room has given the
+ * user a colour (`color`), the same one their ghost and presence row carry. After a successful sign-out Better Auth
  * refetches its session (now empty) and the _authed guard sends the visitor to /login; a
  * failed one leaves the session as it was and shows an alert.
  */
-export function SessionMenu({ user }: { user: SessionUser }) {
+export function SessionMenu({ user, color }: { user: AuthUser; color: string | null }) {
   const signOutMutation = useMutation({ mutationFn: signOut });
 
   return (
@@ -39,6 +46,7 @@ export function SessionMenu({ user }: { user: SessionUser }) {
           {COPY.AUTH.SIGN_OUT_ERROR}
         </span>
       ) : null}
+      {color ? <Avatar name={user.name} color={color} size="sm" decorative /> : null}
       <span>{user.name}</span>
       <Button
         variant="secondary"

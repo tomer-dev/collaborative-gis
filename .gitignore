@@ -4,6 +4,7 @@ node_modules/
 !.env.example
 .codegraph/
 dist/
+dist-types/
 .vercel/
 .superpowers/
 .claude/worktrees/

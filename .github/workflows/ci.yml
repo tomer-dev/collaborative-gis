@@ -41,6 +41,19 @@ jobs:
         env:
           DATABASE_URL: postgresql://cgis:cgis@localhost:5433/cgis
       - run: pnpm test
+      # The API contract, apps/api/batch/areas.jsonl, on workerd against the database migrated above
+      # (0000-0003, through HYPERDRIVE's localConnectionString). hono batch keeps cookies between steps
+      # like a browser, so the sign-in step signs the area steps in. It exits 0 even when a step
+      # fails, so jq checks the summary. The secrets are test-only values (wrangler reads process.env).
+      - name: api contract batch
+        working-directory: apps/api
+        env:
+          BETTER_AUTH_SECRET: test-only-better-auth-secret-0123456789abcdef
+          BETTER_AUTH_URL: http://localhost:8787
+        run: |
+          pnpm exec hono batch --compact batch/areas.jsonl --runtime workerd > "$RUNNER_TEMP/batch.json"
+          cat "$RUNNER_TEMP/batch.json"
+          jq -e '.data.summary.failed == 0' "$RUNNER_TEMP/batch.json"
       - name: web build
         run: pnpm --filter @cgis/web build
       # Static build only (D18 reduced): proves every story and .storybook file compiles. Story

@@ -285,6 +285,9 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
     devDependencies:
+      '@cgis/api':
+        specifier: workspace:*
+        version: link:../api
       '@playwright/test':
         specifier: 1.64.0
         version: 1.64.0
