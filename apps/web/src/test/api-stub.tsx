@@ -1,6 +1,6 @@
 // Test helpers for the areas data layer: a fetch stand-in (the hc client calls the global
 // `fetch`), area fixtures, a QueryClient wrapper and jsdom's missing modal-dialog API.
-import type { Area } from '@cgis/shared';
+import type { Area, AreaVersion } from '@cgis/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { vi } from 'vitest';
@@ -60,6 +60,24 @@ export function makeArea(id: string, overrides: Partial<Area> = {}): Area {
     createdBy: 'user_1',
     createdAt: '2026-10-12T10:00:00.000Z',
     updatedAt: '2026-10-12T10:00:00.000Z',
+    ...overrides,
+  };
+}
+
+/** One saved version of `areaId`, as `GET /api/areas/:id/versions` lists it. */
+export function makeVersion(
+  areaId: string,
+  version: number,
+  overrides: Partial<AreaVersion> = {},
+): AreaVersion {
+  return {
+    areaId,
+    version,
+    name: `Orchard v${version}`,
+    geometry: { type: 'Polygon', coordinates: [SQUARE] },
+    areaKm2: 104.97,
+    changedBy: 'user_1abcdefghijkl',
+    changedAt: '2026-10-12T10:00:00.000Z',
     ...overrides,
   };
 }

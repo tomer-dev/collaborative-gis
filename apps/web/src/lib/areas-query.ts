@@ -4,7 +4,9 @@ import {
   AreaListSchema,
   AreaSchema,
   COPY,
+  ERROR_CODES,
   QUERY,
+  VersionsResponseSchema,
   type Area,
   type AreaCreate,
   type AreaList,
@@ -73,6 +75,18 @@ export function replaceArea(queryClient: QueryClient, area: Area): void {
   queryClient.setQueriesData<AreaList>(
     ALL_AREAS,
     patchAreas((areas) => areas.map((cached) => (cached.id === area.id ? area : cached))),
+  );
+}
+
+/**
+ * `replaceArea`, deduped by version: a viewport whose copy is already at `area.version` or newer
+ * (the WebSocket's `area:updated` for the same write, or a later one) keeps it.
+ */
+function replaceOlderArea(queryClient: QueryClient, area: Area): void {
+  queryClient.setQueriesData<AreaList>(ALL_AREAS, (list) =>
+    list?.areas.some((cached) => cached.id === area.id && cached.version < area.version)
+      ? { areas: list.areas.map((cached) => (cached.id === area.id ? area : cached)) }
+      : list,
   );
 }
 
@@ -202,6 +216,63 @@ export function useDeleteArea() {
     mutationFn: async (id) =>
       expectStatus(await api.api.areas[':id'].$delete({ param: { id } }), 204),
     onSuccess: (_result, id) => removeArea(queryClient, id),
+  });
+}
+
+/**
+ * `[QUERY.VERSIONS_KEY, id, version]`: the history of area `id` while it is at `version`. Without
+ * `version` it matches the area's history at any version (invalidation).
+ */
+export function versionsKey(id: string, version?: number) {
+  return version === undefined
+    ? ([QUERY.VERSIONS_KEY, id] as const)
+    : ([QUERY.VERSIONS_KEY, id, version] as const);
+}
+
+/**
+ * The saved versions of area `id`, newest first, as `{ versions }` (`GET /api/areas/:id/versions`).
+ * `version` is the area's current version, from the areas cache: a rename, a revert or another
+ * user's edit moves it and the history refetches, the last list staying on screen meanwhile.
+ */
+export function useAreaVersions(id: string, version: number) {
+  return useQuery({
+    queryKey: versionsKey(id, version),
+    queryFn: async ({ signal }) =>
+      readBody(
+        await api.api.areas[':id'].versions.$get({ param: { id } }, { init: { signal } }),
+        200,
+        VersionsResponseSchema,
+      ),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** One revert: the area's id and the saved version to bring back. */
+export type AreaRevert = { id: string; version: number };
+
+/**
+ * Reverts an area to a saved version (`POST /api/areas/:id/revert/:version` → 201, the area at its
+ * new version) and patches it into the cached viewports, unless the WebSocket's `area:updated`
+ * got there first. A 409 means the area is deleted (`details.reason`); a 404 means the area or the
+ * version is gone, so the area lists and that area's history refetch.
+ */
+export function useRevertArea() {
+  const queryClient = useQueryClient();
+  return useMutation<Area, Error, AreaRevert>({
+    mutationFn: async ({ id, version }) =>
+      readBody(
+        await api.api.areas[':id'].revert[':version'].$post({
+          param: { id, version: String(version) },
+        }),
+        201,
+        AreaSchema,
+      ),
+    onSuccess: (area) => replaceOlderArea(queryClient, area),
+    onError: (error, { id }) => {
+      if (!(error instanceof ApiRequestError) || error.code !== ERROR_CODES.NOT_FOUND) return;
+      void queryClient.invalidateQueries(ALL_AREAS);
+      void queryClient.invalidateQueries({ queryKey: versionsKey(id) });
+    },
   });
 }
 

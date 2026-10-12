@@ -14,6 +14,7 @@ import {
   emptyResponse,
   jsonResponse,
   makeArea,
+  makeVersion,
   OTHER_ID,
   queryWrapper,
   SQUARE,
@@ -25,10 +26,13 @@ import {
   areasKey,
   replaceArea,
   useAreasInBounds,
+  useAreaVersions,
   useCreateArea,
   useDeleteArea,
   usePendingAreaIds,
+  useRevertArea,
   useUpdateArea,
+  versionsKey,
 } from './areas-query';
 import { ringAreaKm2 } from './geo/geodesic';
 import type { Bbox } from '@cgis/shared';
@@ -260,4 +264,106 @@ it('replaceArea swaps the area by id in every viewport and leaves the others', (
 
   expect(queryClient.getQueryData(areasKey(ISRAEL))).toEqual({ areas: [theirs, vineyard] });
   expect(queryClient.getQueryData(areasKey(HAIFA))).toEqual({ areas: [vineyard] });
+});
+
+describe('useAreaVersions', () => {
+  const versions = [makeVersion(AREA_ID, 3), makeVersion(AREA_ID, 2), makeVersion(AREA_ID, 1)];
+
+  it("fetches the area's versions, and again when the area's version moves", async () => {
+    const requests = stubApi(() => jsonResponse(200, { versions }));
+    const { wrapper } = queryWrapper();
+    const { result, rerender } = renderHook(({ version }) => useAreaVersions(AREA_ID, version), {
+      wrapper,
+      initialProps: { version: 3 },
+    });
+
+    await waitFor(() => expect(result.current.data).toEqual({ versions }));
+    expect(requests).toEqual([
+      expect.objectContaining({ method: 'GET', path: `/api/areas/${AREA_ID}/versions` }),
+    ]);
+
+    rerender({ version: 4 });
+    await waitFor(() => expect(requests).toHaveLength(2));
+    // The last list stays on screen while the new one loads.
+    expect(result.current.data).toEqual({ versions });
+  });
+
+  it('rejects a body that does not match the shared schema', async () => {
+    stubApi(() => jsonResponse(200, { versions: [{ ...versions[0], version: 0 }] }));
+    const { wrapper } = queryWrapper();
+    const { result } = renderHook(() => useAreaVersions(AREA_ID, 3), { wrapper });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+  });
+});
+
+describe('useRevertArea', () => {
+  const reverted = makeArea(AREA_ID, { name: 'Orchard v1', version: 4 });
+
+  function renderRevert(answer: () => Response, cachedArea = makeArea(AREA_ID, { version: 3 })) {
+    const requests = stubApi(answer);
+    const { queryClient, wrapper } = queryWrapper();
+    queryClient.setQueryData<AreaList>(areasKey(ISRAEL), { areas: [cachedArea, vineyard] });
+    queryClient.setQueryData<AreaList>(areasKey(HAIFA), { areas: [vineyard] });
+    const view = renderHook(() => useRevertArea(), { wrapper });
+    return { ...view, requests, queryClient };
+  }
+
+  it('posts the version and patches the 201 area into every viewport that has it', async () => {
+    const { result, requests, queryClient } = renderRevert(() => jsonResponse(201, reverted));
+
+    act(() => result.current.mutate({ id: AREA_ID, version: 1 }));
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(requests).toEqual([
+      expect.objectContaining({ method: 'POST', path: `/api/areas/${AREA_ID}/revert/1` }),
+    ]);
+    expect(queryClient.getQueryData(areasKey(ISRAEL))).toEqual({ areas: [reverted, vineyard] });
+    expect(queryClient.getQueryData(areasKey(HAIFA))).toEqual({ areas: [vineyard] });
+  });
+
+  it("keeps the cached copy when the WebSocket's area:updated already brought this or a newer version", async () => {
+    const newer = makeArea(AREA_ID, { name: 'Renamed since', version: 5 });
+    const { result, queryClient } = renderRevert(() => jsonResponse(201, reverted), newer);
+    const before = queryClient.getQueryData(areasKey(ISRAEL));
+
+    act(() => result.current.mutate({ id: AREA_ID, version: 1 }));
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(queryClient.getQueryData(areasKey(ISRAEL))).toBe(before);
+  });
+
+  it('rejects a 409 (the area is deleted) with its code and leaves the cache alone', async () => {
+    const { result, queryClient } = renderRevert(() =>
+      jsonResponse(409, {
+        code: ERROR_CODES.CONFLICT,
+        message: 'Conflict',
+        details: { reason: ERROR_REASONS.AREA_DELETED },
+      }),
+    );
+    const before = queryClient.getQueryData(areasKey(ISRAEL));
+
+    act(() => result.current.mutate({ id: AREA_ID, version: 1 }));
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error).toMatchObject({ status: 409, code: ERROR_CODES.CONFLICT });
+    expect(queryClient.getQueryData(areasKey(ISRAEL))).toBe(before);
+  });
+
+  it("refreshes the area lists and the area's history on a 404", async () => {
+    const { result, queryClient } = renderRevert(() =>
+      jsonResponse(404, { code: ERROR_CODES.NOT_FOUND, message: 'Not found' }),
+    );
+    queryClient.setQueryData(versionsKey(AREA_ID, 3), { versions: [] });
+    queryClient.setQueryData(versionsKey(OTHER_ID, 1), { versions: [] });
+
+    act(() => result.current.mutate({ id: AREA_ID, version: 1 }));
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    const stale = (key: readonly unknown[]) => queryClient.getQueryState(key)?.isInvalidated;
+    expect(stale(areasKey(ISRAEL))).toBe(true);
+    expect(stale(areasKey(HAIFA))).toBe(true);
+    expect(stale(versionsKey(AREA_ID, 3))).toBe(true);
+    expect(stale(versionsKey(OTHER_ID, 1))).toBe(false);
+  });
 });
