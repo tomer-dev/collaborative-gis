@@ -1,4 +1,3 @@
-import { cva, cx, type VariantProps } from 'class-variance-authority';
 import {
   forwardRef,
   useEffect,
@@ -9,28 +8,23 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react';
+import { cx } from './cx';
 
-export const dialogVariants = cva(
-  [
-    'inset-4 m-auto w-auto overscroll-contain rounded-lg border border-line bg-bg-raised p-0 text-fg shadow-overlay',
-    'transition-opacity duration-base ease-standard starting:open:opacity-0',
-    'backdrop:bg-scrim',
-  ],
-  {
-    variants: {
-      size: {
-        sm: 'max-w-sm',
-        md: 'max-w-md',
-      },
-    },
-    defaultVariants: { size: 'md' },
-  },
+export type DialogSize = 'sm' | 'md';
+
+const base = cx(
+  'inset-4 m-auto w-auto overscroll-contain rounded-lg border border-line bg-bg-raised p-0 text-fg shadow-overlay',
+  'transition-opacity duration-base ease-standard starting:open:opacity-0',
+  'backdrop:bg-scrim',
 );
 
-export interface DialogProps
-  extends
-    Omit<DialogHTMLAttributes<HTMLDialogElement>, 'open' | 'title' | 'role' | 'onClose'>,
-    VariantProps<typeof dialogVariants> {
+const sizeClass: Record<DialogSize, string> = { sm: 'max-w-sm', md: 'max-w-md' };
+
+export interface DialogProps extends Omit<
+  DialogHTMLAttributes<HTMLDialogElement>,
+  'open' | 'title' | 'role' | 'onClose'
+> {
+  size?: DialogSize;
   /** Controlled: true shows the dialog modally (native `showModal`, so the page behind is inert). */
   open: boolean;
   /** Called on Escape and on any other close request; the parent sets `open` to false. */
@@ -59,7 +53,7 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
     footer,
     role = 'dialog',
     initialFocusRef,
-    size,
+    size = 'md',
     className,
     children,
     ...rest
@@ -95,7 +89,7 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
       role={role === 'alertdialog' ? 'alertdialog' : undefined}
       aria-labelledby={titleId}
       aria-describedby={hasDescription ? descriptionId : undefined}
-      className={cx(dialogVariants({ size }), className)}
+      className={cx(base, sizeClass[size], className)}
       onCancel={(event) => {
         // Escape: stay controlled; the parent closes us by flipping `open`.
         event.preventDefault();

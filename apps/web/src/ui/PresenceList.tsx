@@ -1,6 +1,6 @@
 import type { PresenceUser } from '@cgis/shared';
-import { cx } from 'class-variance-authority';
 import { forwardRef, type HTMLAttributes, type Ref } from 'react';
+import { cx } from './cx';
 import { Avatar } from './Avatar';
 import { IconPencil } from './icons';
 

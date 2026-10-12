@@ -1,7 +1,7 @@
 // Grid 4 component set (design brief §5). Styling comes only from src/styles/tokens.css.
 export { Avatar, initials, type AvatarProps } from './Avatar';
 export { Banner, type BannerProps, type BannerTone } from './Banner';
-export { Button, buttonVariants, type ButtonProps } from './Button';
+export { Button, type ButtonProps } from './Button';
 export { Dialog, type DialogProps } from './Dialog';
 export { Field, useFieldControl, type FieldProps } from './Field';
 export * from './icons';

@@ -1,25 +1,20 @@
-import { cva, cx, type VariantProps } from 'class-variance-authority';
 import { forwardRef, type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode } from 'react';
 import { Button } from './Button';
+import { cx } from './cx';
 import type { IconComponent } from './icons';
 
-export const mapControlVariants = cva(
-  'inline-flex gap-1 rounded-md border border-line bg-bg-raised p-1 text-fg shadow-raised',
-  {
-    variants: {
-      orientation: {
-        vertical: 'flex-col',
-        horizontal: 'flex-row',
-      },
-    },
-    defaultVariants: { orientation: 'vertical' },
-  },
-);
+export type MapControlOrientation = 'vertical' | 'horizontal';
 
-export interface MapControlProps
-  extends
-    Omit<HTMLAttributes<HTMLDivElement>, 'children'>,
-    VariantProps<typeof mapControlVariants> {
+const base =
+  'inline-flex gap-1 rounded-md border border-line bg-bg-raised p-1 text-fg shadow-raised';
+
+const orientationClass: Record<MapControlOrientation, string> = {
+  vertical: 'flex-col',
+  horizontal: 'flex-row',
+};
+
+export interface MapControlProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
+  orientation?: MapControlOrientation;
   /** Accessible name of the toolbar ("Drawing tools"). */
   label: string;
   /** MapControlButtons. */
@@ -31,7 +26,7 @@ export interface MapControlProps
  * on the map, render it into a Leaflet control container (the map component owns that).
  */
 export const MapControl = forwardRef<HTMLDivElement, MapControlProps>(function MapControl(
-  { label, children, orientation, className, ...rest },
+  { label, children, orientation = 'vertical', className, ...rest },
   ref,
 ) {
   return (
@@ -39,8 +34,8 @@ export const MapControl = forwardRef<HTMLDivElement, MapControlProps>(function M
       ref={ref}
       role="toolbar"
       aria-label={label}
-      aria-orientation={orientation === 'horizontal' ? 'horizontal' : 'vertical'}
-      className={cx(mapControlVariants({ orientation }), className)}
+      aria-orientation={orientation}
+      className={cx(base, orientationClass[orientation], className)}
       {...rest}
     >
       {children}

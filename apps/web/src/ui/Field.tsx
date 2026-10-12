@@ -1,4 +1,3 @@
-import { cx } from 'class-variance-authority';
 import {
   createContext,
   forwardRef,
@@ -7,6 +6,7 @@ import {
   type HTMLAttributes,
   type ReactNode,
 } from 'react';
+import { cx } from './cx';
 import { IconError } from './icons';
 
 interface FieldControl {
