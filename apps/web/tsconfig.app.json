@@ -23,5 +23,7 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  // AppType (lib/api-client.ts) comes from the api's emitted declarations, not its source.
+  "references": [{ "path": "../api/tsconfig.types.json" }]
 }

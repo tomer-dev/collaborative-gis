@@ -3,7 +3,7 @@ import { SELF } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../src/app';
-import { log } from '../../src/middleware';
+import { log, requestFields } from '../../src/log';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const OTHER_ORIGIN = 'https://evil.example';
@@ -28,7 +28,7 @@ function testApp() {
   app.post('/t/log/:level', async (c) => {
     c.set('user', { id: 'user-1', name: 'Ada' });
     const level = c.req.param('level') as 'info' | 'warn';
-    log(c, level, 'signed in', await c.req.json());
+    log(level, 'signed in', { ...requestFields(c), ...(await c.req.json()) });
     return c.body(null, 204);
   });
   return app;

@@ -4,5 +4,7 @@
     "tsBuildInfoFile": "../node_modules/.tmp/tsconfig.storybook.tsbuildinfo",
     "types": ["vite/client", "node"]
   },
-  "files": ["main.ts", "preview.tsx", "vite.config.ts"]
+  "files": ["main.ts", "preview.tsx"],
+  // References are not inherited: src (from tsconfig.app.json) reads AppType from these declarations.
+  "references": [{ "path": "../../api/tsconfig.types.json" }]
 }

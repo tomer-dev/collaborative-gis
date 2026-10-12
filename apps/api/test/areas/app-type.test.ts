@@ -1,5 +1,6 @@
 import type { Area, AreaCreate, AreaList, AreaUpdate } from '@cgis/shared';
 import { hc, type InferRequestType, type InferResponseType } from 'hono/client';
+import type { JSONValue } from 'hono/utils/types';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { AppType } from '../../src/app';
 
@@ -24,13 +25,19 @@ describe('AppType (D19)', () => {
     expectTypeOf<InferRequestType<One['$delete']>['param']>().toEqualTypeOf<{ id: string }>();
   });
 
-  // `apiError` types its status as any ContentfulStatusCode, so each status also admits ApiError;
-  // the success body is the member that is not an ApiError.
-  type Success<T> = Exclude<T, { code: string }>;
+  // `apiError` types each response with its code's one status, so a status narrows the body.
+  it('types the success responses with their status alone', () => {
+    expectTypeOf<InferResponseType<Areas['$post'], 201>>().toEqualTypeOf<Area>();
+    expectTypeOf<InferResponseType<Areas['$get'], 200>>().toEqualTypeOf<AreaList>();
+    expectTypeOf<InferResponseType<One['$put'], 200>>().toEqualTypeOf<Area>();
+  });
 
-  it('types the success responses', () => {
-    expectTypeOf<Success<InferResponseType<Areas['$post'], 201>>>().toEqualTypeOf<Area>();
-    expectTypeOf<Success<InferResponseType<Areas['$get'], 200>>>().toEqualTypeOf<AreaList>();
-    expectTypeOf<Success<InferResponseType<One['$put'], 200>>>().toEqualTypeOf<Area>();
+  // ApiError as JSON: Hono types `details: unknown` as any JSON value.
+  type ErrorBody = { code: string; message: string; details?: JSONValue };
+
+  it('types the error responses as ApiError bodies under their own status', () => {
+    expectTypeOf<InferResponseType<Areas['$post'], 422>>().toEqualTypeOf<ErrorBody>();
+    expectTypeOf<InferResponseType<One['$put'], 404>>().toEqualTypeOf<ErrorBody>();
+    expectTypeOf<InferResponseType<One['$put'], 409>>().toEqualTypeOf<ErrorBody>();
   });
 });

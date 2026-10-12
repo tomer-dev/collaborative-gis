@@ -9,6 +9,7 @@ import { draftUpdate } from '../../src/do/handlers';
 import { withRoomUser } from '../../src/do/handoff';
 import { attachmentOf } from '../../src/do/presence';
 import type { Room } from '../../src/do/room';
+import { TEST } from '../helpers';
 import { socketClient } from '../room/socket-client';
 import { auditEnv, auditRowsWhere } from './fixtures';
 
@@ -73,40 +74,48 @@ async function rowsOnce(userId: string, count: number) {
 }
 
 describe('Room draw.session audit', () => {
-  it('a clear after adds writes one draw.session row with the vertex count', async () => {
-    const userId = `drawer-${crypto.randomUUID()}`;
-    await join(userId);
+  it(
+    'a clear after adds writes one draw.session row with the vertex count',
+    async () => {
+      const userId = `drawer-${crypto.randomUUID()}`;
+      await join(userId);
 
-    await draft(2, add(0));
-    await draft(3, add(1));
-    await draft(4, add(2));
-    await draft(5, { op: 'clear' });
+      await draft(2, add(0));
+      await draft(3, add(1));
+      await draft(4, add(2));
+      await draft(5, { op: 'clear' });
 
-    expect(await rowsOnce(userId, 1)).toEqual([
-      {
-        user_id: userId,
-        action: 'draw.session',
-        entity: 'draft',
-        entity_id: null,
-        version: null,
-        ip: null,
-        user_agent: null,
-        request_id: null,
-        details: { vertices: 3 },
-      },
-    ]);
-  }, 15_000);
+      expect(await rowsOnce(userId, 1)).toEqual([
+        {
+          user_id: userId,
+          action: 'draw.session',
+          entity: 'draft',
+          entity_id: null,
+          version: null,
+          ip: null,
+          user_agent: null,
+          request_id: null,
+          details: { vertices: 3 },
+        },
+      ]);
+    },
+    TEST.SLOW_TIMEOUT_MS,
+  );
 
-  it('a clear with no draft to end writes nothing', async () => {
-    const userId = `drawer-${crypto.randomUUID()}`;
-    await join(userId);
+  it(
+    'a clear with no draft to end writes nothing',
+    async () => {
+      const userId = `drawer-${crypto.randomUUID()}`;
+      await join(userId);
 
-    await draft(2, { op: 'clear' });
-    // A later one-vertex session: once its row is in, the empty clear's would have been too.
-    await draft(3, add(0));
-    await draft(4, { op: 'clear' });
+      await draft(2, { op: 'clear' });
+      // A later one-vertex session: once its row is in, the empty clear's would have been too.
+      await draft(3, add(0));
+      await draft(4, { op: 'clear' });
 
-    const rows = await rowsOnce(userId, 1);
-    expect(rows.map((row) => row.details)).toEqual([{ vertices: 1 }]);
-  }, 15_000);
+      const rows = await rowsOnce(userId, 1);
+      expect(rows.map((row) => row.details)).toEqual([{ vertices: 1 }]);
+    },
+    TEST.SLOW_TIMEOUT_MS,
+  );
 });
