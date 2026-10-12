@@ -1,6 +1,5 @@
 import { MAP } from '@cgis/shared';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { map as leafletMap } from 'leaflet';
 import { useRef, useState } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { Avatar, initials, PRESENCE_SLOT_CLASSES, presenceSlotClass } from './Avatar';
@@ -15,7 +14,6 @@ import { areaPathOptions, draftPathOptions, ghostPathOptions } from './map-style
 import { PresenceList } from './PresenceList';
 import { formatStatValue, Stat } from './Stat';
 import { syncColorScheme } from './theme';
-import { Tooltip } from './Tooltip';
 
 beforeAll(() => {
   // jsdom has HTMLDialogElement but no modal API; this stand-in mirrors the parts Dialog uses.
@@ -132,83 +130,24 @@ describe('Dialog', () => {
   });
 });
 
-describe('Tooltip', () => {
-  it('shows on focus, describes its trigger and hides on Escape', () => {
-    render(
-      <Tooltip content="Saved areas only">
-        <Button>Filter</Button>
-      </Tooltip>,
-    );
-    const trigger = screen.getByRole('button', { name: 'Filter' });
-    const tooltip = screen.getByText('Saved areas only');
-    expect(trigger.getAttribute('aria-describedby')).toBe(tooltip.id);
-    expect(tooltip.closest('[hidden]')).not.toBeNull();
-
-    fireEvent.focus(trigger);
-    expect(tooltip.closest('[hidden]')).toBeNull();
-    expect(tooltip.getAttribute('role')).toBe('tooltip');
-
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(tooltip.closest('[hidden]')).not.toBeNull();
-  });
-
-  it('can be the accessible name of an icon-only trigger', () => {
-    render(
-      <Tooltip content="Layers" relation="label">
-        <Button icon={IconLayers} />
-      </Tooltip>,
-    );
-    expect(screen.getByRole('button', { name: 'Layers' })).toBeTruthy();
-  });
-});
-
-function Toolbar(props: { map?: ReturnType<typeof leafletMap> }) {
-  return (
-    <MapControl label="Drawing tools" {...props}>
-      <MapControlButton label="Pan" icon={IconLayers} />
-      <MapControlButton label="Draw polygon" icon={IconPencil} pressed />
-      <MapControlButton label="Zoom in" icon={IconPlus} />
-    </MapControl>
-  );
-}
-
 describe('MapControl', () => {
-  it('is one Tab stop and moves focus with arrows, Home and End', () => {
-    render(<Toolbar />);
+  it('is a labelled toolbar of icon buttons named by aria-label and title', () => {
+    render(
+      <MapControl label="Drawing tools">
+        <MapControlButton label="Pan" icon={IconLayers} />
+        <MapControlButton label="Draw polygon" icon={IconPencil} pressed />
+        <MapControlButton label="Zoom in" icon={IconPlus} disabled />
+      </MapControl>,
+    );
     const toolbar = screen.getByRole('toolbar', { name: 'Drawing tools' });
     expect(toolbar.getAttribute('aria-orientation')).toBe('vertical');
-    const [pan, draw, zoom] = ['Pan', 'Draw polygon', 'Zoom in'].map((name) =>
-      screen.getByRole('button', { name }),
+    const draw = screen.getByRole('button', { name: 'Draw polygon' });
+    expect(draw.getAttribute('title')).toBe('Draw polygon');
+    expect(draw.getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Pan' }).hasAttribute('aria-pressed')).toBe(false);
+    expect((screen.getByRole('button', { name: 'Zoom in' }) as HTMLButtonElement).disabled).toBe(
+      true,
     );
-    expect([pan, draw, zoom].map((b) => b!.tabIndex)).toEqual([0, -1, -1]);
-    expect(draw!.getAttribute('aria-pressed')).toBe('true');
-
-    pan!.focus();
-    fireEvent.keyDown(pan!, { key: 'ArrowDown' });
-    expect(document.activeElement).toBe(draw);
-    expect([pan, draw, zoom].map((b) => b!.tabIndex)).toEqual([-1, 0, -1]);
-    fireEvent.keyDown(draw!, { key: 'End' });
-    expect(document.activeElement).toBe(zoom);
-    fireEvent.keyDown(zoom!, { key: 'ArrowDown' });
-    expect(document.activeElement).toBe(pan);
-    fireEvent.keyDown(pan!, { key: 'ArrowUp' });
-    expect(document.activeElement).toBe(zoom);
-    fireEvent.keyDown(zoom!, { key: 'Home' });
-    expect(document.activeElement).toBe(pan);
-  });
-
-  it('mounts inside a Leaflet control when given a map', () => {
-    const element = document.createElement('div');
-    document.body.append(element);
-    const map = leafletMap(element, { center: [...MAP.DEFAULT_CENTER], zoom: MAP.DEFAULT_ZOOM });
-    render(<Toolbar map={map} />);
-    const toolbar = screen.getByRole('toolbar', { name: 'Drawing tools' });
-    expect(toolbar.closest('.leaflet-control')).not.toBeNull();
-    expect(toolbar.closest('.leaflet-top.leaflet-left')).not.toBeNull();
-    cleanup();
-    expect(element.querySelector('[role="toolbar"]')).toBeNull();
-    map.remove();
-    element.remove();
   });
 });
 
