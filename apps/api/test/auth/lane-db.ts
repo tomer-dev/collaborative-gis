@@ -48,9 +48,11 @@ function databaseUrl(name: string): string {
 async function createDatabase(admin: pg.Client, name: string): Promise<void> {
   const exists = await admin.query('select 1 from pg_database where datname = $1', [name]);
   if (exists.rowCount) return;
-  // A concurrent test file may win the race; the database existing afterwards is what counts.
+  // A concurrent test file may win the race; the database existing afterwards is what counts. The
+  // loser gets 42P04 (duplicate_database), or 23505 (unique_violation on pg_database's name index)
+  // when both inserts are in flight at once, as on a fresh server.
   await admin.query(`create database "${name}"`).catch((err: { code?: string }) => {
-    if (err.code !== '42P04') throw err; // duplicate_database
+    if (err.code !== '42P04' && err.code !== '23505') throw err;
   });
 }
 
