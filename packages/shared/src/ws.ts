@@ -4,52 +4,112 @@ import { PositionSchema } from './geo';
 
 const base = { seq: z.number().int().nonnegative(), ts: z.number().int().nonnegative() };
 
+export const PresenceStateSchema = z.enum(['viewing', 'drawing']);
+export type PresenceState = z.infer<typeof PresenceStateSchema>;
+
 export const PresenceUserSchema = z.object({
   userId: z.string(),
   name: z.string(),
   color: z.string().regex(/^#[0-9a-f]{6}$/i),
-  state: z.enum(['viewing', 'drawing']),
+  state: PresenceStateSchema,
 });
 export type PresenceUser = z.infer<typeof PresenceUserSchema>;
 
+export const DraftSchema = z.object({ userId: z.string(), vertices: z.array(PositionSchema) });
+export type Draft = z.infer<typeof DraftSchema>;
+
+// Client → server
+const join = z.object({
+  type: z.literal('join'),
+  ...base,
+  payload: z.object({ mapId: z.string() }),
+});
+const leave = z.object({ type: z.literal('leave'), ...base, payload: z.object({}) });
+const presenceSet = z.object({
+  type: z.literal('presence:set'),
+  ...base,
+  payload: z.object({ state: PresenceStateSchema }),
+});
+// Both directions: the server rebroadcasts a sender's draft:update to the other sockets.
+const draftUpdate = z.object({
+  type: z.literal('draft:update'),
+  ...base,
+  payload: z.discriminatedUnion('op', [
+    z.object({
+      op: z.literal('add'),
+      index: z.number().int().nonnegative(),
+      vertex: PositionSchema,
+    }),
+    z.object({
+      op: z.literal('move'),
+      index: z.number().int().nonnegative(),
+      vertex: PositionSchema,
+    }),
+    z.object({ op: z.literal('remove'), index: z.number().int().nonnegative() }),
+    z.object({ op: z.literal('clear') }),
+  ]),
+});
+
+// Server → client
+const presence = z.object({
+  type: z.literal('presence'),
+  ...base,
+  payload: z.object({ users: z.array(PresenceUserSchema) }),
+});
+const draftState = z.object({
+  type: z.literal('draft:state'),
+  ...base,
+  payload: z.object({ drafts: z.array(DraftSchema) }),
+});
+const areaCreated = z.object({
+  type: z.literal('area:created'),
+  ...base,
+  payload: z.object({ area: AreaSchema }),
+});
+const areaUpdated = z.object({
+  type: z.literal('area:updated'),
+  ...base,
+  payload: z.object({ area: AreaSchema }),
+});
+const areaDeleted = z.object({
+  type: z.literal('area:deleted'),
+  ...base,
+  payload: z.object({ id: z.uuid() }),
+});
+const error = z.object({
+  type: z.literal('error'),
+  ...base,
+  payload: z.object({ code: z.string(), message: z.string(), retryAfter: z.number().optional() }),
+});
+
 export const WsEnvelopeSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('join'), ...base, payload: z.object({ mapId: z.string() }) }),
-  z.object({ type: z.literal('leave'), ...base, payload: z.object({}) }),
-  z.object({
-    type: z.literal('presence'),
-    ...base,
-    payload: z.object({ users: z.array(PresenceUserSchema) }),
-  }),
-  z.object({
-    type: z.literal('draft:update'),
-    ...base,
-    payload: z.discriminatedUnion('op', [
-      z.object({
-        op: z.literal('add'),
-        index: z.number().int().nonnegative(),
-        vertex: PositionSchema,
-      }),
-      z.object({
-        op: z.literal('move'),
-        index: z.number().int().nonnegative(),
-        vertex: PositionSchema,
-      }),
-      z.object({ op: z.literal('remove'), index: z.number().int().nonnegative() }),
-      z.object({ op: z.literal('clear') }),
-    ]),
-  }),
-  z.object({ type: z.literal('area:created'), ...base, payload: z.object({ area: AreaSchema }) }),
-  z.object({ type: z.literal('area:updated'), ...base, payload: z.object({ area: AreaSchema }) }),
-  z.object({ type: z.literal('area:deleted'), ...base, payload: z.object({ id: z.uuid() }) }),
-  z.object({
-    type: z.literal('error'),
-    ...base,
-    payload: z.object({ code: z.string(), message: z.string(), retryAfter: z.number().optional() }),
-  }),
+  join,
+  leave,
+  presenceSet,
+  draftUpdate,
+  presence,
+  draftState,
+  areaCreated,
+  areaUpdated,
+  areaDeleted,
+  error,
 ]);
 export type WsEvent = z.infer<typeof WsEnvelopeSchema>;
 export type WsEventType = WsEvent['type'];
 
+/** The events a browser may send; the Room rejects anything else. */
+export const WsClientEventSchema = z.discriminatedUnion('type', [
+  join,
+  leave,
+  draftUpdate,
+  presenceSet,
+]);
+export type WsClientEvent = z.infer<typeof WsClientEventSchema>;
+
 export function parseWsMessage(raw: string): WsEvent {
   return WsEnvelopeSchema.parse(JSON.parse(raw));
+}
+
+export function parseWsClientMessage(raw: string): WsClientEvent {
+  return WsClientEventSchema.parse(JSON.parse(raw));
 }
