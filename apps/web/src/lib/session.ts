@@ -1,26 +1,16 @@
-import { type GetSessionResponse, GetSessionResponseSchema, ROUTES } from '@cgis/shared';
-import { queryOptions, useQuery } from '@tanstack/react-query';
-import { apiGet } from './api';
+import { authClient } from './auth-client';
 
-/** The signed-in user as the SPA sees it: `{ id: string; name: string }`. */
-export type SessionUser = NonNullable<GetSessionResponse>['user'];
+/** The signed-in user as the SPA sees it. */
+export type SessionUser = { id: string; name: string };
 
-/** `useSession()` result; T12 keeps this shape when it swaps in Better Auth's client. */
+/** `useSession()` result. */
 export type SessionState = { data: SessionUser | null; isPending: boolean };
 
-async function fetchSession(): Promise<SessionUser | null> {
-  const body = await apiGet(`${ROUTES.AUTH}/get-session`, GetSessionResponseSchema);
-  return body?.user ?? null;
-}
-
-/** Query for the current session; invalidate or set it after sign-in and sign-out. */
-export const sessionQuery = queryOptions({ queryKey: ['session'], queryFn: fetchSession });
-
 /**
- * Current user, or `null` when signed out. A failed or malformed check also yields `null`,
- * so the guards send the visitor to sign in instead of rendering a protected page.
+ * Current user from Better Auth's `useSession()`, or `null` when signed out. A failed check
+ * also yields `null`, so the guards send the visitor to sign in.
  */
 export function useSession(): SessionState {
-  const { data, isPending } = useQuery(sessionQuery);
-  return { data: data ?? null, isPending };
+  const { data, isPending } = authClient.useSession();
+  return { data: data?.user ?? null, isPending };
 }
