@@ -106,17 +106,17 @@ export async function listAreaVersions(env: Env, id: string): Promise<AreaVersio
 }
 
 /**
- * Reverts a live area to its saved `version` as a new version and writes the `area.revert` audit
- * row at that new version (D20), in one transaction.
+ * Reverts a live area, still at version `expected`, to its saved `version` as a new version and
+ * writes the `area.revert` audit row at that new version (D20), in one transaction.
  */
 export function revertAreaToVersion(
   env: Env,
   id: string,
-  version: number,
+  { version, expected }: { version: number; expected: number },
   actor: Actor,
 ): Promise<RevertResult> {
   return inTransaction(env, async (client) => {
-    const result = await revertArea(client, id, version, actor.userId);
+    const result = await revertArea(client, id, version, expected, actor.userId);
     if (result.status !== 'reverted') return result;
     const { area } = result;
     await writeAudit(client, auditRow(actor, AUDIT.ACTIONS.AREA_REVERT, area.id, area.version));
