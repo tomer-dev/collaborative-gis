@@ -124,6 +124,7 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 | `AREA_BY_ID` | `'/:id'` | One area, relative to AREAS (`PUT`/`DELETE /api/areas/:id`). |
 | `WS` | `'/ws'` | Room WebSocket upgrade. |
 | `OPENAPI` | `'/openapi.json'` | OpenAPI 3.1 document of the routes with `describeRoute` metadata. |
+| `DOCS` | `'/docs'` | API reference UI (Scalar) rendering OPENAPI; public and read-only, like the document. |
 | `APP` | `{ HOME: '/', LOGIN: '/login', REGISTER: '/register', MAP: '/map' }` | SPA routes: redirect/Link/navigate targets (file-route ids in createFileRoute stay literal). |
 
 ## DEV
@@ -155,12 +156,13 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 
 ## OPENAPI
 
-`http.ts`. The `GET /openapi.json` document's `info` (hono-openapi `openAPIRouteHandler`).
+`http.ts`. The `GET /openapi.json` document's `info` (hono-openapi `openAPIRouteHandler`) and the `/docs` UI.
 
 | Name | Value | Notes |
 |---|---|---|
-| `TITLE` | `'Collaborative GIS API'` | Names the `/openapi.json` document. |
+| `TITLE` | `'Collaborative GIS API'` | Names the `/openapi.json` document and the `/docs` page. |
 | `VERSION` | `'0.1.0'` | Document version; bump with breaking contract changes. |
+| `UI_BUNDLE` | `'https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.73.1/esm.js'` | The `/docs` page's Scalar script, pinned (jsDelivr versioned paths are immutable) instead of the CDN's moving latest, since it runs on the API origin. Bump with `@scalar/hono-api-reference`. |
 
 ## MAP
 

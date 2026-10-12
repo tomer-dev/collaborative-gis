@@ -16,6 +16,8 @@ export const ROUTES = {
   WS: '/ws',
   /** OpenAPI 3.1 document of the routes with `describeRoute` metadata. */
   OPENAPI: '/openapi.json',
+  /** API reference UI (Scalar) rendering OPENAPI; public and read-only, like the document. */
+  DOCS: '/docs',
   /** SPA routes: redirect/Link/navigate targets (file-route ids in createFileRoute stay literal). */
   APP: { HOME: '/', LOGIN: '/login', REGISTER: '/register', MAP: '/map' },
 } as const;
