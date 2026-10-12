@@ -12,7 +12,9 @@ import {
   notReadyError,
   payloadTooLargeError,
   rateLimitedError,
+  timeoutError,
   unauthorizedError,
+  unprocessableError,
 } from '../src/errors';
 
 describe('error helpers', () => {
@@ -23,9 +25,11 @@ describe('error helpers', () => {
     ['NOT_FOUND', 404, notFoundError],
     ['CONFLICT', 409, conflictError],
     ['PAYLOAD_TOO_LARGE', 413, payloadTooLargeError],
+    ['UNPROCESSABLE', 422, unprocessableError],
     ['RATE_LIMITED', 429, rateLimitedError],
     ['INTERNAL', 500, internalError],
     ['NOT_READY', 503, notReadyError],
+    ['TIMEOUT', 504, timeoutError],
   ] as const)('%s responds with status %i', async (code, status, helper) => {
     const res = await new Hono().get('/', (c) => helper(c)).request('/');
     expect(res.status).toBe(status);
@@ -46,6 +50,7 @@ describe('error helpers', () => {
   it('codeFor reads the same table and falls back to HTTP_<status>', () => {
     expect(codeFor(401)).toBe('UNAUTHORIZED');
     expect(codeFor(429)).toBe('RATE_LIMITED');
+    expect(codeFor(504)).toBe('TIMEOUT');
     expect(codeFor(418)).toBe('HTTP_418');
   });
 });
