@@ -39,7 +39,7 @@ One deployable unit: a single Worker with two Durable Object classes and static 
 | `apps/api` `auth.ts` | Better Auth instance (email+password, Drizzle adapter, trustedOrigins) | `auth.handler`, `auth.api.getSession` | db |
 | `Room` DO | WS accept, protocol handlers, presence, draft broadcast, fan-out, alarms | `fetch(upgrade)`, RPC `broadcast(event)` | shared, RateLimiter |
 | `RateLimiter` DO | exact sliding window 50/60 s per user | RPC `take(action) → {ok, retryAfter}` | — |
-| `apps/web` | routes, auth pages, map (Leaflet 1.9.4), draw tool as a Leaflet `Handler`, layer switch as a `Control`, data layer, WS hook, panel | browser | shared |
+| `apps/web` | routes, auth pages, map (Leaflet 1.9.4), draw tool = Geoman behind a thin adapter (D25), layer switch as a `Control`, data layer, WS hook, panel | browser | shared |
 | `scheduled` handler | retention purge | Cron Trigger | db |
 
 Rule: the Worker never holds state between requests; all coordination state lives in a Durable Object or in Postgres.
@@ -112,6 +112,7 @@ In: everything in the brief's sections 1–6, bonus Docker/tests/OpenAPI/benchma
 - Audit trail (D20, 2026-10-12): `audit_log` stays as a separate append-only table (brief: "log all user actions for audit trail and analytics"; versions are state snapshots with data-retention lifetime, audit rows outlive the data). `payload_hash` dropped; area events reference `(entity_id, version)`. Folding audit into `area_versions` was considered and rejected: it would cover only area mutations and tie audit retention to the purge.
 - Database access (D23, 2026-10-12, system-wide): every query goes through the Drizzle query builder. The `sql` tagged template is allowed only as a fragment inside a builder call for a PostGIS expression the builder cannot model, or for a data-modifying CTE chain the builder cannot express (the atomic validate → insert area → insert version write). Never a whole read statement, never string concatenation. Guarded by lint. Ticket 1.7 (M2).
 - Session cookie cache (D24, 2026-10-12): Better Auth `session.cookieCache` enabled with a 5-minute lifetime, so signed-in requests inside the window skip the Neon session lookup (one round-trip less per pan/save). Revocation elsewhere lags ≤ 5 min; same-device sign-out is immediate. Scoped to session validity only, unlike the rejected Hyperdrive query cache. Ticket 2.9, lands in T16.
+- Draw tool (D25, 2026-10-12): `@geoman-io/leaflet-geoman-free` 2.20.2 (MIT) behind a thin adapter exposing the `draw:*` events; replaces the hand-rolled `L.Handler`. The earlier keep-the-handler verdict rested on keyboard/ARIA operation, which the brief does not require; against the brief's requirements (prevent invalid shapes, live concurrent drawing) Geoman passes and adds edit mode for saved polygons. Area and self-intersection maths come from `@turf/area` / `@turf/kinks` 7.4.0 (same decision). Dropped: keyboard shortcuts, mid-sketch vertex drag.
 - Font: Inter variable, self-hosted (D16). Primary hue: blue as proposed (D17). Storybook: full scope — foundations + components + a11y gating + vitest browser tests in CI (D18).
 
 ## 11. Open questions carried into tickets
