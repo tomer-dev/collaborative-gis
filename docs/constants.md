@@ -93,7 +93,7 @@ Every `ApiError.code` the API sends; `ApiErrorCodeSchema = z.enum(ERROR_CODES)`.
 | Name | Value | Status | Where used | Why |
 |---|---|---|---|---|
 | `BAD_REQUEST` | `'BAD_REQUEST'` | 400 | `badRequestError`; planned T7 bad frame | Malformed request |
-| `UNAUTHORIZED` | `'UNAUTHORIZED'` | 401 | `unauthorizedError`; planned T5 `requireUser`, T6 | No session |
+| `UNAUTHORIZED` | `'UNAUTHORIZED'` | 401 | `unauthorizedError`: `apps/api/src/middleware/require-user.ts` `requireUser()` | No session |
 | `FORBIDDEN` | `'FORBIDDEN'` | 403 | `forbiddenError` | Reserved (D12: any signed-in user edits) |
 | `NOT_FOUND` | `'NOT_FOUND'` | 404 | `apps/api/src/app.ts` `notFound`; planned T15 | Unknown route or area |
 | `CONFLICT` | `'CONFLICT'` | 409 | `conflictError`; planned T15 stale `version` | Optimistic concurrency |
@@ -113,7 +113,7 @@ Default `ApiError.message` per code, same keys as `ERROR_CODES` (`satisfies` + a
 | Name | Value | Where used | Why |
 |---|---|---|---|
 | `BAD_REQUEST` | `'Bad request'` | `badRequestError` default | Generic 400 |
-| `UNAUTHORIZED` | `'sign in'` | `unauthorizedError` default; planned T5, T6 | 401 body clients match |
+| `UNAUTHORIZED` | `'sign in'` | `unauthorizedError` default: `requireUser()` | 401 body clients match |
 | `FORBIDDEN` | `'Forbidden'` | `forbiddenError` default | Generic 403 |
 | `NOT_FOUND` | `'Not found'` | `apps/api/src/app.ts` `notFound` | Stable 404 body |
 | `CONFLICT` | `'Conflict'` | `conflictError` default; T15 passes its own text | Generic 409 |
