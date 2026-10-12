@@ -14,7 +14,8 @@
     "format:check": "prettier --check .",
     "db:up": "docker compose up -d --wait postgis",
     "db:down": "docker compose down",
-    "db:check": "bash scripts/db-check.sh"
+    "db:check": "bash scripts/db-check.sh",
+    "bench": "k6 run bench/rest.js && k6 run bench/ws.js"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
