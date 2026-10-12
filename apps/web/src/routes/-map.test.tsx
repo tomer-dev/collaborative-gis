@@ -1,7 +1,7 @@
 // The leading '-' keeps the TanStack Router generator from treating this file as a route.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory } from '@tanstack/react-router';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { sessionQuery } from '../lib/session';
 import { AppRouterProvider, createAppRouter } from '../router';
@@ -21,6 +21,15 @@ function stubGetSession(body: unknown, status = 200) {
 function renderAppAt(path: string) {
   // jsdom has no scrollTo; the router resets scroll after each navigation.
   vi.stubGlobal('scrollTo', vi.fn());
+  // jsdom has no ResizeObserver; the map view observes its container.
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createAppRouter(queryClient, createMemoryHistory({ initialEntries: [path] }));
   render(
@@ -60,7 +69,7 @@ it('renders the map route and the top bar for a signed-in user', async () => {
   stubGetSession(signedIn);
   const { router } = renderAppAt('/map');
 
-  expect(await screen.findByTestId('map-root')).toBeTruthy();
+  const mapRoot = await screen.findByTestId('map-root');
   expect(router.state.location.pathname).toBe('/map');
   // /map renders inside the pathless _authed layout, which owns the guard and the user chip.
   expect(router.state.matches.map((match) => match.routeId)).toEqual([
@@ -68,6 +77,9 @@ it('renders the map route and the top bar for a signed-in user', async () => {
     '/_authed',
     '/_authed/map',
   ]);
+  expect(within(mapRoot).getByRole('region', { name: 'Map' }).classList).toContain(
+    'leaflet-container',
+  );
   expect(screen.getByRole('heading', { name: /collaborative gis/i })).toBeTruthy();
   expect(screen.getByText('Ada Lovelace')).toBeTruthy();
   expect(screen.getByRole('button', { name: /sign out/i })).toBeTruthy();
