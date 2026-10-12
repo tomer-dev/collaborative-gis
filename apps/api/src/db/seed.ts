@@ -4,7 +4,7 @@
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { type Bbox, SEED, type Polygon } from '@cgis/shared';
-import { inArray, like } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import pg from 'pg';
 import { z } from 'zod';
 import { areaKm2Of, fromGeoJson } from './geometry.ts';
@@ -12,18 +12,19 @@ import { db } from './index.ts';
 import { areas, areaVersions } from './schema.ts';
 
 export type SeedResult = {
-  /** Seeded rows (named `SEED.NAME_PREFIX…`) already in the table before this run. */
+  /** Seeded rows (created by `SEED.USER_ID`) already in the table before this run. */
   existing: number;
   /** Ids of the areas this run inserted. */
   inserted: string[];
 };
 
 /**
- * Tops the seeded areas up to `count`: counts the rows named `SEED.NAME_PREFIX…` and inserts the
- * rest as random polygons inside `bbox`, named on from there (`seed-1`, `seed-2`, …), so a rerun
- * with the same count inserts nothing. Each batch of `batch` rows is one transaction of two
- * builder inserts: the areas (version 1, geodesic `area_km2`, created by `SEED.USER_ID`), then
- * their version 1 rows copied from them.
+ * Tops the seeded areas up to `count`: counts the rows created by `SEED.USER_ID` (a user's own
+ * area that happens to be named `seed-…` is not one) and inserts the rest as random polygons
+ * inside `bbox`, named on from there (`seed-1`, `seed-2`, …), so a rerun with the same count
+ * inserts nothing. Each batch of `batch` rows is one transaction of two builder inserts: the areas
+ * (version 1, geodesic `area_km2`, created by `SEED.USER_ID`), then their version 1 rows copied
+ * from them.
  *
  * Each polygon is star-shaped around its centre: vertices at strictly increasing angles (gaps under
  * π) and positive radii never cross, so every ring passes `ST_IsValid`.
@@ -37,7 +38,7 @@ export async function seedAreas(
   }: { count?: number; bbox?: Bbox; batch?: number } = {},
 ): Promise<SeedResult> {
   const database = db(c);
-  const existing = await database.$count(areas, like(areas.name, `${SEED.NAME_PREFIX}%`));
+  const existing = await database.$count(areas, eq(areas.createdBy, SEED.USER_ID));
   const inserted: string[] = [];
 
   for (let done = existing; done < count; done += batch) {

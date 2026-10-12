@@ -52,7 +52,7 @@ Migrations always run against a **direct** database URL, never through Hyperdriv
 - In production, use the Neon direct (non-pooled) URL (`NEON_DATABASE_URL` in `.env.example`), injected from 1Password with `op run`.
 - CI migrates the runner's PostGIS before `pnpm test`.
 - `apps/api/test/db` is a Node Vitest project (`db` in `apps/api/vitest.config.ts`), because `migrate()` reads the SQL files from disk. On every run, its global setup creates `cgis_db_<lane>` and `cgis_db_seed_<lane>` (the seed test's own) with `scripts/db-lane.sh`, empties them and migrates them from scratch.
-- Seed: `DATABASE_URL=<direct URL> pnpm --filter @cgis/api db:seed [--count N]` tops the random `seed-*` polygons up to N (default 50; `--count 10000` for the benchmark set), so a rerun adds nothing. `db:explain` seeds 10,000 and writes the bounds-query EXPLAIN table to [`docs/benchmarks.md`](docs/benchmarks.md).
+- Seed: `DATABASE_URL=<direct URL> pnpm --filter @cgis/api db:seed [--count N]` tops the random `seed-*` polygons (created by the `seed` user) up to N (default 50; `--count 10000` for the benchmark set), so a rerun adds nothing. `db:explain` seeds 10,000 and writes the bounds-query EXPLAIN table to [`docs/benchmarks.md`](docs/benchmarks.md).
 
 Coordinate order: all GeoJSON in this project is `[longitude, latitude]`; Leaflet's own API is `[lat, lng]`. The shared schema cannot detect a swap when both values are in range.
 
