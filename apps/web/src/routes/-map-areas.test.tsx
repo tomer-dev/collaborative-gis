@@ -6,6 +6,7 @@ import { createMemoryHistory } from '@tanstack/react-router';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import L from 'leaflet';
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
+import { FakeSocket } from '../lib/fake-websocket';
 import { AppRouterProvider, createAppRouter } from '../router';
 import {
   AREA_ID,
@@ -86,6 +87,43 @@ async function selectAndRename(name: string) {
   fireEvent.change(within(panel).getByRole('textbox'), { target: { value: name } });
   fireEvent.click(within(panel).getByRole('button', { name: COPY.AREAS.RENAME_SUBMIT }));
 }
+
+it('stacks the area panel and the presence list in one corner column, never on top of each other', async () => {
+  const sockets: FakeSocket[] = [];
+  vi.stubGlobal(
+    'WebSocket',
+    class extends FakeSocket {
+      constructor(url: string) {
+        super(url);
+        sockets.push(this);
+      }
+    },
+  );
+  await renderMap(conflictingServer);
+  const socket = sockets.at(-1);
+  act(() => socket?.open());
+  act(() =>
+    socket?.receive({
+      type: 'presence',
+      seq: 1,
+      ts: 1,
+      payload: {
+        users: [{ userId: 'user_1', name: 'Ada', color: MAP.PRESENCE_COLORS[0], state: 'viewing' }],
+      },
+    }),
+  );
+  await waitFor(() => expect(areaPaths()).toHaveLength(1));
+  areaPaths()[0]?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+  const panel = await screen.findByRole('region', { name: 'Orchard' });
+  const presence = screen.getByRole('region', { name: COPY.PRESENCE.TITLE });
+  const corner = screen.getByTestId('map-corner');
+  // Neither overlay positions itself: both sit in the one column, the panel above the list.
+  expect(panel.closest('.absolute')).toBe(corner);
+  expect(presence.closest('.absolute')).toBe(corner);
+  expect(panel.compareDocumentPosition(presence) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(within(panel).getByRole('button', { name: COPY.AREAS.RENAME_SUBMIT })).toBeTruthy();
+});
 
 it('fetches the viewport and draws its areas in the areas pane', async () => {
   const { requests, map } = await renderMap(conflictingServer);

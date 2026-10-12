@@ -64,8 +64,14 @@ function MapRoute() {
           <GhostPolygons map={map} drafts={room.drafts} users={room.users} />
         </>
       ) : null}
-      <MapOverlay mode={mode} setMode={setMode} areas={areas} bbox={bbox} />
-      <PresenceList users={room.users} selfId={selfId} />
+      {/* One bottom-left column: the selected area's panel stacks above the presence list. */}
+      <div
+        data-testid="map-corner"
+        className="absolute bottom-3 left-3 z-controls flex flex-col items-start gap-2"
+      >
+        <MapOverlay mode={mode} setMode={setMode} areas={areas} bbox={bbox} />
+        <PresenceList users={room.users} selfId={selfId} />
+      </div>
       <ConnectionBanner state={room.state} onRetry={room.reconnect} />
     </div>
   );
