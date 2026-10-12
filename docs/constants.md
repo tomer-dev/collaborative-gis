@@ -81,6 +81,7 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, presence
 | `HANDLE_HIT_PX` | `24` | `apps/web/src/lib/geo/draw-handler.ts` (vertex handle hit box, the marker icon size); Storybook Foundations/Map | WCAG 2.5.8 target size (≥24 CSS px) for dragging a vertex |
 | `HANDLE_BORDER_PX` | `2` | `apps/web/src/lib/geo/draw-handler.ts` (vertex dot ring); Storybook Foundations/Map | Ring stays visible over busy tiles |
 | `DRAFT_STYLE` | `{ weight: 2, dashArray: '8 4', fillOpacity: 0.12 }` | `apps/web/src/lib/geo/draw-handler.ts` (live sketch), `apps/web/src/ui/map-styles.ts` `draftPathOptions()`; Storybook Foundations/Map; planned T14 ghost drafts | Dashed and faint: reads as unsaved next to solid saved areas. Dash 8/4 is the design brief's §4 value |
+| `AREA_KM2_THRESHOLD` | `1` | `apps/web/src/components/DrawControl.tsx` (area readout unit) | Below 1 km² the readout is whole m² (`12,345 m²`); from 1 km² it is km² to 3 decimals (`1.234 km²`, 1,000 m² resolution). Numbers use `Stat`'s user-locale formatter |
 
 ## GEO
 
@@ -100,17 +101,7 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, presence
 | `PANEL_TITLE` | `'New area'` | `DrawControl.tsx` (floating `Panel` heading and region name while drawing) | The sketch becomes an area when saved |
 | `AREA_LABEL` / `VERTICES_LABEL` | `'Area'` / `'Vertices'` | `DrawControl.tsx` (`Stat` labels of the live readout) | Visible labels; also the readouts' accessible names |
 | `FINISH_LABEL` / `UNDO_LABEL` / `CANCEL_LABEL` | `'Finish'` / `'Undo'` / `'Cancel'` | `DrawControl.tsx` (panel footer buttons → `finish()` / `undo()` / `cancel()`) | Pointer equivalents of Enter / Backspace / Escape |
-
-## AREA_FORMAT
-
-| Name | Value | Where used | Why |
-|---|---|---|---|
-| `LOCALE` | `'en-US'` | `apps/web/src/components/DrawControl.tsx` (`formatArea`'s `Intl.NumberFormat`) | Matches the English UI copy and keeps the readout deterministic (`12,345 m²`); `Stat`'s default formatter uses the browser locale instead |
-| `KM2_THRESHOLD` | `1` | `DrawControl.tsx` `formatArea` | Below 1 km² the readout switches to m²: `0.012 km²` hides the size people think in |
-| `M2_DECIMALS` | `0` | `DrawControl.tsx` `formatArea` | Whole m²: below a square metre is noise for hand-drawn polygons |
-| `KM2_DECIMALS` | `3` | `DrawControl.tsx` `formatArea` | 0.001 km² = 1,000 m², the same resolution as the m² readout near the threshold |
-| `M2_PER_KM2` | `1_000_000` | `DrawControl.tsx` `formatArea` (km² → m²) | Unit conversion, named rather than a bare `1e6` |
-| `M2_UNIT` / `KM2_UNIT` | `'m²'` / `'km²'` | `DrawControl.tsx` `formatArea` (suffix after the number) | `Intl.NumberFormat` has no area units (ECMA-402 sanctions length units only) |
+| `M2_UNIT` / `KM2_UNIT` | `'m²'` / `'km²'` | `DrawControl.tsx` (area `Stat` unit) | `Intl.NumberFormat` has no area units (ECMA-402 sanctions length units only) |
 
 ## ERROR_CODES
 

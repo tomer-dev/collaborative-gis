@@ -13,7 +13,6 @@ describe('constants', () => {
       'MAP',
       'GEO',
       'DRAW',
-      'AREA_FORMAT',
       'ERROR_CODES',
       'ERROR_MESSAGES',
     ] as const;

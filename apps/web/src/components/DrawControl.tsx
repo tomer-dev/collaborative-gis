@@ -1,10 +1,19 @@
-import { AREA_FORMAT, DRAW, LIMITS, MAP } from '@cgis/shared';
+import { DRAW, LIMITS, MAP } from '@cgis/shared';
 import * as L from 'leaflet';
 import { useEffect, useEffectEvent, useRef, useState, type Ref } from 'react';
 import { flushSync } from 'react-dom';
 import { onDraw, PolygonDraw } from '../lib/geo/draw-handler';
-import { ringAreaKm2, type LngLat } from '../lib/geo/geodesic';
-import { Banner, Button, IconPolygon, MapControl, MapControlButton, Panel, Stat } from '../ui';
+import { ringAreaKm2, ringAreaM2, type LngLat } from '../lib/geo/geodesic';
+import {
+  Banner,
+  Button,
+  IconPolygon,
+  MapControl,
+  MapControlButton,
+  Panel,
+  Stat,
+  type StatProps,
+} from '../ui';
 
 export type DrawControlProps = {
   /** The map to draw on. A different map starts the control over; a sketch on the old one is dropped. */
@@ -13,23 +22,18 @@ export type DrawControlProps = {
   onDone: (ring: LngLat[]) => void;
 };
 
-const m2Format = new Intl.NumberFormat(AREA_FORMAT.LOCALE, {
-  maximumFractionDigits: AREA_FORMAT.M2_DECIMALS,
-});
-const km2Format = new Intl.NumberFormat(AREA_FORMAT.LOCALE, {
-  minimumFractionDigits: AREA_FORMAT.KM2_DECIMALS,
-  maximumFractionDigits: AREA_FORMAT.KM2_DECIMALS,
-});
-
-/** `12,345 m²` below `AREA_FORMAT.KM2_THRESHOLD` km², `1.234 km²` from there up. */
-function formatArea(km2: number): string {
-  return km2 < AREA_FORMAT.KM2_THRESHOLD
-    ? `${m2Format.format(km2 * AREA_FORMAT.M2_PER_KM2)} ${AREA_FORMAT.M2_UNIT}`
-    : `${km2Format.format(km2)} ${AREA_FORMAT.KM2_UNIT}`;
+/**
+ * The area Stat's value and unit: whole m² below `MAP.AREA_KM2_THRESHOLD` (`12,345 m²`), km² to
+ * 3 decimals, i.e. 1,000 m², from there up (`1.234 km²`). No value below 3 vertices (area 0).
+ */
+function areaStat(vertices: LngLat[]): Pick<StatProps, 'value' | 'unit' | 'decimals'> {
+  const km2 = ringAreaKm2(vertices);
+  if (km2 >= MAP.AREA_KM2_THRESHOLD) return { value: km2, unit: DRAW.KM2_UNIT, decimals: 3 };
+  return { value: km2 > 0 ? ringAreaM2(vertices) : null, unit: DRAW.M2_UNIT, decimals: 0 };
 }
 
 /** Placed vertices against the cap a user can reach (the closing vertex is not placed). */
-const formatVertexCount = (count: number) => `${count} / ${LIMITS.POLYGON_MAX_PLACED_VERTICES}`;
+const VERTEX_CAP_UNIT = `/ ${LIMITS.POLYGON_MAX_PLACED_VERTICES}`;
 
 /**
  * Polygon draw control floating over the map's top-right corner: a "Draw polygon" toolbar
@@ -122,7 +126,6 @@ type DrawingControlsProps = {
 
 function DrawingControls({ sketch, onFinish, onUndo, onCancel }: DrawingControlsProps) {
   const { vertices, invalidReason } = sketch;
-  const areaKm2 = ringAreaKm2(vertices);
   return (
     <Panel
       as="section"
@@ -150,17 +153,11 @@ function DrawingControls({ sketch, onFinish, onUndo, onCancel }: DrawingControls
     >
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap gap-x-6 gap-y-2">
-          {/* ringAreaKm2 is 0 below 3 vertices: Stat shows "no value" instead of 0 m². */}
-          <Stat
-            label={DRAW.AREA_LABEL}
-            value={areaKm2 > 0 ? areaKm2 : null}
-            format={formatArea}
-            size="md"
-          />
+          <Stat label={DRAW.AREA_LABEL} size="md" {...areaStat(vertices)} />
           <Stat
             label={DRAW.VERTICES_LABEL}
             value={vertices.length}
-            format={formatVertexCount}
+            unit={VERTEX_CAP_UNIT}
             size="md"
           />
         </div>
