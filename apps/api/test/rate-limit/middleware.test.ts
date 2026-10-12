@@ -22,7 +22,7 @@ function appFor(user?: User) {
     if (user) c.set('user', user);
     await next();
   });
-  app.post('/areas', rateLimit(ACTIONS.MUTATE), handler);
+  app.post('/areas', rateLimit(ACTIONS.DRAW), handler);
   const post = () => app.request('http://x/areas', { method: 'POST' }, env);
   return { post, handler };
 }

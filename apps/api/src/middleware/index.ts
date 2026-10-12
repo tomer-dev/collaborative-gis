@@ -11,6 +11,7 @@ import { requestId } from './request-id';
 
 export { attachUser } from './attach-user';
 export { log, type LogLevel } from './logger';
+export { mutationGuards } from './rate-limit';
 export { requireUser, type SignedIn } from './require-user';
 
 /**
