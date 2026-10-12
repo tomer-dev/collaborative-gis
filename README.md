@@ -87,6 +87,7 @@ Spatial index, geodesic area, cache keys, benchmarks: tickets 1.3, 1.4, 1.7, 3.6
 - A session revoked on another device keeps working for up to 5 minutes where its cookie cache is still valid (D24).
 - One map room (D11); an area event that lands between a viewport's first GET and the socket's first join is picked up on the next pan or reconnect.
 - The local database listens on port 5433 (not 5432, to avoid a local Postgres), bound to 127.0.0.1 only; local PostGIS is the community multi-arch `imresamu/postgis:18-3.6` image.
+- Soft-deleted areas are purged after 7 days by a daily cron (`RETENTION.DAYS`, `RETENTION.CRON`), with their version history; until then they stay in the database, invisible to the map.
 
 ## Future improvements and scaling
 
