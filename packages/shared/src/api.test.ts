@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ApiErrorCodeSchema } from './api';
 
 describe('ApiErrorCodeSchema', () => {
-  it('lists the eleven codes the API sends and rejects others', () => {
+  it('lists the codes the API sends and rejects others', () => {
     expect(ApiErrorCodeSchema.options).toEqual([
       'BAD_REQUEST',
       'UNAUTHORIZED',
@@ -15,6 +15,8 @@ describe('ApiErrorCodeSchema', () => {
       'TIMEOUT',
       'NOT_READY',
       'INTERNAL',
+      'NOT_IMPLEMENTED',
+      'UPGRADE_REQUIRED',
     ]);
     expect(ApiErrorCodeSchema.safeParse('NOPE').success).toBe(false);
   });

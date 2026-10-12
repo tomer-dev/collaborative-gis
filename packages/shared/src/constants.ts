@@ -65,7 +65,7 @@ export const MAP = {
   MOVEEND_DEBOUNCE_MS: 250,
 } as const;
 
-/** Every `ApiError.code` the API sends. */
+/** Every `ApiError.code` the API sends; apps/api/src/errors.ts maps each to its HTTP status. */
 export const ERROR_CODES = {
   BAD_REQUEST: 'BAD_REQUEST',
   UNAUTHORIZED: 'UNAUTHORIZED',
@@ -78,14 +78,23 @@ export const ERROR_CODES = {
   TIMEOUT: 'TIMEOUT',
   NOT_READY: 'NOT_READY',
   INTERNAL: 'INTERNAL',
+  NOT_IMPLEMENTED: 'NOT_IMPLEMENTED',
+  UPGRADE_REQUIRED: 'UPGRADE_REQUIRED',
 } as const;
 
-/** Fixed `ApiError.message` texts (clients and tests match on them). */
+/** Default `ApiError.message` per code (clients and tests match on them); same keys as ERROR_CODES. */
 export const ERROR_MESSAGES = {
-  NOT_FOUND: 'Not found',
-  INTERNAL: 'Internal Server Error',
-  NOT_READY: 'database unreachable',
+  BAD_REQUEST: 'Bad request',
   UNAUTHORIZED: 'sign in',
+  FORBIDDEN: 'Forbidden',
+  NOT_FOUND: 'Not found',
+  CONFLICT: 'Conflict',
+  UNPROCESSABLE: 'Unprocessable',
+  PAYLOAD_TOO_LARGE: 'Payload too large',
+  RATE_LIMITED: 'Too many requests',
   TIMEOUT: 'timeout',
+  NOT_READY: 'database unreachable',
+  INTERNAL: 'Internal Server Error',
   NOT_IMPLEMENTED: 'not implemented',
-} as const;
+  UPGRADE_REQUIRED: 'websocket upgrade required',
+} as const satisfies Record<keyof typeof ERROR_CODES, string>;

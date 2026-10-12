@@ -12,4 +12,13 @@
       "localConnectionString": "postgresql://cgis:cgis@localhost:5433/cgis",
     },
   ],
+  "durable_objects": { "bindings": [{ "name": "ROOM", "class_name": "Room" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
+  "vars": {
+    "CLIENT_ORIGIN": "http://localhost:5173",
+    // "1" lets the x-debug-user header stand in for a session (tests only; vitest.config.ts sets it).
+    "DEBUG_STUB_AUTH": "0",
+  },
+  // Values live in .dev.vars locally and in `wrangler secret put` deployed; see .dev.vars.example.
+  "secrets": { "required": ["BETTER_AUTH_SECRET", "BETTER_AUTH_URL"] },
 }
