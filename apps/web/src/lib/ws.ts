@@ -10,8 +10,9 @@ import {
 /**
  * Room connection state (spec §5 degradation): `connecting` (first connect, or one retry after a
  * drop), `open`, `degraded` (`WS.CLIENT_DEGRADED_AFTER` failed connects in a row, still retrying),
- * `offline` (`WS.CLIENT_OFFLINE_AFTER` in a row, or the Room closed us with 1008). Every state but
- * `open` retries with backoff, except after a 1008, which waits for `reconnect()`.
+ * `offline` (`WS.CLIENT_OFFLINE_AFTER` in a row, the Room closed us with 1008, or `shouldRetry()`
+ * said no). Every state but `open` retries with backoff, except after a 1008 or a no from
+ * `shouldRetry()`, which wait for `reconnect()`.
  */
 export type ConnectionState = 'connecting' | 'open' | 'degraded' | 'offline';
 
@@ -48,7 +49,7 @@ export interface RoomConnection {
   onState(handler: (state: ConnectionState) => void): () => void;
   /** Called each time a socket opens, before queued frames are flushed (send `join` here). */
   onOpen(handler: () => void): () => void;
-  /** Connects now: skips the backoff wait, and resumes after a 1008. */
+  /** Connects now: skips the backoff wait, and resumes after a halt (1008, `shouldRetry()`). */
   reconnect(): void;
   /** Closes the socket and stops for good. */
   close(): void;
@@ -60,6 +61,12 @@ export type RoomConnectionOptions = {
   createSocket?: SocketFactory | undefined;
   /** Default: `Math.random` (jitter). */
   random?: (() => number) | undefined;
+  /**
+   * Asked each time a socket closes; false stops the retries until `reconnect()`, as a 1008 does.
+   * A browser does not expose an upgrade's HTTP status, so a 401 (the session ended) reaches the
+   * page as a plain close: the caller answers from what the API said. Default: always retry.
+   */
+  shouldRetry?: (() => boolean) | undefined;
 };
 
 /** The `ws:`/`wss:` URL of `ROUTES.WS` on the page's origin (Vite proxies it in dev). */
@@ -101,6 +108,7 @@ export function createRoomConnection({
   url,
   createSocket = (target) => new WebSocket(target),
   random = Math.random,
+  shouldRetry = () => true,
 }: RoomConnectionOptions): RoomConnection {
   let state: ConnectionState = 'connecting';
   let socket: SocketLike | null = null;
@@ -149,7 +157,7 @@ export function createRoomConnection({
   const closed = ({ code }: CloseEvent) => {
     clearInterval(pingTimer);
     socket = null;
-    if (code === WS.CLOSE_POLICY_VIOLATION) {
+    if (code === WS.CLOSE_POLICY_VIOLATION || !shouldRetry()) {
       halted = true;
       setState('offline');
       return;

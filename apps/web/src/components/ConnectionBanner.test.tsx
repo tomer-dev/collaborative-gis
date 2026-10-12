@@ -20,6 +20,14 @@ it('degraded: a polite reconnecting status without a retry button', () => {
   expect(screen.queryByRole('button')).toBeNull();
 });
 
+it('resyncing: a polite catching-up status without a retry button', () => {
+  render(<ConnectionBanner state="resyncing" onRetry={vi.fn()} />);
+  const status = screen.getByRole('status');
+  expect(status.textContent).toContain(COPY.CONNECTION.RESYNC_TITLE);
+  expect(status.textContent).toContain(COPY.CONNECTION.RESYNC_DETAIL);
+  expect(screen.queryByRole('button')).toBeNull();
+});
+
 it('offline: an alert with the polling note and a Retry that reconnects', () => {
   const onRetry = vi.fn();
   render(<ConnectionBanner state="offline" onRetry={onRetry} />);
