@@ -32,6 +32,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm format:check
+      # docs/constants.md is generated from packages/shared/src/constants/; fails when it is stale.
+      - run: pnpm constants:docs --check
       - run: pnpm typecheck
       # The workerd tests reach this database through Hyperdrive's localConnectionString.
       - name: migrate
