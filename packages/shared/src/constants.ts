@@ -86,12 +86,31 @@ export const GEO = {
   EARTH_RADIUS_M: 6371008.8,
 } as const;
 
-/** Polygon draw tool: the map container's accessible name and the client-side `draw:invalid` reasons. */
+/** Polygon draw tool: the map container's accessible name, the client-side `draw:invalid` reasons, the draw control's copy. */
 export const DRAW = {
   ARIA_LABEL:
     'Polygon drawing. Click to add a vertex, drag a vertex to move it, Enter or double-click to finish, Backspace to undo, Escape to cancel.',
   SELF_INTERSECTION_REASON: 'Polygon edges must not cross or touch each other',
   MAX_VERTICES_REASON: 'Vertex limit reached',
+  TOOLBAR_LABEL: 'Drawing tools',
+  START_LABEL: 'Draw polygon',
+  PANEL_TITLE: 'New area',
+  AREA_LABEL: 'Area',
+  VERTICES_LABEL: 'Vertices',
+  FINISH_LABEL: 'Finish',
+  UNDO_LABEL: 'Undo',
+  CANCEL_LABEL: 'Cancel',
+} as const;
+
+/** Live area readout: whole m² below `KM2_THRESHOLD` km², km² with `KM2_DECIMALS` decimals from there up. */
+export const AREA_FORMAT = {
+  LOCALE: 'en-US',
+  KM2_THRESHOLD: 1,
+  M2_DECIMALS: 0,
+  KM2_DECIMALS: 3,
+  M2_PER_KM2: 1_000_000,
+  M2_UNIT: 'm²',
+  KM2_UNIT: 'km²',
 } as const;
 
 /** Every `ApiError.code` the API sends; apps/api/src/errors.ts maps each to its HTTP status. */
