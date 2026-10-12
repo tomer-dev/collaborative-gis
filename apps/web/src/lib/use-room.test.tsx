@@ -256,18 +256,29 @@ describe('useRoom', () => {
     ).toEqual([A2]);
   });
 
-  it('invalidates the areas queries on every open (the reconnect resync)', () => {
+  it('invalidates the areas queries on every reopen (the resync), not on the first open', () => {
     const room = renderRoom();
     const invalidate = vi.spyOn(room.queryClient, 'invalidateQueries');
     room.open();
-    expect(invalidate).toHaveBeenCalledTimes(1);
-    expect(invalidate).toHaveBeenLastCalledWith({ queryKey: [QUERY.AREAS_KEY] });
+    expect(invalidate).not.toHaveBeenCalled();
 
     act(() => room.socket().drop(WS.CLOSE_IDLE));
     room.advance(backoffDelay(1, () => 0));
-    expect(invalidate).toHaveBeenCalledTimes(1);
+    expect(invalidate).not.toHaveBeenCalled();
     room.open();
-    expect(invalidate).toHaveBeenCalledTimes(2);
+    expect(invalidate).toHaveBeenCalledTimes(1);
+    expect(invalidate).toHaveBeenLastCalledWith({ queryKey: [QUERY.AREAS_KEY] });
+  });
+
+  it('resyncs on the first open when the connection degraded before it', () => {
+    const room = renderRoom();
+    const invalidate = vi.spyOn(room.queryClient, 'invalidateQueries');
+    for (let failures = 1; failures <= WS.CLIENT_DEGRADED_AFTER; failures++) {
+      act(() => room.socket().drop(1006));
+      room.advance(backoffDelay(failures, () => 0));
+    }
+    room.open();
+    expect(invalidate).toHaveBeenCalledTimes(1);
   });
 
   it('polls the areas queries every WS.OFFLINE_POLL_MS while offline, and stops once open', () => {

@@ -125,6 +125,24 @@ it('stacks the area panel and the presence list in one corner column, never on t
   expect(within(panel).getByRole('button', { name: COPY.AREAS.RENAME_SUBMIT })).toBeTruthy();
 });
 
+it('loads the viewport with one GET: the first socket open does not refetch it', async () => {
+  const sockets: FakeSocket[] = [];
+  vi.stubGlobal(
+    'WebSocket',
+    class extends FakeSocket {
+      constructor(url: string) {
+        super(url);
+        sockets.push(this);
+      }
+    },
+  );
+  const { requests } = await renderMap(conflictingServer);
+  await waitFor(() => expect(areaPaths()).toHaveLength(1));
+  await act(async () => sockets.at(-1)?.open());
+  await act(async () => {});
+  expect(requests.filter((request) => request.method === 'GET')).toHaveLength(1);
+});
+
 it('fetches the viewport and draws its areas in the areas pane', async () => {
   const { requests, map } = await renderMap(conflictingServer);
 
