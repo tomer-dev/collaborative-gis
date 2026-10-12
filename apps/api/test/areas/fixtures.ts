@@ -28,7 +28,7 @@ export function randomSpot(): [lng: number, lat: number] {
  */
 const r6 = (x: number) => Math.round(x * 1e6) / 1e6;
 
-/** A `size`° square with its south-west corner at `[lng, lat]`: a closed, counter-clockwise ring. */
+/** A `size`° square, south-west corner at `[lng, lat]`, as a closed counter-clockwise ring. */
 export function squareAt([lng, lat]: [number, number], size = 0.01): Polygon {
   const [w, s, e, n] = [r6(lng), r6(lat), r6(lng + size), r6(lat + size)];
   return {
