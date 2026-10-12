@@ -8,7 +8,7 @@ Import from `@cgis/shared` in app code (`@cgis/shared/constants` in Node-side co
 
 | Name | Value | Where used | Why |
 |---|---|---|---|
-| `POLYGON_MAX_VERTICES` | `1000` | `packages/shared/src/geo.ts` (ring max; re-exported under the old name), `apps/web/src/App.tsx` | Spec §5 polygon rule; bounds payload and `ST_IsValid` cost |
+| `POLYGON_MAX_VERTICES` | `1000` | `packages/shared/src/geo.ts` (ring max; re-exported under the old name) | Spec §5 polygon rule; bounds payload and `ST_IsValid` cost |
 | `AREA_NAME_MAX` | `120` | `packages/shared/src/area.ts` (`AreaSchema.name`) | D13 name length cap |
 | `BOUNDS_LIMIT` | `500` | Planned: T15 `GET /api/areas` row limit | Caps one viewport response |
 | `SIMPLIFY_ZOOM_BELOW` | `12` | Planned: T15 (zoom below this gets simplified geometry) | Fewer vertices when zoomed out |
@@ -42,10 +42,11 @@ Import from `@cgis/shared` in app code (`@cgis/shared/constants` in Node-side co
 | `API_PREFIX` | `'/api'` | `apps/web/vite.config.ts` dev proxy | Everything under it goes to `wrangler dev` |
 | `HEALTHZ` | `'/healthz'` | `apps/api/src/routes/health.ts` | Liveness |
 | `READYZ` | `'/readyz'` | `apps/api/src/routes/health.ts` | Readiness (DB reachable) |
-| `AUTH` | `'/api/auth'` | `apps/api/src/app.ts` (`${AUTH}/*` → `authHandler`); planned T12 auth client `baseURL` | Better Auth mount |
+| `AUTH` | `'/api/auth'` | `apps/api/src/app.ts` (`${AUTH}/*` → `authHandler`); `apps/web/src/lib/auth-client.ts` (`createAuthClient({ basePath })`; `baseURL` must be an absolute origin, so it is omitted and the client uses the page origin) | Better Auth mount |
 | `AREAS` | `'/api/areas'` | `apps/api/src/app.ts` (mounts `routes/areas.ts`); planned T13 fetch wrappers | Area CRUD + bbox query |
 | `WS` | `'/ws'` | `apps/api/src/app.ts` (`wsUpgrade`), `apps/web/vite.config.ts` ws proxy; planned T14 | Room WebSocket upgrade |
 | `OPENAPI` | `'/openapi.json'` | Planned: T15 `openAPIRouteHandler` | OpenAPI document |
+| `APP` | `{ HOME: '/', LOGIN: '/login', REGISTER: '/register', MAP: '/map' }` | `apps/web/src/routes/index.tsx` (`/` → `MAP`), `apps/web/src/routes/_authed.tsx` (signed out → `LOGIN`); planned T12 login/register navigation (`REGISTER`) | SPA route targets for `redirect({ to })`, `<Link to>` and `navigate`; `createFileRoute('…')` ids stay literal because the router generates them from the file tree |
 
 ## DEV
 
