@@ -3,6 +3,7 @@ import {
   bigserial,
   index,
   integer,
+  jsonb,
   numeric,
   pgTable,
   primaryKey,
@@ -57,7 +58,8 @@ export const areaVersions = pgTable(
 /**
  * Append-only record of who did what (D20): `action` and `entity` from `AUDIT` in @cgis/shared.
  * An area event's `(entity_id, version)` points at the `area_versions` row it produced, instead of
- * hashing the request body; `version` is NULL for events that have no versioned entity.
+ * hashing the request body; `version` is NULL for events that have no versioned entity. `details`
+ * holds an event's own facts (e.g. the retention purge's deleted counts), never a request body.
  */
 export const auditLog = pgTable('audit_log', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),
@@ -69,4 +71,5 @@ export const auditLog = pgTable('audit_log', {
   ip: text('ip'),
   userAgent: text('user_agent'),
   at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  details: jsonb('details').$type<Record<string, unknown>>(),
 });
