@@ -1,4 +1,4 @@
-import { AUDIT, LIMITS, type Area, type AreaCreate, type AreaUpdate } from '@cgis/shared';
+import { AUDIT, type Area, type AreaCreate, type AreaUpdate } from '@cgis/shared';
 import type pg from 'pg';
 import type { Env } from '../app';
 import { db, withClient } from '../db';
@@ -30,13 +30,11 @@ export type UpdateOutcome =
   | { status: 'conflict'; current: Area }
   | { status: 'missing' }
   | Invalid;
-export type DeleteOutcome = { status: 'deleted'; version: number } | { status: 'missing' };
+export type DeleteOutcome = { status: 'deleted' } | { status: 'missing' };
 
-/** The live areas in the viewport, newest edits first, at most `LIMITS.BOUNDS_LIMIT`. */
+/** Live areas in the viewport, newest edits first; at most `LIMITS.BOUNDS_LIMIT` (the default). */
 export function listAreas(env: Env, bbox: Bbox): Promise<Area[]> {
-  return withClient(env, (client) =>
-    selectAreasInBounds(client, bbox, { limit: LIMITS.BOUNDS_LIMIT }),
-  );
+  return withClient(env, (client) => selectAreasInBounds(client, bbox));
 }
 
 /** Inserts the area (version 1) and its `area.create` audit row. */
@@ -82,7 +80,7 @@ export function deleteArea(env: Env, id: string, actor: Actor): Promise<DeleteOu
     const version = await softDeleteArea(client, id, actor.userId);
     if (version === null) return { status: 'missing' };
     await writeAudit(client, auditRow(actor, AUDIT.ACTIONS.AREA_DELETE, id, version));
-    return { status: 'deleted', version };
+    return { status: 'deleted' };
   });
 }
 
