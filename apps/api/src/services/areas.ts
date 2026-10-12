@@ -1,16 +1,19 @@
-import { AUDIT, type Area, type AreaCreate, type AreaUpdate } from '@cgis/shared';
+import { AUDIT, type Area, type AreaCreate, type AreaUpdate, type AreaVersion } from '@cgis/shared';
 import type pg from 'pg';
 import type { Env } from '../app';
 import { db, withClient } from '../db';
 import {
   InvalidGeometryError,
   insertArea,
+  listVersions,
+  revertArea,
   selectAreasInBounds,
   softDeleteArea,
   updateAreaIfVersion,
   writeAudit,
   type AuditRow,
   type Bbox,
+  type RevertResult,
 } from '../db/spatial';
 
 // Area mutations and their audit rows (D20). Each mutation runs on one per-request client in one
@@ -81,6 +84,32 @@ export function deleteArea(env: Env, id: string, actor: Actor): Promise<DeleteOu
     if (version === null) return { status: 'missing' };
     await writeAudit(client, auditRow(actor, AUDIT.ACTIONS.AREA_DELETE, id, version));
     return { status: 'deleted' };
+  });
+}
+
+/** A live area's saved versions, newest first; `null` when the area is missing or soft-deleted. */
+export async function listAreaVersions(env: Env, id: string): Promise<AreaVersion[] | null> {
+  const versions = await withClient(env, (client) => listVersions(client, id));
+  // A live area always has its version 1, so no rows means no live area.
+  return versions.length > 0 ? versions : null;
+}
+
+/**
+ * Reverts a live area to its saved `version` as a new version and writes the `area.revert` audit
+ * row at that new version (D20), in one transaction.
+ */
+export function revertAreaToVersion(
+  env: Env,
+  id: string,
+  version: number,
+  actor: Actor,
+): Promise<RevertResult> {
+  return inTransaction(env, async (client) => {
+    const result = await revertArea(client, id, version, actor.userId);
+    if (result.status !== 'reverted') return result;
+    const { area } = result;
+    await writeAudit(client, auditRow(actor, AUDIT.ACTIONS.AREA_REVERT, area.id, area.version));
+    return result;
   });
 }
 
