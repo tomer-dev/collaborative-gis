@@ -29,10 +29,18 @@ export const OPENAPI = {
   /** Document version; bump with breaking contract changes. */
   VERSION: '0.1.0',
   /**
-   * The `/docs` page's Scalar script, pinned (jsDelivr versioned paths are immutable) instead of the
-   * CDN's moving latest, since it runs on the API origin. Bump with `@scalar/hono-api-reference`.
+   * The `/docs` page's Scalar script: the single-file browser build of a pinned release (no
+   * code-split chunks, so one integrity hash covers all of it), never the CDN's moving latest,
+   * since it runs on the API origin. Bump with `@scalar/hono-api-reference`, and
+   * `UI_BUNDLE_INTEGRITY` with it.
    */
-  UI_BUNDLE: 'https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.73.1/esm.js',
+  UI_BUNDLE: 'https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.73.1/dist/browser/standalone.js',
+  /**
+   * Subresource Integrity of `UI_BUNDLE`: the browser refuses the script if the CDN serves other
+   * bytes. `curl -sS -o f <UI_BUNDLE> && openssl dgst -sha384 -binary f | openssl base64 -A`
+   * (matches `dist/browser/standalone.js` in the npm tarball).
+   */
+  UI_BUNDLE_INTEGRITY: 'sha384-kYDGzV91Jnn3TbHINV3nt54riK2uMJDfN5Al8dAkz4FssELTBWbD8rgw32sTKfOi',
 } as const;
 
 /** `GET /readyz` body values; the 503 `NOT_READY` carries the same `{ db, room }` in `details`. */
