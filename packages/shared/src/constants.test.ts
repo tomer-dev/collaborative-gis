@@ -21,6 +21,7 @@ describe('constants', () => {
       'WS_MESSAGES',
       'OPENAPI',
       'AUDIT',
+      'COPY',
     ] as const;
     for (const name of groups) {
       const group: unknown = shared[name];
@@ -44,5 +45,9 @@ describe('constants', () => {
 
   it('POLYGON_MAX_VERTICES keeps its old import path and matches LIMITS', () => {
     expect(shared.POLYGON_MAX_VERTICES).toBe(shared.LIMITS.POLYGON_MAX_VERTICES);
+  });
+
+  it('the password hint states LIMITS.PASSWORD_MIN', () => {
+    expect(shared.COPY.AUTH.PASSWORD_HINT).toContain(String(shared.LIMITS.PASSWORD_MIN));
   });
 });
