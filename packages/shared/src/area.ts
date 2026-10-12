@@ -20,6 +20,10 @@ export type AreaCreate = z.infer<typeof AreaCreateSchema>;
 export const AreaUpdateSchema = AreaCreateSchema.extend({ version: z.number().int().positive() });
 export type AreaUpdate = z.infer<typeof AreaUpdateSchema>;
 
+/** `GET /api/areas?bbox=…` response body: the live areas in the viewport. */
+export const AreaListSchema = z.object({ areas: z.array(AreaSchema) });
+export type AreaList = z.infer<typeof AreaListSchema>;
+
 /** One entry of an area's edit history: the area as it stood at `version`. */
 export const AreaVersionSchema = z.object({
   areaId: z.uuid(),

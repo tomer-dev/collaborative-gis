@@ -54,15 +54,19 @@ export const areaVersions = pgTable(
   (t) => [primaryKey({ columns: [t.areaId, t.version] })],
 );
 
-/** Append-only record of who did what; `payload_hash` stands in for the request body. */
+/**
+ * Append-only record of who did what (D20): `action` and `entity` from `AUDIT` in @cgis/shared.
+ * An area event's `(entity_id, version)` points at the `area_versions` row it produced, instead of
+ * hashing the request body; `version` is NULL for events that have no versioned entity.
+ */
 export const auditLog = pgTable('audit_log', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),
   userId: text('user_id'),
   action: text('action').notNull(),
   entity: text('entity').notNull(),
   entityId: text('entity_id'),
+  version: integer('version'),
   ip: text('ip'),
   userAgent: text('user_agent'),
-  payloadHash: text('payload_hash'),
   at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
 });

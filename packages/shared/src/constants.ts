@@ -83,6 +83,8 @@ export const ROUTES = {
   READYZ: '/readyz',
   AUTH: '/api/auth',
   AREAS: '/api/areas',
+  /** One area, relative to AREAS (`PUT`/`DELETE /api/areas/:id`). */
+  AREA_BY_ID: '/:id',
   WS: '/ws',
   OPENAPI: '/openapi.json',
   /** SPA routes: redirect/Link/navigate targets (file-route ids in createFileRoute stay literal). */
@@ -93,6 +95,29 @@ export const ROUTES = {
 export const DEV = {
   API_ORIGIN: 'http://localhost:8787',
   WEB_ORIGIN: 'http://localhost:5173',
+} as const;
+
+/** Standard request headers the API reads by name (lower case, as `Headers` stores them). */
+export const HEADERS = {
+  ORIGIN: 'origin',
+  /** The client IP Cloudflare sets on every request; recorded on audit rows. */
+  CF_CONNECTING_IP: 'cf-connecting-ip',
+  USER_AGENT: 'user-agent',
+} as const;
+
+/** The `GET /openapi.json` document's `info` (hono-openapi `openAPIRouteHandler`). */
+export const OPENAPI = {
+  TITLE: 'Collaborative GIS API',
+  VERSION: '0.1.0',
+} as const;
+
+/**
+ * `audit_log` vocabulary (D20): one row per user action. An area event's row carries
+ * `(entity_id, version)`, pointing at the `area_versions` row the action produced.
+ */
+export const AUDIT = {
+  ENTITIES: { AREA: 'area' },
+  ACTIONS: { AREA_CREATE: 'area.create', AREA_UPDATE: 'area.update', AREA_DELETE: 'area.delete' },
 } as const;
 
 /** The single shared map (D11). */
@@ -218,4 +243,13 @@ export const WS_MESSAGES = {
   NOT_JSON: 'frames must be JSON text',
   NOT_JOINED: 'send join first',
   DRAFT_OP_MISFIT: 'draft op does not fit the current draft',
+} as const;
+
+/** `ApiError.message`s more specific than their code's default in ERROR_MESSAGES. */
+export const ERROR_REASONS = {
+  ORIGIN_NOT_ALLOWED: 'origin not allowed',
+  /** 422: PostGIS `ST_IsValid` rejected a polygon Zod accepted; `details.reason` says why. */
+  INVALID_GEOMETRY: 'invalid geometry',
+  /** 409: the area's stored `version` is not the one the client edited; `details.current` is. */
+  VERSION_CONFLICT: 'version conflict',
 } as const;
