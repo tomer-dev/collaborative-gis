@@ -1,3 +1,4 @@
+import { createExecutionContext } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
 import pg from 'pg';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -113,9 +114,17 @@ describe('session cookie cache (D24)', () => {
     vi.restoreAllMocks();
   });
 
-  /** A signed-in API call (the areas list) with the Cookie header `cookie`. */
+  /**
+   * A signed-in API call (the areas list) with the Cookie header `cookie`, in an ExecutionContext
+   * as the runtime gives one (the bounds cache stores its entry in `waitUntil`).
+   */
   const listAreas = (cookie: string) =>
-    createApp().request(`${ROUTES.AREAS}?bbox=34,31,35,32`, { headers: { cookie } }, authEnv);
+    createApp().request(
+      `${ROUTES.AREAS}?bbox=34,31,35,32`,
+      { headers: { cookie } },
+      authEnv,
+      createExecutionContext(),
+    );
 
   it('reads the session row once per cache window; a same-device sign-out ends it at once', async () => {
     const { cookie } = await signUp(authEnv);

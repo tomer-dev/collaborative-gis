@@ -14,6 +14,7 @@ import { type Context, Hono } from 'hono';
 import { describeRoute, resolver } from 'hono-openapi';
 import { z } from 'zod';
 import type { AppEnv } from '../app';
+import { boundsCache, tileOf } from '../cache/bounds';
 import { apiError } from '../errors';
 import { mutationGuards, requireUser } from '../middleware';
 import { type Actor, createArea, deleteArea, listAreas, updateArea } from '../services/areas';
@@ -90,18 +91,20 @@ export const areas = new Hono<AppEnv>()
     describeRoute({
       summary: 'Areas in a viewport',
       description:
-        'Live areas whose bounding box meets `bbox` (`w,s,e,n`), newest edits first, at most `LIMITS.BOUNDS_LIMIT`. `zoom` is accepted and not used yet.',
+        'Live areas whose bounding box meets `bbox` (`w,s,e,n`) snapped outward to the `CACHE.TILE_QUANT_DEG` grid, newest edits first, at most `LIMITS.BOUNDS_LIMIT`. Served from the edge cache while the map version is unchanged (`X-Cache: HIT`, `MISS`, or `BYPASS` when the version is unavailable); `zoom` is part of the cache key. Every 200 but a `BYPASS` carries an `ETag`; `If-None-Match` naming it answers 304.',
       responses: {
         200: { description: 'The areas in the viewport', content: json(AreaListSchema) },
+        304: { description: 'Not modified: `If-None-Match` names the current `ETag`' },
         401: UNAUTHORIZED,
         422: UNPROCESSABLE,
       },
     }),
     validate('query', BoundsQuerySchema),
+    boundsCache(),
     async (c) => {
-      // `zoom` is validated but unused until the M2 tile cache keys on it.
+      // The tile's envelope, not the viewport: `boundsCache` stores this body for the whole tile.
       const { bbox } = c.req.valid('query');
-      return c.json({ areas: await listAreas(c.env, bbox) }, 200);
+      return c.json({ areas: await listAreas(c.env, tileOf(bbox).bbox) }, 200);
     },
   )
   .put(
