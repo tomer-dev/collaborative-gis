@@ -62,7 +62,7 @@ Rule: the Worker never holds state between requests; all coordination state live
 
 **Viewport fetch.** `GET /areas?bbox=w,s,e,n&zoom=z` → bbox quantised to a tile → cache key includes the map's version counter (held by the Room DO, bumped on every write) → Cache API lookup → miss: `geom && ST_MakeEnvelope(...)` with limit and optional simplification → cached with ETag. Writes invalidate by changing the key; old entries expire by TTL.
 
-**Layer switch.** Overlays are stored as WGS84 and re-added after the base layer change, in dedicated panes (saved areas, drafts) above tiles. Option A is chosen (D3): the map CRS is swapped to a hand-rolled EPSG:2039 CRS built on `proj4` (Proj4Leaflet is unmaintained and has no Leaflet 2 path) with a `TileLayer` subclass overriding `getTileUrl` for govmap's `L/R/C` scheme, and centre/zoom are converted via `CRS.project/unproject`. A tile proxy is not planned; if A proves technically impossible the spike stops and a new decision is raised.
+**Layer switch.** Overlays are stored as WGS84 and re-added after the base layer change, in dedicated panes (saved areas, drafts) above tiles. Option A is chosen (D3): the map CRS is swapped to an EPSG:2039 CRS from Proj4Leaflet on `proj4` (D22 supersedes the earlier no-Proj4Leaflet note) with a `TileLayer` subclass overriding `getTileUrl` for govmap's `L/R/C` scheme, and centre/zoom are converted via `CRS.project/unproject`. A tile proxy is not planned; if A proves technically impossible the spike stops and a new decision is raised.
 
 **Degradation.** Client state machine: connecting → open → degraded → offline. Backoff with jitter; on reconnect resync via bounds query; while offline, poll every 10 s and keep drafts locally. Durable Object hibernation and alarms keep presence correct across idle periods.
 
@@ -104,7 +104,7 @@ In: everything in the brief's sections 1–6, bonus Docker/tests/OpenAPI/benchma
 - Cache invalidation by version-stamped keys bumped in the Room DO (D6).
 - Local parity: docker-compose with PostGIS + workerd container; no Node port (D9).
 - Leaflet **1.9.4**, not 2.0 alpha: 2.0 is ESM-only with breaking API changes and no plugin ecosystem yet; our custom CRS/handler code is written against stable APIs and ported later.
-- No Proj4Leaflet: unmaintained since 2017; a CRS object on `proj4` is ~50 lines.
+- Proj4Leaflet (D22, 2026-10-12, supersedes the earlier "no Proj4Leaflet" note): use `proj4leaflet` 1.0.2 (last publish 2022-06, targets the unchanged Leaflet 1.x CRS interface) + `proj4` 2.22.0 for the EPSG:2039 CRS instead of inline CRS wiring. Owner's call: Leaflet's custom-CRS extension point is the documented path, and the plugin is the standard way to use it. Known limit: no Leaflet 2 path; revisit if Leaflet 2 is adopted. The `getTileUrl` override for govmap's hex `L/R/C` scheme stays (a documented Leaflet extension point, ~10 lines).
 - Hono over Fastify: Workers are fetch runtimes; Hono runs on Node too; official agent skill + CLI.
 - Cloudflare over Vercel: Vercel WebSocket beta has a hard per-connection duration cap; Durable Objects give a native coordinator.
 - Design system "Grid 4" adopted (D15, 2026-10-12): 4 px base unit, fixed spacing steps, 6 type sizes on the grid, OKLCH ramps used only through semantic tokens with base/hover/active/disabled variants; reasonable exceptions allowed case by case when a 4 px multiple cannot work, documented in the token file. Brief: `docs/design-system-brief.html`.
