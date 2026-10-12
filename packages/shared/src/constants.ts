@@ -1,8 +1,13 @@
 // Single source of truth for tunable values; docs/constants.md mirrors it. Add new values to both.
 
+/** Positions in a polygon ring, closing vertex included (spec §5). */
+const POLYGON_MAX_VERTICES = 1000;
+
 /** Input and query limits (spec §5, D13). */
 export const LIMITS = {
-  POLYGON_MAX_VERTICES: 1000,
+  POLYGON_MAX_VERTICES,
+  /** Positions minus the closing vertex: the most vertices a user can place while drawing. */
+  POLYGON_MAX_PLACED_VERTICES: POLYGON_MAX_VERTICES - 1,
   AREA_NAME_MAX: 120,
   BOUNDS_LIMIT: 500,
   SIMPLIFY_ZOOM_BELOW: 12,
