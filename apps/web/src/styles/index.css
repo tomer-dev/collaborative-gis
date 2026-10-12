@@ -1,0 +1,30 @@
+/* Global stylesheet: the app (via src/index.css) and Storybook (.storybook/preview.tsx) import it. */
+@import '@fontsource-variable/inter';
+@import 'tailwindcss';
+@import './tokens.css';
+@import './map.css';
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  html {
+    /* Focus rings and :active states give the tap feedback. */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-bg font-sans text-md text-fg antialiased;
+  }
+
+  /* Borders default to the divider colour instead of currentColor. */
+  *,
+  ::before,
+  ::after,
+  ::backdrop {
+    border-color: var(--color-line);
+  }
+}

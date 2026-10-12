@@ -10,7 +10,7 @@ type AppFrameProps = {
 export function AppFrame({ headerEnd, children }: AppFrameProps) {
   return (
     <>
-      <header className="flex items-center justify-between gap-4 border-b border-current/15 px-4 py-2">
+      <header className="flex items-center justify-between gap-4 border-b border-line px-4 py-2">
         <h1 className="text-lg font-semibold">Collaborative GIS</h1>
         {headerEnd}
       </header>
