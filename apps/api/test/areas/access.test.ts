@@ -1,6 +1,7 @@
 import { AreaSchema, RATE_LIMIT, ROUTES } from '@cgis/shared';
 import { createExecutionContext } from 'cloudflare:test';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { TEST } from '../helpers';
 import { createApp, type Env } from '../../src/app';
 import {
   areasClient,
@@ -19,7 +20,8 @@ beforeAll(async () => {
   env = await areasEnv();
 });
 
-describe('authentication', () => {
+// Real sign-ups (scrypt, Better Auth's first import): { timeout } for a loaded machine.
+describe('authentication', { timeout: TEST.SLOW_TIMEOUT_MS }, () => {
   it('answers 401 on every area route without a session, before validation', async () => {
     const api = areasClient(env);
     const id = crypto.randomUUID();

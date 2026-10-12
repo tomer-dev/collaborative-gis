@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import pg from 'pg';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { TEST } from '../helpers';
 import { ERROR_REASONS, LIMITS, ROUTES } from '@cgis/shared';
 import { createApp, type Env } from '../../src/app';
 import { readSession } from '../../src/auth';
@@ -20,7 +21,8 @@ beforeAll(async () => {
 const call = (path: string, init?: Parameters<typeof authRequest>[2]) =>
   authRequest(authEnv, path, init);
 
-describe('Better Auth on Workers (TOM-25)', () => {
+// Real sign-ups (scrypt, Better Auth's first import): { timeout } for a loaded machine.
+describe('Better Auth on Workers (TOM-25)', { timeout: TEST.SLOW_TIMEOUT_MS }, () => {
   it('sign-up answers 200 with the user and a session cookie', async () => {
     const { res, user, email } = await signUp(authEnv);
     expect(res.status).toBe(200);
@@ -123,7 +125,8 @@ describe('Better Auth on Workers (TOM-25)', () => {
   });
 });
 
-describe('session cookie cache (D24)', () => {
+// Real sign-ups (scrypt, Better Auth's first import): { timeout } for a loaded machine.
+describe('session cookie cache (D24)', { timeout: TEST.SLOW_TIMEOUT_MS }, () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });

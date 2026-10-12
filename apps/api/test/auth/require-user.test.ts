@@ -1,6 +1,7 @@
 import { ROUTES } from '@cgis/shared';
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { TEST } from '../helpers';
 import { createApp, type Env } from '../../src/app';
 import { requireUser } from '../../src/middleware/require-user';
 import { laneEnv } from './lane-db';
@@ -36,7 +37,8 @@ function testApp() {
 const get = (path: string, headers: HeadersInit = {}, testEnv: Env = authEnv) =>
   testApp().request(path, { headers }, testEnv);
 
-describe('requireUser() (TOM-26)', () => {
+// Real sign-ups (scrypt, Better Auth's first import): { timeout } for a loaded machine.
+describe('requireUser() (TOM-26)', { timeout: TEST.SLOW_TIMEOUT_MS }, () => {
   it('lets a signed-in request through with c.get("user") set to the session user', async () => {
     const { id, cookie } = await signUp(authEnv);
     const res = await get('/t/protected', { cookie });
@@ -86,7 +88,8 @@ describe('requireUser() (TOM-26)', () => {
   });
 });
 
-describe('attachUser() (TOM-26)', () => {
+// Real sign-ups (scrypt, Better Auth's first import): { timeout } for a loaded machine.
+describe('attachUser() (TOM-26)', { timeout: TEST.SLOW_TIMEOUT_MS }, () => {
   it('leaves c.get("user") undefined on an anonymous request, which still succeeds', async () => {
     const res = await get('/t/whoami');
     expect(res.status).toBe(200);
