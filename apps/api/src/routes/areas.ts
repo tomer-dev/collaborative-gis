@@ -8,7 +8,6 @@ import {
   ERROR_CODES,
   ERROR_REASONS,
   HEADERS,
-  RATE_LIMIT,
   ROUTES,
 } from '@cgis/shared';
 import { type Context, Hono } from 'hono';
@@ -16,20 +15,17 @@ import { describeRoute, resolver } from 'hono-openapi';
 import { z } from 'zod';
 import type { AppEnv } from '../app';
 import { apiError } from '../errors';
-import { requireUser, type SignedIn } from '../middleware';
-import { rateLimit } from '../middleware/rate-limit';
+import { mutationGuards, requireUser, type SignedIn } from '../middleware';
 import { type Actor, createArea, deleteArea, listAreas, updateArea } from '../services/areas';
 import { fanout } from '../services/fanout';
 import { IdParamSchema, validate } from '../validate';
 import { revert, versions } from './versions';
 
 // Every path under /api/areas needs a session (401 first, from the one `use` below; an unrouted
-// path answers 401, not 404, to an anonymous caller); mutations then spend the user's D5 budget
-// (429) before validation (422), so rejected attempts count too. Handlers stay thin:
-// services/areas.ts owns the transaction and the audit row, and a committed change is broadcast
-// after the response.
-
-const mutation = () => rateLimit(RATE_LIMIT.ACTIONS.MUTATE);
+// path answers 401, not 404, to an anonymous caller); mutations then mount `mutationGuards()`:
+// they spend the user's D5 budget (429) and cap the body (413) before validation (422), so
+// rejected attempts count too. Handlers stay thin: services/areas.ts owns the transaction and the
+// audit row, and a committed change is broadcast after the response.
 
 /** The session user, the client hints and the request id the audit row records. */
 function actor(c: Context<AppEnv & SignedIn>, userId: string): Actor {
@@ -58,6 +54,7 @@ const UNPROCESSABLE = error(
 const RATE_LIMITED = error(
   'Over the per-user mutation budget (`RATE_LIMITED`), with `Retry-After`',
 );
+const PAYLOAD_TOO_LARGE = error('Body over `LIMITS.BODY_MAX_BYTES` (`PAYLOAD_TOO_LARGE`)');
 const NOT_FOUND = error('No live area with this id (`NOT_FOUND`)');
 
 /** Mounted at `ROUTES.AREAS` (`/api/areas`). */
@@ -72,11 +69,12 @@ export const areas = new Hono<AppEnv>()
       responses: {
         201: { description: 'The created area', content: json(AreaSchema) },
         401: UNAUTHORIZED,
+        413: PAYLOAD_TOO_LARGE,
         422: UNPROCESSABLE,
         429: RATE_LIMITED,
       },
     }),
-    mutation(),
+    mutationGuards(),
     validate('json', AreaCreateSchema),
     async (c) => {
       const result = await createArea(c.env, c.req.valid('json'), actor(c, c.get('user').id));
@@ -121,11 +119,12 @@ export const areas = new Hono<AppEnv>()
           description: 'Stale `version` (`CONFLICT`): `details.current` is the stored area',
           content: json(ConflictSchema),
         },
+        413: PAYLOAD_TOO_LARGE,
         422: UNPROCESSABLE,
         429: RATE_LIMITED,
       },
     }),
-    mutation(),
+    mutationGuards(),
     validate('param', IdParamSchema),
     validate('json', AreaUpdateSchema),
     async (c) => {
@@ -164,7 +163,7 @@ export const areas = new Hono<AppEnv>()
         429: RATE_LIMITED,
       },
     }),
-    mutation(),
+    mutationGuards(),
     validate('param', IdParamSchema),
     async (c) => {
       const { id } = c.req.valid('param');

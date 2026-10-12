@@ -1,15 +1,15 @@
-import { ERROR_MESSAGES, ROUTES, TIMEOUTS } from '@cgis/shared';
+import { ROUTES } from '@cgis/shared';
 import type { MiddlewareHandler } from 'hono';
 import { every, except } from 'hono/combine';
 import { cors } from 'hono/cors';
-import { HTTPException } from 'hono/http-exception';
 import { requestId } from 'hono/request-id';
 import { secureHeaders } from 'hono/secure-headers';
-import { timeout } from 'hono/timeout';
 import type { AppEnv } from '../app';
 import { attachUser } from './attach-user';
+import { requestTimeout } from './request-timeout';
 
 export { attachUser } from './attach-user';
+export { mutationGuards } from './rate-limit';
 export { requireUser, type SignedIn } from './require-user';
 
 /**
@@ -19,8 +19,9 @@ export { requireUser, type SignedIn } from './require-user';
  *   fresh server-generated UUID: a client cannot choose the id its requests are logged under.
  * - `cors()`: allows `env.CLIENT_ORIGIN` only, with credentials; never a wildcard.
  * - `secureHeaders()`: Hono's defaults (nosniff, HSTS, frame and referrer policies, ...).
- * - `timeout()`: past `TIMEOUTS.REQUEST_MS` it throws `HTTPException(504)`, which `app.onError`
- *   turns into the ApiError `{ code: 'TIMEOUT', message: 'timeout' }`.
+ * - `requestTimeout()`: past `TIMEOUTS.REQUEST_MS` it aborts the request's signal, which ends its
+ *   open database clients, and throws `HTTPException(504)`, which `app.onError` turns into the
+ *   ApiError `{ code: 'TIMEOUT', message: 'timeout' }`.
  * - `attachUser()`: `c.get('user')` from the session cookie, else unset; never answers by itself.
  *   Last, so a preflight never reaches it, the lookup counts against the request budget, and an
  *   error it throws (database down) still leaves with the CORS and request-id headers. Skipped on
@@ -35,7 +36,7 @@ export function middleware(): MiddlewareHandler<AppEnv> {
       credentials: true,
     }),
     secureHeaders(),
-    timeout(TIMEOUTS.REQUEST_MS, () => new HTTPException(504, { message: ERROR_MESSAGES.TIMEOUT })),
+    requestTimeout(),
     except([`${ROUTES.AUTH}/*`, ROUTES.HEALTHZ, ROUTES.READYZ], attachUser()),
   );
 }
