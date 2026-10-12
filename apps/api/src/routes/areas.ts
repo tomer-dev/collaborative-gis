@@ -22,8 +22,9 @@ import { type Actor, createArea, deleteArea, listAreas, updateArea } from '../se
 import { fanout } from '../services/fanout';
 import { IdParamSchema, validate } from '../validate';
 
-// Every route needs a session (401 first); mutations then spend the user's D5 budget (429) before
-// validation (422), so rejected attempts count too. Handlers stay thin: services/areas.ts owns the
+// Every path under /api/areas needs a session (401 first, from the one `use` below; an unrouted
+// path answers 401, not 404, to an anonymous caller); mutations then spend the user's D5 budget
+// (429) before validation (422), so rejected attempts count too. Handlers stay thin: services/areas.ts owns the
 // transaction and the audit row, and a committed change is broadcast after the response.
 
 const mutation = () => rateLimit(RATE_LIMIT.ACTIONS.MUTATE);
@@ -58,6 +59,7 @@ const NOT_FOUND = error('No live area with this id (`NOT_FOUND`)');
 
 /** Mounted at `ROUTES.AREAS` (`/api/areas`). */
 export const areas = new Hono<AppEnv>()
+  .use(requireUser())
   .post(
     '/',
     describeRoute({
@@ -71,7 +73,6 @@ export const areas = new Hono<AppEnv>()
         429: RATE_LIMITED,
       },
     }),
-    requireUser(),
     mutation(),
     validate('json', AreaCreateSchema),
     async (c) => {
@@ -94,7 +95,6 @@ export const areas = new Hono<AppEnv>()
         422: UNPROCESSABLE,
       },
     }),
-    requireUser(),
     validate('query', BoundsQuerySchema),
     async (c) => {
       // `zoom` is validated but unused until the M2 tile cache keys on it.
@@ -120,7 +120,6 @@ export const areas = new Hono<AppEnv>()
         429: RATE_LIMITED,
       },
     }),
-    requireUser(),
     mutation(),
     validate('param', IdParamSchema),
     validate('json', AreaUpdateSchema),
@@ -158,7 +157,6 @@ export const areas = new Hono<AppEnv>()
         429: RATE_LIMITED,
       },
     }),
-    requireUser(),
     mutation(),
     validate('param', IdParamSchema),
     async (c) => {
