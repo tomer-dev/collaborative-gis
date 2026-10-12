@@ -1,6 +1,4 @@
 import { ERROR_CODES, ERROR_MESSAGES, type PresenceState, WS, WS_MESSAGES } from '@cgis/shared';
-import { env } from 'cloudflare:workers';
-import { auditDrawSession } from '../db/audit';
 import { log } from '../log';
 import { type DraftOp, type DraftStore, takeDraftToken } from './drafts';
 import { ensureEpoch, storedEpoch } from './epoch';
@@ -107,7 +105,6 @@ export async function draftUpdate(
     return;
   }
   save(socket, { ...take.bucket, lastSeq: seq });
-  const ended = op.op === 'clear' ? draftSize(room, attachment.userId) : 0;
   if (!room.drafts.apply(attachment.userId, op, now)) {
     sendError(room.ctx, ws, ERROR_CODES.DRAFT_OP_MISFIT, ERROR_MESSAGES.DRAFT_OP_MISFIT, {
       resync: true,
@@ -117,14 +114,6 @@ export async function draftUpdate(
   // userId after the spread: the sender's id overwrites any userId the client put in the op.
   const relay: DraftRelay = { type: 'draft:update', payload: { ...op, userId: attachment.userId } };
   sendAll(room.ctx, relay, attachment.userId);
-  // D20: a clear that ends a draft of ≥ 1 vertex completes a draw session (the global `env`: the
-  // Room's own bindings, without threading them through RoomCtx).
-  if (ended > 0) auditDrawSession(room.ctx, env, attachment.userId, ended);
-}
-
-/** The number of vertices in `userId`'s draft (0 without one). */
-function draftSize(room: RoomCtx, userId: string): number {
-  return room.drafts.all().find((draft) => draft.userId === userId)?.vertices.length ?? 0;
 }
 
 /**
