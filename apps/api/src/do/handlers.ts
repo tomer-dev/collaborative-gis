@@ -58,8 +58,8 @@ export function setPresence(room: RoomCtx, socket: Socket, state: PresenceState)
 }
 
 /**
- * `draft:update`, joined sockets only. Two limits, both answered with `error RATE_LIMITED` and
- * `retryAfter` ms to the sender only: the socket's bucket (`WS.DRAFT_RATE_PER_SEC`), then one
+ * `draft:update`, joined sockets only. Two limits, both answered with `error RATE_LIMITED`,
+ * `retryAfter` ms and the refused frame's `frameSeq` to the sender only: the socket's bucket (`WS.DRAFT_RATE_PER_SEC`), then one
  * action from the user's `RateLimiter` budget (D5, shared with REST mutations). A frame with
  * `seq <= lastSeq` is dropped silently in between, so it spends no budget; a failed limiter call
  * is `error INTERNAL` (fails closed). Then the op is applied to the sender's draft and relayed to
@@ -85,6 +85,7 @@ export async function draftUpdate(
     save(socket, take.bucket);
     sendError(room.ctx, ws, ERROR_CODES.RATE_LIMITED, ERROR_MESSAGES.RATE_LIMITED, {
       retryAfter: take.retryAfterMs,
+      frameSeq: seq,
     });
     return;
   }
@@ -101,6 +102,7 @@ export async function draftUpdate(
   if (!budget.ok) {
     sendError(room.ctx, ws, ERROR_CODES.RATE_LIMITED, ERROR_MESSAGES.RATE_LIMITED, {
       retryAfter: budget.retryAfterMs,
+      frameSeq: seq,
     });
     return;
   }

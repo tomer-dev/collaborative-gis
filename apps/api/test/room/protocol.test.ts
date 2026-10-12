@@ -41,6 +41,9 @@ type Client = {
 // runDurableObjectAlarm (see rate-limit/rate-limiter.test.ts).
 const T0 = Date.UTC(2100, 0, 1);
 
+/** An explicit `seq` for a frame the Room will refuse, so its `error` can be matched to it. */
+const REFUSED_SEQ = 1000;
+
 /**
  * A user id no other test spends from. Every accepted `draft:update` spends from the user's
  * RateLimiter, whose storage lasts for the whole file; a test that drafts on a mocked clock
@@ -206,13 +209,16 @@ describe('draft:update', () => {
     vi.setSystemTime(T0);
     const a = await join(drawer());
     const b = await join('b');
-    for (let i = 0; i <= WS.DRAFT_RATE_PER_SEC; i++) a.send('draft:update', add(i));
+    for (let i = 0; i < WS.DRAFT_RATE_PER_SEC; i++) a.send('draft:update', add(i));
+    a.send('draft:update', add(WS.DRAFT_RATE_PER_SEC), REFUSED_SEQ);
     const error = await a.waitFor('error');
     expect(error.payload).toEqual({
       code: 'RATE_LIMITED',
       message: 'Too many requests',
       // One token's worth of time: 1 s / DRAFT_RATE_PER_SEC.
       retryAfter: 1000 / WS.DRAFT_RATE_PER_SEC,
+      // The refused frame's own seq: the client takes that op back and sends it again.
+      frameSeq: REFUSED_SEQ,
     });
     await barrier(a);
     await barrier(b);
@@ -549,12 +555,13 @@ describe('draft:update spends the per-user draw budget (RateLimiter, D5)', () =>
       await b.waitFor('draft:update', i + 1);
     }
     vi.setSystemTime(T0 + DRAW_LIMIT * DRAFT_GAP_MS);
-    a.send('draft:update', add(DRAW_LIMIT));
+    a.send('draft:update', add(DRAW_LIMIT), REFUSED_SEQ);
     expect((await a.waitFor('error')).payload).toEqual({
       code: 'RATE_LIMITED',
       message: 'Too many requests',
       // Until the first of the 50 leaves the 60 s window.
       retryAfter: WINDOW_MS - DRAW_LIMIT * DRAFT_GAP_MS,
+      frameSeq: REFUSED_SEQ,
     });
     await barrier(a);
     await barrier(b);
