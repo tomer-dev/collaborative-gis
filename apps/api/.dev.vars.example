@@ -10,8 +10,8 @@ BETTER_AUTH_SECRET=
 # builds its URLs from it and trusts it as an origin; with https it sets `__Secure-` Secure cookies.
 BETTER_AUTH_URL=http://localhost:8787
 #
-# Non-secret settings live in wrangler.jsonc `vars` (CLIENT_ORIGIN, DEBUG_STUB_AUTH); override one
-# for a single run with `wrangler dev --var NAME:value`. CLIENT_ORIGIN is the SPA's origin and
+# Non-secret settings live in wrangler.jsonc `vars` (CLIENT_ORIGIN); override one for a single run
+# with `wrangler dev --var NAME:value`. CLIENT_ORIGIN is the SPA's origin and
 # Better Auth's other trusted origin; a request from any other Origin gets 403.
 # HYPERDRIVE uses `localConnectionString` from wrangler.jsonc (the docker-compose PostGIS) locally,
 # or CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE when set (see scripts/db-lane.sh);
