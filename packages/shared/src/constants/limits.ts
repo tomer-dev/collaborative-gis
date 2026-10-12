@@ -19,7 +19,7 @@ export const LIMITS = {
   PASSWORD_MIN: 8,
 } as const;
 
-/** Time budgets for the database and for a whole request. */
+/** Time budgets for the database, the Room ping and a whole request. */
 export const TIMEOUTS = {
   /** `/readyz` and every DB call fail fast when the DB is unreachable. */
   DB_CONNECT_MS: 3000,
@@ -27,4 +27,6 @@ export const TIMEOUTS = {
   DB_QUERY_MS: 3000,
   /** Whole-request budget (§6). */
   REQUEST_MS: 10_000,
+  /** `/readyz` Room ping: the default Room must answer `getVersion()` within this. */
+  DO_PING_MS: 1000,
 } as const;

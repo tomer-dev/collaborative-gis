@@ -8,6 +8,7 @@ import { type DraftOp, DraftStore } from '../../src/do/drafts';
 import { draftUpdate } from '../../src/do/handlers';
 import { withRoomUser } from '../../src/do/handoff';
 import { attachmentOf } from '../../src/do/presence';
+import type { TakeResult } from '../../src/do/rate-limiter';
 import type { Room } from '../../src/do/room';
 import { TEST } from '../helpers';
 import { socketClient } from '../room/socket-client';
@@ -47,13 +48,15 @@ async function join(userId: string): Promise<void> {
  * the Worker's `env` swapped for the audit lane database: the Room's audit write lands there.
  */
 function draft(seq: number, op: DraftOp): Promise<void> {
-  return runInDurableObject(stub, (_room, state) => {
+  return runInDurableObject(stub, async (_room, state) => {
     const [ws] = state.getWebSockets();
     const attachment = ws && attachmentOf(ws);
     if (!ws || !attachment) throw new Error('expected one joined socket');
-    const room = { ctx: state, drafts: new DraftStore(state.storage.sql) };
+    // The draw budget always grants: this file is about the audit row, not the limiter (H6).
+    const takeDrawAction = async (): Promise<TakeResult> => ({ ok: true, remaining: 1 });
+    const room = { ctx: state, drafts: new DraftStore(state.storage.sql), takeDrawAction };
     const now = Date.now();
-    withEnv(lane, () =>
+    await withEnv(lane, () =>
       draftUpdate(room, { ws, attachment: { ...attachment, lastSeen: now } }, seq, op, now),
     );
   });
