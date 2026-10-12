@@ -3,11 +3,11 @@ import type { MiddlewareHandler } from 'hono';
 import { every } from 'hono/combine';
 import { cors } from 'hono/cors';
 import { HTTPException } from 'hono/http-exception';
+import { requestId } from 'hono/request-id';
 import { secureHeaders } from 'hono/secure-headers';
 import { timeout } from 'hono/timeout';
 import type { AppEnv } from '../app';
 import { attachUser } from './attach-user';
-import { requestId } from './request-id';
 
 export { attachUser } from './attach-user';
 export { log, type LogLevel } from './logger';
@@ -15,8 +15,9 @@ export { requireUser, type SignedIn } from './require-user';
 
 /**
  * The cross-cutting chain `app.ts` mounts on every route, outermost first:
- * - `requestId()`: `c.get('requestId')` and the `x-request-id` response header, always a fresh
- *   server-generated UUID (an incoming `x-request-id` is ignored).
+ * - `requestId({ limitLength: 0 })` (Hono's): `c.get('requestId')` and the `x-request-id` response
+ *   header. With a limit of 0 every incoming `x-request-id` is too long, so the id is always a
+ *   fresh server-generated UUID: a client cannot choose the id its requests are logged under.
  * - `cors()`: allows `env.CLIENT_ORIGIN` only, with credentials; never a wildcard.
  * - `secureHeaders()`: Hono's defaults (nosniff, HSTS, frame and referrer policies, ...).
  * - `timeout()`: past `TIMEOUTS.REQUEST_MS` it throws `HTTPException(504)`, which `app.onError`
@@ -27,7 +28,7 @@ export { requireUser, type SignedIn } from './require-user';
  */
 export function middleware(): MiddlewareHandler<AppEnv> {
   return every(
-    requestId(),
+    requestId({ limitLength: 0 }),
     cors({
       origin: (origin, c) => (origin && origin === c.env.CLIENT_ORIGIN ? origin : null),
       credentials: true,
