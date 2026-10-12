@@ -102,7 +102,7 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 | `AUTH_SIGN_IN_FAILED` | `'auth.sign_in_failed'` | An email sign-in answered anything but 2xx (wrong password, unknown email, bad body, rate limit); no user, and `details` keeps the status and Better Auth's error code. |
 | `REQUEST_REJECTED` | `'request.rejected'` | A response with one of `CAPTURE.REJECTED_CODES` under `/api`; `details.code` says which. |
 | `DRAW_SESSION` | `'draw.session'` | A draft saved as an area: one per create, in its transaction, `details.vertices` the ring's vertex count. The Room writes none (its `clear` is also a resync or a cancel). |
-| `RETENTION_PURGE` | `'retention.purge'` | One retention purge run (`RETENTION`): no user, the deleted counts in `details`. |
+| `RETENTION_PURGE` | `'retention.purge'` | One retention purge batch (`RETENTION`): no user, the deleted counts in `details`. |
 
 ### AUDIT.CAPTURE
 
@@ -123,6 +123,7 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 |---|---|---|
 | `DAYS` | `7` | Days a soft-deleted area and its version history are kept before the purge removes them. |
 | `CRON` | `'0 3 * * *'` | When the purge runs (cron syntax, UTC): daily at 03:00. apps/api/wrangler.jsonc `triggers.crons` repeats it as a JSON literal; a test fails when the two differ. |
+| `BATCH` | `500` | Most areas one purge statement deletes (with their versions), each batch its own transaction and audit row: a backlog shrinks run by run instead of one statement outgrowing the query timeout (`TIMEOUTS.DB_QUERY_MS`) every night. |
 
 ## WS
 
