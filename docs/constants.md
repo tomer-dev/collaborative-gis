@@ -15,9 +15,9 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 | `AREA_NAME_MAX` | `120` | `packages/shared/src/area.ts` (`AreaSchema.name`) | D13 name length cap |
 | `USER_NAME_MAX` | `60` | `apps/api/src/do/handoff.ts` (Room trims and caps the user name), `apps/api/src/do/presence.ts` `PresenceAttachmentSchema.name` | Presence list and ghost labels stay short; attachments stay small |
 | `USER_ID_MAX` | `128` | `apps/api/src/do/handoff.ts` (Room rejects longer ids with 400), `PresenceAttachmentSchema.userId`, `packages/shared/src/ws.ts` `draft:update` `payload.userId` (the author the Room stamps) | With both strings capped, a socket attachment cannot reach the runtime's 16 KiB limit |
-| `BOUNDS_LIMIT` | `500` | `apps/api/src/db/spatial.ts` `selectAreasInBounds` default `limit`; planned: T15 `GET /api/areas` | Caps one viewport response |
-| `SIMPLIFY_ZOOM_BELOW` | `12` | Planned: T15 (zoom below this gets simplified geometry) | Fewer vertices when zoomed out |
-| `SIMPLIFY_TOLERANCE` | `0.0005` | Planned: T15 / T2 `ST_SimplifyPreserveTopology` tolerance (degrees) | ~50 m at the equator: invisible at zoom < 12 |
+| `BOUNDS_LIMIT` | `500` | `apps/api/src/db/spatial.ts` `selectAreasInBounds` default `limit`; `apps/api/src/services/areas.ts` `listAreas` (`GET /api/areas`) | Caps one viewport response |
+| `SIMPLIFY_ZOOM_BELOW` | `12` | Unused in M1: `GET /api/areas` validates `zoom` and ignores it (T15 ruling: no simplification); planned M2 | Fewer vertices when zoomed out |
+| `SIMPLIFY_TOLERANCE` | `0.0005` | Unused in M1 (see `SIMPLIFY_ZOOM_BELOW`); planned M2 `ST_SimplifyPreserveTopology` tolerance (degrees) | ~50 m at the equator: invisible at zoom < 12 |
 | `PASSWORD_MIN` | `8` | `apps/web/src/routes/-components/AuthForm.tsx` (register `minlength`), `COPY.AUTH.PASSWORD_HINT` | Better Auth's default `minPasswordLength`; the form rejects what the server would |
 
 ## GEO
@@ -59,9 +59,9 @@ The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmar
 
 | Name | Value | Where used | Why |
 |---|---|---|---|
-| `DRAW_ACTIONS_PER_WINDOW` | `50` | `apps/api/src/do/rate-limiter.ts` `RateLimiter.take` (actions allowed per window); planned: api lane mounts `rateLimit(action)` on mutations, T7/T8 Room calls `take` for WS drawing actions | D5: 50 drawing actions per user per window, one budget for REST and WS |
+| `DRAW_ACTIONS_PER_WINDOW` | `50` | `apps/api/src/do/rate-limiter.ts` `RateLimiter.take` (actions allowed per window); `apps/api/src/routes/areas.ts` mounts `rateLimit(ACTIONS.MUTATE)` on `POST`/`PUT`/`DELETE` (after `requireUser()`, before validation, so rejected attempts count); planned: T7/T8 Room calls `take` for WS drawing actions | D5: 50 drawing actions per user per window, one budget for REST and WS |
 | `WINDOW_MS` | `60_000` | `apps/api/src/do/rate-limiter.ts` (sliding window length, prune cutoff, idle alarm) | D5: exact sliding window over the last 60 s; the 429 `Retry-After` is at most this long |
-| `ACTIONS` | `{ DRAW: 'draw', MUTATE: 'mutate' }` | `apps/api/src/do/rate-limiter.ts` (`take` rejects any other value at runtime), type `RateLimitAction`; planned: api lane `rateLimit(ACTIONS.MUTATE)` on area mutations, T7/T8 Room `take(ACTIONS.DRAW)` per WS drawing action | RPC does not enforce TS types, so the limiter only stores known labels; both spend the one D5 budget |
+| `ACTIONS` | `{ DRAW: 'draw', MUTATE: 'mutate' }` | `apps/api/src/do/rate-limiter.ts` (`take` rejects any other value at runtime), type `RateLimitAction`; `apps/api/src/routes/areas.ts` `rateLimit(ACTIONS.MUTATE)` on area mutations; planned: T7/T8 Room `take(ACTIONS.DRAW)` per WS drawing action | RPC does not enforce TS types, so the limiter only stores known labels; both spend the one D5 budget |
 
 ## TIMEOUTS
 
@@ -86,9 +86,10 @@ The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmar
 | `HEALTHZ` | `'/healthz'` | `apps/api/src/routes/health.ts` | Liveness |
 | `READYZ` | `'/readyz'` | `apps/api/src/routes/health.ts` | Readiness (DB reachable) |
 | `AUTH` | `'/api/auth'` | `apps/api/src/app.ts` (`${AUTH}/*` → `authHandler`); `apps/web/src/lib/auth-client.ts` (`createAuthClient({ basePath })`; `baseURL` must be an absolute origin, so it is omitted and the client uses the page origin) | Better Auth mount |
-| `AREAS` | `'/api/areas'` | `apps/api/src/app.ts` (mounts `routes/areas.ts`); planned T13 fetch wrappers | Area CRUD + bbox query |
+| `AREAS` | `'/api/areas'` | `apps/api/src/app.ts` (mounts `routes/areas.ts`: `POST`, `GET ?bbox=`); planned T13 fetch wrappers | Area CRUD + bbox query |
+| `AREA_BY_ID` | `'/:id'` | `apps/api/src/routes/areas.ts` (`PUT`/`DELETE`, relative to `AREAS`; `:id` validated as a UUID) | One area |
 | `WS` | `'/ws'` | `apps/api/src/app.ts` (`wsUpgrade`), `apps/web/vite.config.ts` ws proxy; planned T14 | Room WebSocket upgrade |
-| `OPENAPI` | `'/openapi.json'` | Planned: T15 `openAPIRouteHandler` | OpenAPI document |
+| `OPENAPI` | `'/openapi.json'` | `apps/api/src/app.ts` `openAPIRouteHandler` (public; the `/docs` UI is M2) | OpenAPI 3.1 document of the routes with `describeRoute` metadata |
 | `APP` | `{ HOME: '/', LOGIN: '/login', REGISTER: '/register', MAP: '/map' }` | `apps/web/src/routes/index.tsx` (`/` → `MAP`), `apps/web/src/routes/_authed.tsx` (signed out → `LOGIN`), `apps/web/src/routes/-components/redirectSignedIn.ts` (signed in on `/login` or `/register` → `MAP`), `AuthForm.tsx` (links between `LOGIN` and `REGISTER`) | SPA route targets for `redirect({ to })`, `<Link to>` and `navigate`; `createFileRoute('…')` ids stay literal because the router generates them from the file tree |
 
 ## DEV
@@ -97,6 +98,32 @@ The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmar
 |---|---|---|---|
 | `API_ORIGIN` | `'http://localhost:8787'` | `apps/web/vite.config.ts` proxy target, `apps/api/vitest.config.ts` test `BETTER_AUTH_URL`, `.dev.vars.example` | `wrangler dev` default port |
 | `WEB_ORIGIN` | `'http://localhost:5173'` | Mirrored by hand in `apps/api/wrangler.jsonc` `vars.CLIENT_ORIGIN` (JSON cannot import); `test/scaffold.test.ts` asserts they match | `vite` default port; CORS and Better Auth trusted origin |
+
+## HEADERS
+
+| Name | Value | Where used | Why |
+|---|---|---|---|
+| `ORIGIN` | `'origin'` | `apps/api/src/ws.ts` `wsGate()` (the `GET /ws` Origin allow-list) | Browsers always send Origin on a WebSocket upgrade; the gate compares it with `env.CLIENT_ORIGIN` |
+| `CF_CONNECTING_IP` | `'cf-connecting-ip'` | `apps/api/src/routes/areas.ts` (audit row `ip`) | The client IP Cloudflare sets on every request (D20) |
+| `USER_AGENT` | `'user-agent'` | `apps/api/src/routes/areas.ts` (audit row `user_agent`) | D20 audit context |
+
+## OPENAPI
+
+| Name | Value | Where used | Why |
+|---|---|---|---|
+| `TITLE` | `'Collaborative GIS API'` | `apps/api/src/app.ts` `openAPIRouteHandler` `documentation.info.title` | Names the `/openapi.json` document |
+| `VERSION` | `'0.1.0'` | `apps/api/src/app.ts` `documentation.info.version` | Document version; bump with breaking contract changes |
+
+## AUDIT
+
+`audit_log` vocabulary (D20): one row per user action; an area event's `(entity_id, version)` points at the `area_versions` row it produced (no payload hash, migration `0003_audit_version`).
+
+| Name | Value | Where used | Why |
+|---|---|---|---|
+| `ENTITIES.AREA` | `'area'` | `apps/api/src/services/areas.ts` (`audit_log.entity`) | The audited entity kind |
+| `ACTIONS.AREA_CREATE` | `'area.create'` | `apps/api/src/services/areas.ts` `createArea` (version 1) | Written in the same transaction as the insert |
+| `ACTIONS.AREA_UPDATE` | `'area.update'` | `apps/api/src/services/areas.ts` `updateArea` (the new version) | Written in the same transaction as the update; a 409 writes none |
+| `ACTIONS.AREA_DELETE` | `'area.delete'` | `apps/api/src/services/areas.ts` `deleteArea` (the version the soft delete bumped to) | Written in the same transaction as the soft delete |
 
 ## ROOM
 
@@ -161,13 +188,13 @@ Every `ApiError.code` the API sends; `ApiErrorCodeSchema = z.enum(ERROR_CODES)`.
 | Name | Value | Status | Where used | Why |
 |---|---|---|---|---|
 | `BAD_REQUEST` | `'BAD_REQUEST'` | 400 | `badRequestError`; planned T7 bad frame | Malformed request |
-| `UNAUTHORIZED` | `'UNAUTHORIZED'` | 401 | `unauthorizedError`; planned T5 `requireUser`, T6 | No session |
-| `FORBIDDEN` | `'FORBIDDEN'` | 403 | `forbiddenError` | Reserved (D12: any signed-in user edits) |
-| `NOT_FOUND` | `'NOT_FOUND'` | 404 | `apps/api/src/app.ts` `notFound`; planned T15 | Unknown route or area |
-| `CONFLICT` | `'CONFLICT'` | 409 | `conflictError`; planned T15 stale `version` | Optimistic concurrency |
-| `UNPROCESSABLE` | `'UNPROCESSABLE'` | 422 | `unprocessableError`; planned T15 Zod and `ST_IsValid` failures | Validation |
+| `UNAUTHORIZED` | `'UNAUTHORIZED'` | 401 | `unauthorizedError`: `apps/api/src/middleware/require-user.ts` `requireUser()` (also first in `GET /ws`) | No session |
+| `FORBIDDEN` | `'FORBIDDEN'` | 403 | `forbiddenError`: `apps/api/src/ws.ts` `wsGate()` with `ERROR_REASONS.ORIGIN_NOT_ALLOWED` | Foreign or missing Origin on `GET /ws`; not for edit rights (D12: any signed-in user edits) |
+| `NOT_FOUND` | `'NOT_FOUND'` | 404 | `apps/api/src/app.ts` `notFound`; `apps/api/src/routes/areas.ts` (`PUT`/`DELETE` of a missing or deleted area) | Unknown route or area |
+| `CONFLICT` | `'CONFLICT'` | 409 | `conflictError`; `apps/api/src/routes/areas.ts` `PUT` with a stale `version` (`details.current`) | Optimistic concurrency |
+| `UNPROCESSABLE` | `'UNPROCESSABLE'` | 422 | `unprocessableError`; `apps/api/src/validate.ts` (schema failures, `details.issues`), `apps/api/src/routes/areas.ts` (`ST_IsValid` failures, `details.reason`) | Validation |
 | `PAYLOAD_TOO_LARGE` | `'PAYLOAD_TOO_LARGE'` | 413 | `payloadTooLargeError` | Body limit |
-| `RATE_LIMITED` | `'RATE_LIMITED'` | 429 | `rateLimitedError`; planned T7 draft bucket | D13 rate limits |
+| `RATE_LIMITED` | `'RATE_LIMITED'` | 429 | `rateLimitedError`: `apps/api/src/middleware/rate-limit.ts` (area mutations); planned T7 draft bucket | D13 rate limits |
 | `TIMEOUT` | `'TIMEOUT'` | 504 | `codeFor(504)` for the `apps/api/src/middleware/index.ts` timeout | Request budget exceeded |
 | `NOT_READY` | `'NOT_READY'` | 503 | `apps/api/src/routes/health.ts` `/readyz` | DB unreachable |
 | `INTERNAL` | `'INTERNAL'` | 500 | `apps/api/src/app.ts` `onError` | Sanitised server error |
@@ -181,11 +208,11 @@ Default `ApiError.message` per code, same keys as `ERROR_CODES` (`satisfies` + a
 | Name | Value | Where used | Why |
 |---|---|---|---|
 | `BAD_REQUEST` | `'Bad request'` | `badRequestError` default | Generic 400 |
-| `UNAUTHORIZED` | `'sign in'` | `unauthorizedError` default; planned T5, T6 | 401 body clients match |
+| `UNAUTHORIZED` | `'sign in'` | `unauthorizedError` default: `requireUser()` | 401 body clients match |
 | `FORBIDDEN` | `'Forbidden'` | `forbiddenError` default | Generic 403 |
 | `NOT_FOUND` | `'Not found'` | `apps/api/src/app.ts` `notFound` | Stable 404 body |
-| `CONFLICT` | `'Conflict'` | `conflictError` default; T15 passes its own text | Generic 409 |
-| `UNPROCESSABLE` | `'Unprocessable'` | `unprocessableError` default | Generic 422 |
+| `CONFLICT` | `'Conflict'` | `conflictError` default; the area routes send `ERROR_REASONS.VERSION_CONFLICT` | Generic 409 |
+| `UNPROCESSABLE` | `'Unprocessable'` | `unprocessableError` default; `apps/api/src/validate.ts` (schema failures) | Generic 422 |
 | `PAYLOAD_TOO_LARGE` | `'Payload too large'` | `payloadTooLargeError` default | Generic 413 |
 | `RATE_LIMITED` | `'Too many requests'` | `rateLimitedError` default | Generic 429 |
 | `TIMEOUT` | `'timeout'` | `apps/api/src/middleware/index.ts` `HTTPException(504, { message: ERROR_MESSAGES.TIMEOUT })` | 504 body |
@@ -203,3 +230,12 @@ Default `ApiError.message` per code, same keys as `ERROR_CODES` (`satisfies` + a
 | `NOT_JSON` | `'frames must be JSON text'` | `apps/api/src/do/room.ts` (binary or non-JSON frame → `BAD_REQUEST`, one strike) | Says what the Room accepts; a schema failure sends Zod's issue text instead |
 | `NOT_JOINED` | `'send join first'` | `apps/api/src/do/room.ts` (`draft:update` before `join` → `BAD_REQUEST`, no strike) | Drafts come only from users in presence |
 | `DRAFT_OP_MISFIT` | `'draft op does not fit the current draft'` | `apps/api/src/do/room.ts` (index past the end, or an `add` beyond `LIMITS.POLYGON_MAX_VERTICES` → `BAD_REQUEST`, no strike) | The client's draft and the Room's have diverged; the op is not relayed |
+## ERROR_REASONS
+
+`ApiError.message`s more specific than their code's default; `ERROR_MESSAGES` keeps exactly the `ERROR_CODES` keys, so route-specific text lives here.
+
+| Name | Value | Code | Where used | Why |
+|---|---|---|---|---|
+| `ORIGIN_NOT_ALLOWED` | `'origin not allowed'` | `FORBIDDEN` (403) | `apps/api/src/ws.ts` `wsGate()`: a `GET /ws` upgrade whose Origin is missing or is not `env.CLIENT_ORIGIN` | Cross-site WebSocket hijacking: Better Auth's `getSession` ignores Origin, so without this a foreign page could open a socket with the victim's cookie |
+| `INVALID_GEOMETRY` | `'invalid geometry'` | `UNPROCESSABLE` (422) | `apps/api/src/routes/areas.ts`: `POST`/`PUT` whose polygon passed Zod but failed `ST_IsValid`; `details.reason` is the `ST_IsValidReason` text | Tells the client the geometry, not the request shape, is at fault |
+| `VERSION_CONFLICT` | `'version conflict'` | `CONFLICT` (409) | `apps/api/src/routes/areas.ts` `PUT`: the stored `version` is not the one sent; `details.current` is the stored area | The client can show the current area and let the user re-apply |
