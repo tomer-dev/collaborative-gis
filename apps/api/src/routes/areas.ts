@@ -24,8 +24,9 @@ import { IdParamSchema, validate } from '../validate';
 
 // Every path under /api/areas needs a session (401 first, from the one `use` below; an unrouted
 // path answers 401, not 404, to an anonymous caller); mutations then spend the user's D5 budget
-// (429) before validation (422), so rejected attempts count too. Handlers stay thin: services/areas.ts owns the
-// transaction and the audit row, and a committed change is broadcast after the response.
+// (429) before validation (422), so rejected attempts count too. Handlers stay thin:
+// services/areas.ts owns the transaction and the audit row, and a committed change is broadcast
+// after the response.
 
 const mutation = () => rateLimit(RATE_LIMIT.ACTIONS.MUTATE);
 
