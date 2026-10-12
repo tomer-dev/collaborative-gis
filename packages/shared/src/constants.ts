@@ -156,6 +156,14 @@ export const MAP = {
   DRAFT_STYLE: { weight: 2, dashArray: '8 4', fillOpacity: 0.12 },
   /** Area readouts switch from m² to km² at this many km². */
   AREA_KM2_THRESHOLD: 1,
+  /** After a save, a note shows the server's area and the client estimate when they differ by more than this share (0.5 %). */
+  AREA_DIFF_WARN_RATIO: 0.005,
+} as const;
+
+/** TanStack Query keys: the first element of each key, so one prefix matches every variant. */
+export const QUERY = {
+  /** `[AREAS_KEY, bbox]`: the areas in one viewport (`GET /api/areas?bbox=`). */
+  AREAS_KEY: 'areas',
 } as const;
 
 /** Polygon draw tool: the client-side `draw:invalid` reasons and the draw control's copy. */
@@ -201,6 +209,41 @@ export const COPY = {
     ERROR_GENERIC: 'Something went wrong. Try again.',
     SIGN_OUT: 'Sign out',
     SIGN_OUT_ERROR: 'Could not sign out. Try again.',
+  },
+  /** Saved areas on /map: the save dialog, the selected-area panel and the conflict dialog (D4). */
+  AREAS: {
+    SAVE_TITLE: 'Save area',
+    NAME_LABEL: 'Name',
+    NAME_HINT: `Up to ${LIMITS.AREA_NAME_MAX} characters.`,
+    /** A name of only spaces passes `required` but not the schema's trim + min(1). */
+    NAME_REQUIRED: 'Enter a name.',
+    ESTIMATE_LABEL: 'Area (estimate)',
+    AREA_LABEL: 'Area',
+    SAVE_SUBMIT: 'Save',
+    SAVE_PENDING: 'Saving…',
+    SAVE_ERROR_TITLE: 'Could not save the area',
+    SAVED_TITLE: 'Area saved',
+    /** One line under the saved area when it differs from the estimate by more than MAP.AREA_DIFF_WARN_RATIO. */
+    AREA_DIFF_NOTE: (saved: string, estimate: string) =>
+      `The server measured ${saved}; the sketch estimate was ${estimate}.`,
+    DONE: 'Done',
+    CANCEL: 'Cancel',
+    CLOSE: 'Close',
+    RENAME_SUBMIT: 'Rename',
+    RENAME_PENDING: 'Renaming…',
+    RENAME_ERROR_TITLE: 'Could not rename the area',
+    DELETE: 'Delete',
+    DELETE_PENDING: 'Deleting…',
+    DELETE_ERROR_TITLE: 'Could not delete the area',
+    CONFLICT_TITLE: 'Someone else changed this area',
+    CONFLICT_DESCRIPTION: 'Your edit started from an older version. Keep yours or load theirs.',
+    CONFLICT_MINE_LABEL: 'Yours',
+    CONFLICT_THEIRS_LABEL: 'Theirs',
+    OVERWRITE: 'Overwrite with mine',
+    LOAD_THEIRS: 'Load theirs',
+    OVERWRITE_ERROR_TITLE: 'Could not overwrite the area',
+    /** A failure without an API error body (network error, proxy page). */
+    ERROR_GENERIC: 'Something went wrong. Try again.',
   },
 } as const;
 
