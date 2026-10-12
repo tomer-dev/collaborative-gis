@@ -11,10 +11,12 @@ describe('constants', () => {
       'TIMEOUTS',
       'ROUTES',
       'DEV',
+      'HEADERS',
       'ROOM',
       'MAP',
       'ERROR_CODES',
       'ERROR_MESSAGES',
+      'ERROR_REASONS',
     ] as const;
     for (const name of groups) {
       const group: unknown = shared[name];
