@@ -43,7 +43,10 @@ const NO_AREAS: readonly Area[] = [];
 function MapRoute() {
   // The latest map MapView created (StrictMode creates two in dev and removes the first).
   const [map, setMap] = useState<L.Map | null>(null);
-  const [bbox, setBbox] = useState<Bbox | null>(null);
+  // The debounced view MapView reports: the areas query and the optimistic create key on both.
+  const [view, setView] = useState<{ bbox: Bbox; zoom: number } | null>(null);
+  const bbox = view?.bbox ?? null;
+  const zoom = view?.zoom ?? null;
   const [mode, setMode] = useState<MapMode>(BROWSE);
   const selfId = Route.useRouteContext({ select: (context) => context.user.id });
   const room = useRoom({ selfId, map });
@@ -53,13 +56,16 @@ function MapRoute() {
     reportSelfColor(selfColor);
     return () => reportSelfColor(null);
   }, [reportSelfColor, selfColor]);
-  const areas = useAreasInBounds(bbox).data?.areas ?? NO_AREAS;
+  const areas = useAreasInBounds(bbox, zoom).data?.areas ?? NO_AREAS;
   const pendingIds = usePendingAreaIds();
   const selectedId = mode.kind === 'selected' ? mode.id : null;
 
   return (
     <div data-testid="map-root" className="absolute inset-0">
-      <MapView onReady={setMap} onBoundsChange={setBbox} />
+      <MapView
+        onReady={setMap}
+        onBoundsChange={(next, nextZoom) => setView({ bbox: next, zoom: nextZoom })}
+      />
       {map ? (
         <>
           <AreasLayer
@@ -83,6 +89,7 @@ function MapRoute() {
           setMode={setMode}
           areas={areas}
           bbox={bbox}
+          zoom={zoom}
           pendingIds={pendingIds}
         />
         <PresenceList users={room.users} selfId={selfId} />
@@ -97,11 +104,12 @@ type MapOverlayProps = {
   setMode: (mode: MapMode) => void;
   areas: readonly Area[];
   bbox: Bbox | null;
+  zoom: number | null;
   pendingIds: ReadonlySet<string>;
 };
 
 /** The one overlay for the current mode. */
-function MapOverlay({ mode, setMode, areas, bbox, pendingIds }: MapOverlayProps) {
+function MapOverlay({ mode, setMode, areas, bbox, zoom, pendingIds }: MapOverlayProps) {
   const select = (area: Area) => setMode({ kind: 'selected', id: area.id });
   const onConflict = (edit: AreaEdit, current: Area) =>
     setMode({ kind: 'conflict', edit, current });
@@ -124,7 +132,9 @@ function MapOverlay({ mode, setMode, areas, bbox, pendingIds }: MapOverlayProps)
         />
       );
     case 'draft':
-      return <SaveDialog ring={mode.ring} bbox={bbox} onClose={() => setMode(BROWSE)} />;
+      return (
+        <SaveDialog ring={mode.ring} bbox={bbox} zoom={zoom} onClose={() => setMode(BROWSE)} />
+      );
     case 'conflict':
       return (
         <ConflictDialog

@@ -27,12 +27,13 @@ import { ringAreaKm2 } from './geo/geodesic';
 import { useSession } from './session';
 
 /**
- * `[QUERY.AREAS_KEY, bbox]`: one viewport's areas, keyed by the raw debounced bbox (the server owns
- * any quantisation, spec §5). The cached value is the `GET` body as parsed, `{ areas }`; the
- * WebSocket hook (T14) patches the same key and shape.
+ * `[QUERY.AREAS_KEY, bbox, zoom]`: one viewport's areas, keyed by the raw debounced bbox and the
+ * map's integer zoom (the server owns any quantisation, spec §5, and keys its bounds cache by
+ * tile and zoom). The cached value is the `GET` body as parsed, `{ areas }`; the WebSocket hook
+ * (T14) patches the same key and shape.
  */
-export function areasKey(bbox: Bbox | null) {
-  return [QUERY.AREAS_KEY, bbox] as const;
+export function areasKey(bbox: Bbox | null, zoom: number | null) {
+  return [QUERY.AREAS_KEY, bbox, zoom] as const;
 }
 
 /** Matches every viewport's list. */
@@ -52,20 +53,22 @@ export function isQueryableBbox(bbox: Bbox | null): bbox is Bbox {
   return bbox !== null && bbox[0] < bbox[2] && bbox[1] < bbox[3];
 }
 
-async function fetchAreas(bbox: Bbox, signal: AbortSignal): Promise<AreaList> {
-  const res = await api.api.areas.$get({ query: { bbox: bbox.join(',') } }, { init: { signal } });
+async function fetchAreas(bbox: Bbox, zoom: number | null, signal: AbortSignal): Promise<AreaList> {
+  const query = { bbox: bbox.join(','), ...(zoom === null ? {} : { zoom: String(zoom) }) };
+  const res = await api.api.areas.$get({ query }, { init: { signal } });
   return readBody(res, 200, AreaListSchema);
 }
 
 /**
  * The saved areas in `bbox` (the map's debounced viewport) as `{ areas }`, parsed with the shared
- * schema in the query function, so every reader and patcher of the cache sees checked data. Off
- * for a null or degenerate bbox. While a new viewport loads, the last one's areas stay on screen.
+ * schema in the query function, so every reader and patcher of the cache sees checked data; `zoom`
+ * (the map's integer zoom) goes along as `?zoom=`. Off for a null or degenerate bbox. While a new
+ * viewport loads, the last one's areas stay on screen.
  */
-export function useAreasInBounds(bbox: Bbox | null) {
+export function useAreasInBounds(bbox: Bbox | null, zoom: number | null) {
   return useQuery({
-    queryKey: areasKey(bbox),
-    queryFn: isQueryableBbox(bbox) ? ({ signal }) => fetchAreas(bbox, signal) : skipToken,
+    queryKey: areasKey(bbox, zoom),
+    queryFn: isQueryableBbox(bbox) ? ({ signal }) => fetchAreas(bbox, zoom, signal) : skipToken,
     placeholderData: keepPreviousData,
   });
 }
@@ -131,11 +134,11 @@ export function usePendingAreaIds(): ReadonlySet<string> {
 }
 
 /**
- * Creates an area (`POST /api/areas` → 201). Optimistic: the area joins the `bbox` viewport at once
- * under a temporary id and leaves it if the server refuses (a 422 carries `error.reason`); on
- * success the server's area takes its place. The area lists refetch afterwards either way.
+ * Creates an area (`POST /api/areas` → 201). Optimistic: the area joins the `bbox`/`zoom` viewport
+ * at once under a temporary id and leaves it if the server refuses (a 422 carries `error.reason`);
+ * on success the server's area takes its place. The area lists refetch afterwards either way.
  */
-export function useCreateArea(bbox: Bbox | null) {
+export function useCreateArea(bbox: Bbox | null, zoom: number | null) {
   const queryClient = useQueryClient();
   const userId = useSession().data?.id ?? '';
   return useMutation<Area, Error, AreaCreate, OptimisticEntry | undefined>({
@@ -144,7 +147,7 @@ export function useCreateArea(bbox: Bbox | null) {
       readBody(await api.api.areas.$post({ json: input }), 201, AreaSchema),
     onMutate: async (input) => {
       if (!isQueryableBbox(bbox)) return undefined;
-      const key = areasKey(bbox);
+      const key = areasKey(bbox, zoom);
       // An in-flight fetch for this viewport would overwrite the optimistic entry.
       await queryClient.cancelQueries({ queryKey: key });
       const optimistic = optimisticArea(input, userId);

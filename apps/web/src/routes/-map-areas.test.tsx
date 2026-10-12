@@ -157,6 +157,7 @@ it('fetches the viewport and draws its areas in the areas pane', async () => {
 
   await waitFor(() => expect(areaPaths()).toHaveLength(1));
   const bbox = requests[0]?.query.get('bbox')?.split(',').map(Number);
+  expect(requests[0]?.query.get('zoom')).toBe(String(map.getZoom()));
   const bounds = map.getBounds();
   expect(bbox?.[0]).toBeCloseTo(bounds.getWest(), 6);
   expect(bbox?.[3]).toBeCloseTo(bounds.getNorth(), 6);

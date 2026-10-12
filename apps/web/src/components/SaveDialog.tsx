@@ -8,8 +8,9 @@ import { Banner, Button, Dialog, Field, Input, Stat } from '../ui';
 export type SaveDialogProps = {
   /** The finished sketch from `draw:done`: a closed GeoJSON ring. */
   ring: LngLat[];
-  /** The viewport the new area joins at once (optimistic create). */
+  /** The viewport (bbox and zoom) the new area joins at once (optimistic create). */
   bbox: Bbox | null;
+  zoom: number | null;
   /** The dialog has closed (Cancel, Escape, or Done after the save); the parent unmounts it. */
   onClose: () => void;
 };
@@ -19,8 +20,8 @@ export type SaveDialogProps = {
  * it, the server's area (PostGIS on the spheroid) in its place, plus one line with both values
  * when they differ by more than `MAP.AREA_DIFF_WARN_RATIO`.
  */
-export function SaveDialog({ ring, bbox, onClose }: SaveDialogProps) {
-  const create = useCreateArea(bbox);
+export function SaveDialog({ ring, bbox, zoom, onClose }: SaveDialogProps) {
+  const create = useCreateArea(bbox, zoom);
   const estimate = ringAreaKm2(ring);
   // Closing is two steps: the dialog closes itself (focus back to its opener), then the parent unmounts it.
   const [open, setOpen] = useState(true);
