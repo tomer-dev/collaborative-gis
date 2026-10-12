@@ -147,9 +147,7 @@ describe('MapControl', () => {
     expect(draw.getAttribute('title')).toBe('Draw polygon');
     expect(draw.getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByRole('button', { name: 'Pan' }).hasAttribute('aria-pressed')).toBe(false);
-    expect((screen.getByRole('button', { name: 'Zoom in' }) as HTMLButtonElement).disabled).toBe(
-      true,
-    );
+    expect(screen.getByRole('button', { name: 'Zoom in' }).matches(':disabled')).toBe(true);
   });
 });
 

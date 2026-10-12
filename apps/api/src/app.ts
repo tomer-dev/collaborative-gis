@@ -1,9 +1,10 @@
-import { OPENAPI, ROUTES } from '@cgis/shared';
+import { type AuthUser, ERROR_CODES, OPENAPI, ROUTES } from '@cgis/shared';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { openAPIRouteHandler } from 'hono-openapi';
 import { authHandler } from './auth';
-import { httpExceptionError, internalError, notFoundError } from './errors';
+import { apiError, httpExceptionError } from './errors';
+import { log, requestFields } from './log';
 import { middleware } from './middleware';
 import { areas } from './routes/areas';
 import { health } from './routes/health';
@@ -14,7 +15,7 @@ export type Env = CloudflareBindings;
 
 export type AppEnv = {
   Bindings: Env;
-  Variables: { user?: { id: string; name: string }; requestId: string };
+  Variables: { user?: AuthUser; requestId: string };
 };
 
 /**
@@ -41,20 +42,13 @@ export function createApp() {
     }),
   );
 
-  app.notFound((c) => notFoundError(c));
+  app.notFound((c) => apiError(c, ERROR_CODES.NOT_FOUND));
 
   app.onError((err, c) => {
     // Deliberate HTTP errors (auth, validation, ...) keep their status and message.
     if (err instanceof HTTPException) return httpExceptionError(c, err);
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        msg: err.message,
-        path: c.req.path,
-        stack: err instanceof Error ? err.stack : undefined,
-      }),
-    );
-    return internalError(c);
+    log('error', err.message, { ...requestFields(c), stack: err.stack });
+    return apiError(c, ERROR_CODES.INTERNAL);
   });
 
   return typed;

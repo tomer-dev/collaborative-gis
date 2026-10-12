@@ -47,6 +47,8 @@ export const COPY = {
     PASSWORD_HINT: `At least ${LIMITS.PASSWORD_MIN} characters.`,
     /** Shown when a failed auth call carries no server message (network error, empty body). */
     ERROR_GENERIC: 'Something went wrong. Try again.',
+    /** Shown once, while the first session check runs; later refetches keep the current screen. */
+    SESSION_CHECKING: 'Checking your session…',
     SIGN_OUT: 'Sign out',
     SIGN_OUT_ERROR: 'Could not sign out. Try again.',
   },

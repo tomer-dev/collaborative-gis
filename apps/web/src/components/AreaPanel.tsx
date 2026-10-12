@@ -49,7 +49,6 @@ export function AreaPanel({ area, onClose, onConflict, onDeleted }: AreaPanelPro
       as="section"
       variant="floating"
       title={area.name}
-      className="absolute bottom-3 left-3 z-controls"
       actions={
         <Button
           variant="ghost"

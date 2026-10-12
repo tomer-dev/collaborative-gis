@@ -118,6 +118,25 @@ it('selects the clicked area (its latest copy) and gives the selected one the se
   expect(other?.classList.contains(MAP_CLASS.area)).toBe(true);
 });
 
+it('ignores a click on an area still being created (pending id), then selects it once saved', () => {
+  const onSelect = vi.fn<(area: Area) => void>();
+  const view = render(
+    <AreasLayer
+      map={map}
+      areas={[orchard]}
+      selectedId={null}
+      onSelect={onSelect}
+      pendingIds={new Set([orchard.id])}
+    />,
+  );
+  paths()[0]?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  expect(onSelect).not.toHaveBeenCalled();
+
+  view.rerender(<AreasLayer map={map} areas={[orchard]} selectedId={null} onSelect={onSelect} />);
+  paths()[0]?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  expect(onSelect).toHaveBeenCalledWith(orchard);
+});
+
 it('takes its polygons off the map on unmount, and survives StrictMode', () => {
   const view = render(
     <StrictMode>

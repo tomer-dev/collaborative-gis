@@ -1,4 +1,5 @@
 import {
+  type Bbox,
   ApiErrorSchema,
   AreaListSchema,
   AreaSchema,
@@ -13,6 +14,7 @@ import {
   keepPreviousData,
   skipToken,
   useMutation,
+  useMutationState,
   useQuery,
   useQueryClient,
   type QueryClient,
@@ -20,7 +22,6 @@ import {
 import { z } from 'zod';
 import { api, ApiRequestError, expectStatus, readBody } from './api-client';
 import { ringAreaKm2 } from './geo/geodesic';
-import type { Bbox } from './map';
 import { useSession } from './session';
 
 /**
@@ -100,6 +101,21 @@ function optimisticArea(input: AreaCreate, createdBy: string): Area {
 /** Where the optimistic area went: its viewport's key and its temporary id. */
 type OptimisticEntry = { key: ReturnType<typeof areasKey>; tempId: string };
 
+const CREATE_AREA = [QUERY.CREATE_AREA_KEY];
+const OptimisticContextSchema = z.object({ tempId: z.string() });
+
+/**
+ * The temporary ids of the optimistic areas whose create is still in flight: shown on the map,
+ * but not selectable until the server's id replaces them (a rename or delete would 404).
+ */
+export function usePendingAreaIds(): ReadonlySet<string> {
+  const ids = useMutationState({
+    filters: { mutationKey: CREATE_AREA, status: 'pending' },
+    select: (mutation) => OptimisticContextSchema.safeParse(mutation.state.context).data?.tempId,
+  });
+  return new Set(ids.filter((id) => id !== undefined));
+}
+
 /**
  * Creates an area (`POST /api/areas` → 201). Optimistic: the area joins the `bbox` viewport at once
  * under a temporary id and leaves it if the server refuses (a 422 carries `error.reason`); on
@@ -109,6 +125,7 @@ export function useCreateArea(bbox: Bbox | null) {
   const queryClient = useQueryClient();
   const userId = useSession().data?.id ?? '';
   return useMutation<Area, Error, AreaCreate, OptimisticEntry | undefined>({
+    mutationKey: CREATE_AREA,
     mutationFn: async (input) =>
       readBody(await api.api.areas.$post({ json: input }), 201, AreaSchema),
     onMutate: async (input) => {

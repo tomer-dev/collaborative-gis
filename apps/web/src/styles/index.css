@@ -1,4 +1,4 @@
-/* Global stylesheet: the app (via src/index.css) and Storybook (.storybook/preview.tsx) import it. */
+/* Global stylesheet: the app (src/main.tsx) and Storybook (.storybook/preview.tsx) import it. */
 @import '@fontsource-variable/inter';
 @import 'tailwindcss';
 @import './tokens.css';
