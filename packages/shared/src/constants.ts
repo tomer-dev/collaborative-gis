@@ -3,6 +3,9 @@
 /** Positions in a polygon ring, closing vertex included (spec §5). */
 const POLYGON_MAX_VERTICES = 1000;
 
+/** Unit conversion for copy that states a millisecond constant in seconds. */
+const MS_PER_SECOND = 1000;
+
 /** Input and query limits (spec §5, D13). */
 export const LIMITS = {
   POLYGON_MAX_VERTICES,
@@ -51,6 +54,18 @@ export const WS = {
   AUTO_PONG: 'pong',
   RECONNECT_BACKOFF_MS: { min: 1000, max: 30_000 },
   OFFLINE_POLL_MS: 10_000,
+  /** Client reconnect: each backoff delay is shortened by a random share up to this fraction. */
+  CLIENT_BACKOFF_JITTER: 0.5,
+  /** Client: consecutive failed connects before the state is `degraded` (reconnecting banner). */
+  CLIENT_DEGRADED_AFTER: 2,
+  /** Client: consecutive failed connects before the state is `offline` (areas polled instead). */
+  CLIENT_OFFLINE_AFTER: 5,
+} as const;
+
+/** TanStack Query keys the SPA's data layer (T13) and room hook (T14) share. */
+export const QUERY = {
+  /** First element of the viewport areas query key: `[QUERY.AREAS_KEY, bbox]`. */
+  AREAS_KEY: 'areas',
 } as const;
 
 /** Per-user budget shared by REST mutations and WS drawing actions (D5): an exact sliding window. */
@@ -179,6 +194,17 @@ export const DRAW = {
 export const COPY = {
   APP: {
     NAME: 'Collaborative GIS',
+  },
+  CONNECTION: {
+    DEGRADED_TITLE: 'Reconnecting',
+    DEGRADED_DETAIL: 'Live updates are paused. Your drawing is kept.',
+    OFFLINE_TITLE: 'Offline',
+    OFFLINE_DETAIL: `Live updates are off. Saved areas refresh every ${WS.OFFLINE_POLL_MS / MS_PER_SECOND} s.`,
+    RETRY: 'Retry',
+  },
+  PRESENCE: {
+    TITLE: 'On this map',
+    LABEL: 'People on this map',
   },
   AUTH: {
     LOGIN_TITLE: 'Sign in',
