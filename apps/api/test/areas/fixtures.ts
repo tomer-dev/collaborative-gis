@@ -1,18 +1,15 @@
 import { ROUTES, type Polygon } from '@cgis/shared';
 import { createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
-import type pg from 'pg';
 import { createApp, type Env } from '../../src/app';
 import { withClient } from '../../src/db';
 import { laneEnv } from '../auth/lane-db';
-import { appWithUser } from '../helpers';
+import { appWithUser, type User } from '../helpers';
 
 /** The area tests' own database (created and migrated by `laneEnv`), shared by test/areas/*. */
 export const areasEnv = (): Promise<Env> => laneEnv('cgis_api');
 
-export type TestUser = { id: string; name: string };
-
 /** A user no other test shares: its own rate-limit budget and its own rows. */
-export const freshUser = (prefix = 'user'): TestUser => ({
+export const freshUser = (prefix = 'user'): User => ({
   id: `${prefix}-${crypto.randomUUID()}`,
   name: 'Area Tester',
 });
@@ -64,16 +61,14 @@ export function openRingAt(spot: [number, number]): Polygon {
 export const bboxAround = ([lng, lat]: [number, number], pad = 0.05): string =>
   [lng - pad, lat - pad, lng + pad, lat + pad].join(',');
 
-type Send = (path: string, init?: RequestInit) => Promise<Response>;
-
 /**
  * The real app as `user` (`appWithUser`), or anonymous (`createApp()`) without one. Each request
  * gets an ExecutionContext, as the Workers runtime gives one (the routes call `waitUntil`), and is
  * awaited until its `waitUntil` work settles.
  */
-export function areasClient(env: Env, user?: TestUser, headers: Record<string, string> = {}) {
+export function areasClient(env: Env, user?: User, headers: Record<string, string> = {}) {
   const app = user ? appWithUser(user) : createApp();
-  const send: Send = async (path, init = {}) => {
+  const send = async (path: string, init: RequestInit = {}) => {
     const ctx = createExecutionContext();
     const res = await app.request(
       path,
@@ -94,13 +89,9 @@ export function areasClient(env: Env, user?: TestUser, headers: Record<string, s
   };
 }
 
-/** Runs `fn` on a direct connection to the lane database. */
-export const query = <T>(env: Env, fn: (client: pg.Client) => Promise<T>): Promise<T> =>
-  withClient(env, fn);
-
 /** The `audit_log` rows for one entity, oldest first, as the wire-level column names. */
 export function auditRows(env: Env, entityId: string) {
-  return query(env, async (client) => {
+  return withClient(env, async (client) => {
     const { rows } = await client.query(
       `select user_id, action, entity, entity_id, version, ip, user_agent
        from audit_log where entity_id = $1 order by id`,
@@ -112,7 +103,7 @@ export function auditRows(env: Env, entityId: string) {
 
 /** Counts rows matching `where` in `table` (both test-controlled text). */
 export function countRows(env: Env, table: string, where: string, values: unknown[]) {
-  return query(env, async (client) => {
+  return withClient(env, async (client) => {
     const { rows } = await client.query<{ n: number }>(
       `select count(*)::int as n from ${table} where ${where}`,
       values,
