@@ -17,15 +17,45 @@ health.get('/readyz', async (c) => {
   }
 });
 
+/** /readyz answers within this budget, so a stalled or unroutable database means a fast 503. */
+const READY_TIMEOUT_MS = 3000;
+
+// ponytail: one Client per call is enough for a probe; the M1 db lane extracts `withClient`
+// into src/db/client.ts when Drizzle lands.
 export async function checkDatabase(env: Env): Promise<void> {
   const { Client } = await import('pg');
-  const client = new Client({ connectionString: env.HYPERDRIVE.connectionString });
-  // Errors reject connect()/query(); this absorbs workerd's post-end() 'socket closed' event.
-  client.on('error', () => {});
+  const client = new Client({
+    connectionString: env.HYPERDRIVE.connectionString,
+    connectionTimeoutMillis: READY_TIMEOUT_MS,
+    query_timeout: READY_TIMEOUT_MS,
+  });
+  // Errors during connect()/query() reject those calls, so they are not logged here. workerd
+  // emits a benign 'socket closed' error after end(); anything else (e.g. a drop mid-session)
+  // would otherwise vanish, so it is logged.
+  client.on('error', (err) => {
+    if (/socket.*closed/i.test(err.message)) return;
+    console.error(JSON.stringify({ level: 'error', msg: err.message, src: 'pg' }));
+  });
+  const probe = (async () => {
+    try {
+      await client.connect();
+      await client.query('select postgis_version()');
+    } finally {
+      await client.end();
+    }
+  })();
+  // pg's connect timeout cannot interrupt a TCP connect workerd is still opening (its
+  // socket.close() waits for the connect), so the probe also races a hard deadline.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`database check exceeded ${READY_TIMEOUT_MS} ms`)),
+      READY_TIMEOUT_MS,
+    );
+  });
   try {
-    await client.connect();
-    await client.query('select postgis_version()');
+    await Promise.race([probe, deadline]);
   } finally {
-    await client.end();
+    clearTimeout(timer);
   }
 }
