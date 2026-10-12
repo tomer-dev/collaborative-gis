@@ -22,13 +22,14 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 
 ## TIMEOUTS
 
-`limits.ts`. Time budgets for the database and for a whole request.
+`limits.ts`. Time budgets for the database, the Room ping and a whole request.
 
 | Name | Value | Notes |
 |---|---|---|
 | `DB_CONNECT_MS` | `3000` | `/readyz` and every DB call fail fast when the DB is unreachable. |
 | `DB_QUERY_MS` | `3000` | Bounds one query inside the request budget. |
 | `REQUEST_MS` | `10_000` | Whole-request budget (§6). |
+| `DO_PING_MS` | `1000` | `/readyz` Room ping: the default Room must answer `getVersion()` within this. |
 
 ## GEO
 
@@ -125,13 +126,14 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 | Name | Value | Notes |
 |---|---|---|
 | `DRAFT_RATE_PER_SEC` | `10` | D13: drafts ≤ 10 msg/s per user. |
-| `PRESENCE_IDLE_MS` | `60_000` | D13: presence dropped after 60 s. |
+| `PRESENCE_IDLE_MS` | `60_000` | D13: a draft not edited for 60 s is dropped by the Room's idle sweep. |
+| `SOCKET_IDLE_MS` | `3 * PING_INTERVAL_MS` | The idle sweep closes a socket with no frame and no ping for this long (`CLOSE_IDLE`): three ping intervals, so a hidden tab whose timers the browser throttles to one per minute stays. |
 | `ALARM_INTERVAL_MS` | `30_000` | Sweeps idle state twice per idle window. |
 | `BAD_FRAME_STRIKES` | `10` | Tolerates a few bad frames, stops a flood. |
 | `CLOSE_POLICY_VIOLATION` | `1008` | RFC 6455 "policy violation". |
 | `CLOSE_INTERNAL_ERROR` | `1011` | RFC 6455 "internal error": the server cannot attribute the socket. |
 | `CLOSE_IDLE` | `1001` | RFC 6455 "going away": a client that pings every `PING_INTERVAL_MS` is never reaped; one that stopped is dead, and reconnects if it is not. |
-| `PING_INTERVAL_MS` | `30_000` | Below `PRESENCE_IDLE_MS`, so a live tab is never swept; keeps proxies alive. |
+| `PING_INTERVAL_MS` | `30_000` | Client keep-alive, well inside `SOCKET_IDLE_MS`, so a live tab is never swept; keeps proxies alive. |
 | `AUTO_PING` | `'ping'` | The runtime answers without waking a hibernated Room. |
 | `AUTO_PONG` | `'pong'` |  |
 | `RECONNECT_BACKOFF_MS` | `{ min: 1000, max: 30_000 }` | Fast first retry, bounded worst case. |
@@ -176,7 +178,7 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 |---|---|---|
 | `API_PREFIX` | `'/api'` | Everything under it goes to `wrangler dev`. |
 | `HEALTHZ` | `'/healthz'` | Liveness. |
-| `READYZ` | `'/readyz'` | Readiness (DB reachable). |
+| `READYZ` | `'/readyz'` | Readiness: the database and the Room answer. |
 | `AUTH` | `'/api/auth'` | Better Auth mount. |
 | `AREAS` | `'/api/areas'` | Area CRUD + bbox query. |
 | `AREA_BY_ID` | `'/:id'` | One area, relative to AREAS (`PUT`/`DELETE /api/areas/:id`). |
@@ -221,6 +223,16 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 |---|---|---|
 | `TITLE` | `'Collaborative GIS API'` | Names the `/openapi.json` document. |
 | `VERSION` | `'0.1.0'` | Document version; bump with breaking contract changes. |
+
+## READINESS
+
+`http.ts`. `GET /readyz` body values; the 503 `NOT_READY` carries the same `{ db, room }` in `details`.
+
+| Name | Value | Notes |
+|---|---|---|
+| `READY` | `'ready'` | 200 `status`: the database and the Room both answered. |
+| `UP` | `'up'` | A dependency answered within its deadline. |
+| `DOWN` | `'down'` | A dependency failed or missed its deadline. |
 
 ## MAP
 
@@ -375,7 +387,7 @@ Saved areas on /map: the save dialog, the selected-area panel and the conflict d
 | `PAYLOAD_TOO_LARGE` | `'PAYLOAD_TOO_LARGE'` | Body limit. |
 | `RATE_LIMITED` | `'RATE_LIMITED'` | D13 rate limits. |
 | `TIMEOUT` | `'TIMEOUT'` | Request budget exceeded. |
-| `NOT_READY` | `'NOT_READY'` | DB unreachable. |
+| `NOT_READY` | `'NOT_READY'` | `/readyz`: the database or the Room did not answer. |
 | `INTERNAL` | `'INTERNAL'` | Sanitised server error. |
 | `NOT_IMPLEMENTED` | `'NOT_IMPLEMENTED'` | Mounted route whose lane has not landed. |
 | `UPGRADE_REQUIRED` | `'UPGRADE_REQUIRED'` | `/ws` only speaks WebSocket. |
@@ -396,7 +408,7 @@ Saved areas on /map: the save dialog, the selected-area panel and the conflict d
 | `PAYLOAD_TOO_LARGE` | `'Payload too large'` | Generic 413. |
 | `RATE_LIMITED` | `'Too many requests'` | Generic 429. |
 | `TIMEOUT` | `'timeout'` | 504 body. |
-| `NOT_READY` | `'database unreachable'` | `/readyz` 503 body. |
+| `NOT_READY` | `'dependency unreachable'` | `/readyz` 503 body; `details: { db, room }` says which one is down. |
 | `INTERNAL` | `'Internal Server Error'` | 5xx bodies never leak `err.message`. |
 | `NOT_IMPLEMENTED` | `'not implemented'` | 501 until the lane fills the stub. |
 | `UPGRADE_REQUIRED` | `'websocket upgrade required'` | 426 body. |

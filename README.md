@@ -11,7 +11,7 @@ Prerequisites: Node 22 (`.node-version` pins 22.23.3; `engines` requires `>=22.2
 Workspace:
 
 - `packages/shared` (`@cgis/shared`): Zod 4 contracts used by both apps (polygon, area, bounds query, API error, WebSocket protocol) and every tunable value, one file per domain under `src/constants/`. `docs/constants.md` is generated from them (`pnpm constants:docs`; CI fails when it is stale).
-- `apps/api` (`@cgis/api`): Hono 4 Worker with two Durable Objects (`Room`: presence, live drafts, area fan-out; `RateLimiter`: the per-user budget), PostGIS through the `HYPERDRIVE` binding, Better Auth.
+- `apps/api` (`@cgis/api`): Hono 4 Worker with two Durable Objects (`Room`: presence, live drafts, area fan-out; `RateLimiter`: the per-user budget), PostGIS through the `HYPERDRIVE` binding, Better Auth. `GET /healthz` is liveness; `GET /readyz` pings the database and the Room (`getVersion()` within `TIMEOUTS.DO_PING_MS`) and answers 503 `NOT_READY` with `details: { db, room }` when either does not answer.
 - `apps/web` (`@cgis/web`): Vite 8 + React 19 + TanStack Router/Query + Leaflet 1.9.4 SPA; Storybook for the design system.
 
 First run:
