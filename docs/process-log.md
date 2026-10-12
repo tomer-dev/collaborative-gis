@@ -17,3 +17,6 @@ Chronological record of how this roadmap was produced, for the reviewer. Facts o
 12. 1Password verified: Neon API credential readable from vault `Dev` (item `tomercouch-neon`); referenced from ticket 0.3.
 13. Linear (personal workspace, team TOM) via the `linear-personal` MCP server: project P-TOM-1 "Collaborative GIS", 5 milestones (M0–M4), 10 labels (`lane:*`, `spike`, `design-doc`), 8 epics (TOM-5…TOM-12), 61 sub-issues (TOM-13…TOM-73) each with skill, scope, acceptance, milestone, priority and `blocked by` relations wired by identifier.
 14. Committed `docs/` and `.gitignore` as the first commit.
+15. User asked for the critical path and to continue the superpowers process. Ran `find-skills`: installed `postgis/postgis@postgis`, `timescale/pg-aiguide@design-postgis-tables`, `cloudflare/skills@durable-objects`, `cloudflare/skills@workers-best-practices`, `cloudflare/skills@wrangler` (all official sources). No credible Leaflet or Hono skill found.
+16. Added the critical-path section to `docs/roadmap.md` (longest chain vs highest-uncertainty item, day-1 parallel starts, risk register) and patched Linear epics E1/E4/E7 with the new skill references.
+17. Wrote the design spec `docs/superpowers/specs/2026-10-12-collaborative-gis-design.md` (architectural path: spec → user review → writing-plans).
