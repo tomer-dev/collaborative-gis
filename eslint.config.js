@@ -48,16 +48,8 @@ export default tseslint.config(
   },
   {
     // No type assertions in the SPA (`as const` stays allowed): parse at the boundary with the
-    // shared Zod schemas, or narrow. The generated route tree is ignored above. The files listed
-    // under `ignores` predate the rule and belong to other lanes (T9b ui, T10 map test).
+    // shared Zod schemas, or narrow. The generated route tree is ignored above.
     files: ['apps/web/src/**/*.{ts,tsx}'],
-    ignores: [
-      'apps/web/src/ui/Dialog.tsx',
-      'apps/web/src/ui/Dialog.stories.tsx',
-      'apps/web/src/ui/PresenceList.tsx',
-      'apps/web/src/ui/ui.test.tsx',
-      'apps/web/src/components/Map.test.tsx',
-    ],
     rules: {
       '@typescript-eslint/consistent-type-assertions': ['error', { assertionStyle: 'never' }],
     },
