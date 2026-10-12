@@ -121,7 +121,8 @@
   --color-primary-hover: var(--color-primary-700);
   --color-primary-active: var(--color-primary-800);
   --color-primary-fg: var(--color-white); /* text on primary */
-  --color-accent: oklch(67.1% 0.175 40.6); /* #eb6834: the draft you are drawing */
+  --color-accent-500: oklch(67.1% 0.175 40.6); /* #eb6834: fixed, for the map (light basemap) */
+  --color-accent: var(--color-accent-500); /* the draft you are drawing */
   --color-scrim: oklch(15% 0 0 / 40%); /* dialog backdrop */
   --color-shadow: oklch(15% 0 0 / 12%);
 
@@ -179,7 +180,8 @@
   --default-transition-timing-function: var(--ease-standard);
 
   /* Map styles (brief §4), read by the Leaflet path classes in map.css. The basemap is light
-     imagery in both UI themes, so these do not switch with .dark. Strokes are hairlines, not
+     imagery in both UI themes, so these do not switch with .dark: they name ramp values
+     (fixed), never a semantic token that the dark block redefines (tokens.test.ts checks). Strokes are hairlines, not
      layout, so their widths are exempt from the 4 px grid. The draw tool's vertex handle look
      (dot radius, ring, colours) is CSS: --map-handle-* below, used by .cgis-draw-handle in
      map.css. Numbers Leaflet takes in JS stay in @cgis/shared: the handle hit box
@@ -191,13 +193,15 @@
   --map-area-selected-stroke: var(--color-primary-700);
   --map-area-selected-stroke-width: 3px; /* grid-exception: stroke (brief §4: selected = 3 px) */
   --map-area-selected-fill-opacity: 0.3;
-  --map-draft-stroke: var(--color-accent); /* width, dash, fill opacity: MAP.DRAFT_STYLE */
+  --map-draft-stroke: var(--color-accent-500); /* width, dash, fill opacity: MAP.DRAFT_STYLE */
   --map-ghost-stroke-width: 2px; /* grid-exception: stroke */
   --map-ghost-fill-opacity: 0.24;
   --map-handle-radius: 6px; /* grid-exception: radius of a 12 px dot */
   --map-handle-border: 2px; /* grid-exception: stroke */
-  --map-handle-ring: var(--color-accent);
-  --map-handle-fill: var(--color-bg); /* open vertex; the first vertex fills with the ring colour */
+  --map-handle-ring: var(--color-accent-500);
+  --map-handle-fill: var(
+    --color-white
+  ); /* open vertex; the first vertex fills with the ring colour */
 }
 
 @layer base {
