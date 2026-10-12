@@ -1,6 +1,6 @@
-import type { ApiError } from '@cgis/shared';
 import { Hono } from 'hono';
 import type { Env } from '../app';
+import { notReadyError } from '../errors';
 
 export const health = new Hono<{ Bindings: Env }>();
 
@@ -13,7 +13,7 @@ health.get('/readyz', async (c) => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(JSON.stringify({ level: 'error', msg, path: c.req.path }));
-    return c.json<ApiError>({ code: 'NOT_READY', message: 'database unreachable' }, 503);
+    return notReadyError(c, 'database unreachable');
   }
 });
 
