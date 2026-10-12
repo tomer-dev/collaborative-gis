@@ -1,5 +1,7 @@
 import {
   type ApiErrorCode,
+  type AreaEvent,
+  AreaEventSchema,
   ERROR_CODES,
   ERROR_MESSAGES,
   PresenceStateSchema,
@@ -38,8 +40,8 @@ type Socket = { ws: WebSocket; attachment: PresenceAttachment };
 /**
  * The single map room (id `ROOM.DEFAULT_ROOM_ID`). Sockets use the WebSocket Hibernation API:
  * the runtime keeps them open while the object is evicted, so per-socket state lives in
- * attachments and nothing presence-related is kept in instance memory. Drafts and the outgoing
- * `seq` counter live in SQLite.
+ * attachments and nothing presence-related is kept in instance memory. Drafts, the outgoing
+ * `seq` counter and the map version (`mapVersion`) live in SQLite.
  */
 export class Room extends DurableObject<Env> {
   private readonly drafts: DraftStore;
@@ -86,11 +88,36 @@ export class Room extends DurableObject<Env> {
   }
 
   /**
-   * RPC (T8 fan-out) and the Room's own broadcasts: stamps `event` with the next `seq` and
-   * `ts = Date.now()`, then sends it to every open socket except those of `exceptUserId`.
+   * RPC from `fanout` (T8): a committed area change for every open socket. The event is checked
+   * against the shared `AreaEventSchema` first; an invalid one is logged and dropped (nothing
+   * sent, version unchanged) and never thrown back to the Worker. A valid one bumps the map
+   * version and goes out stamped with that `mapVersion`, the next `seq` and `ts = Date.now()`.
+   * Both counters are written synchronously, so they commit together before any frame leaves.
    */
-  async broadcast(event: RoomEvent, exceptUserId?: string): Promise<void> {
-    this.sendAll(event, exceptUserId);
+  async broadcast(event: AreaEvent): Promise<void> {
+    const parsed = AreaEventSchema.safeParse(event);
+    if (!parsed.success) {
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          msg: 'room broadcast rejected an invalid event',
+          issues: z.prettifyError(parsed.error),
+        }),
+      );
+      return;
+    }
+    this.sendAll({ ...parsed.data, mapVersion: this.bumpMapVersion() });
+  }
+
+  /**
+   * RPC: the map version, 0 until the first area change, then one more per `broadcast`. Kept in
+   * the SQLite `counters` table, so it survives eviction (D6: M2 keys the viewport cache on it).
+   */
+  async getVersion(): Promise<number> {
+    const [row] = this.ctx.storage.sql
+      .exec<{ value: number }>(`SELECT value FROM counters WHERE name = 'mapVersion'`)
+      .toArray();
+    return row?.value ?? 0;
   }
 
   /**
@@ -322,6 +349,17 @@ export class Room extends DurableObject<Env> {
       )
       .one();
     return JSON.stringify({ ...event, seq, ts: Date.now() });
+  }
+
+  /** The next map version from the SQLite counter (1 for the first area change). */
+  private bumpMapVersion(): number {
+    const { version } = this.ctx.storage.sql
+      .exec<{ version: number }>(
+        `INSERT INTO counters (name, value) VALUES ('mapVersion', 1)
+         ON CONFLICT (name) DO UPDATE SET value = value + 1 RETURNING value AS version`,
+      )
+      .one();
+    return version;
   }
 
   /**
