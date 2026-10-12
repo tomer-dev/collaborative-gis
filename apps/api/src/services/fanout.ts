@@ -1,5 +1,6 @@
-import { type AreaEvent, ROOM } from '@cgis/shared';
+import { type AreaEvent, ROOM, TIMEOUTS } from '@cgis/shared';
 import type { Env } from '../app';
+import { withDeadline } from '../db';
 import { log } from '../log';
 
 /** The single Room (`ROOM.DEFAULT_ROOM_ID`, D11). */
@@ -9,13 +10,15 @@ const roomOf = (env: Env) => env.ROOM.get(env.ROOM.idFromName(ROOM.DEFAULT_ROOM_
  * Bumps the Room's map version for a committed area change and returns the new version. The
  * routes await it before their response, so a bounds read that follows the response keys on the
  * new version: it can neither be served the pre-write tile nor store it under the old key (D6).
- * Never throws: a failure is logged as one `version bump failed` line and gives `undefined`; the
- * broadcast then bumps instead (`Room.broadcast`), and until it does a read may still get the old
- * entry, for at most `CACHE.BOUNDS_TTL_S`.
+ * Never throws: a failure, or no answer within `TIMEOUTS.DO_PING_MS`, is logged as one `version
+ * bump failed` line and gives `undefined`; the broadcast then bumps instead (`Room.broadcast`),
+ * and until it does a read may still get the old entry, for at most `CACHE.BOUNDS_TTL_S`.
  */
 export async function bumpMapVersion(env: Env, requestId: string): Promise<number | undefined> {
   try {
-    return await roomOf(env).bumpVersion();
+    // Bounded like every Room call on a request path: the write has committed, so a stalled Room
+    // must never turn its response into a 504 (the client would retry and save it twice).
+    return await withDeadline(roomOf(env).bumpVersion(), TIMEOUTS.DO_PING_MS, 'version bump');
   } catch (err) {
     log('error', 'version bump failed', {
       requestId,
