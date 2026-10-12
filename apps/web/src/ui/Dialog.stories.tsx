@@ -64,7 +64,7 @@ export const Save: Story = {
       const dialog = await canvas.findByRole('dialog', { name: 'Save area' });
       // It fades in (motion token), so wait for it rather than asserting on the first frame.
       await waitFor(() => expect(dialog).toBeVisible());
-      await expect(dialog).toContainElement(document.activeElement as HTMLElement);
+      await expect(dialog.contains(document.activeElement)).toBe(true);
     });
     await step('A close request (Escape) closes and returns focus to the trigger', async () => {
       // Browsers turn a trusted Escape press into a `cancel` event on the modal dialog; a
