@@ -196,6 +196,17 @@ describe('draft:update', () => {
     expect(a.of('draft:update')).toEqual([]);
   });
 
+  it('stamps the sender as userId, overwriting a client-supplied one', async () => {
+    const a = await join('a');
+    const b = await join('b');
+    a.send('draft:update', { ...add(0), userId: 'b' });
+    expect((await b.waitFor('draft:update')).payload).toEqual({ ...add(0), userId: 'a' });
+    const c = await join('c');
+    expect(c.of('draft:state')[0]?.payload).toEqual({
+      drafts: [{ userId: 'a', vertices: [vertex(0)] }],
+    });
+  });
+
   it(`11 updates within 100 ms: the 11th gets error RATE_LIMITED on A only; B received ${WS.DRAFT_RATE_PER_SEC}`, async () => {
     const a = await join('a');
     const b = await join('b');

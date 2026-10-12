@@ -27,8 +27,9 @@ type Unstamped<E> = E extends unknown ? Omit<E, 'seq' | 'ts'> : never;
 export type RoomEvent = Unstamped<WsEvent>;
 
 /**
- * A `draft:update` as relayed to the other sockets: the sender's op plus the sender's `userId`,
- * which receivers need to pick the ghost polygon. The shared schema does not list `userId` yet.
+ * A `draft:update` as relayed to the other sockets: the sender's op with `userId` always set to the
+ * sender (receivers pick the ghost polygon by it). The shared schema has it optional because
+ * clients may omit it; any value a client sent is overwritten here.
  */
 export type DraftRelay = { type: 'draft:update'; payload: DraftOp & { userId: string } };
 
@@ -233,6 +234,7 @@ export class Room extends DurableObject<Env> {
     }
     const relay: DraftRelay = {
       type: 'draft:update',
+      // userId after the spread: the sender's id overwrites any userId the client put in the op.
       payload: { ...op, userId: socket.attachment.userId },
     };
     this.sendAll(relay, socket.attachment.userId);
