@@ -10,7 +10,8 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, presence
 
 | Name | Value | Where used | Why |
 |---|---|---|---|
-| `POLYGON_MAX_VERTICES` | `1000` | `packages/shared/src/geo.ts` (ring max; re-exported under the old name), `apps/web/src/App.tsx`, `apps/web/src/components/DrawControl.tsx` (`n / 1000` vertex readout) | Spec §5 polygon rule; bounds payload and `ST_IsValid` cost |
+| `POLYGON_MAX_VERTICES` | `1000` | `packages/shared/src/geo.ts` (ring max; re-exported under the old name), `apps/web/src/App.tsx`, `apps/web/src/lib/geo/draw-handler.ts` (vertex cap) | Spec §5 polygon rule; bounds payload and `ST_IsValid` cost |
+| `POLYGON_MAX_PLACED_VERTICES` | `POLYGON_MAX_VERTICES - 1` (`999`) | `apps/web/src/components/DrawControl.tsx` (`n / 999` vertex readout) | Positions minus the closing vertex: the cap the user can actually reach while drawing |
 | `AREA_NAME_MAX` | `120` | `packages/shared/src/area.ts` (`AreaSchema.name`) | D13 name length cap |
 | `BOUNDS_LIMIT` | `500` | Planned: T15 `GET /api/areas` row limit | Caps one viewport response |
 | `SIMPLIFY_ZOOM_BELOW` | `12` | Planned: T15 (zoom below this gets simplified geometry) | Fewer vertices when zoomed out |
