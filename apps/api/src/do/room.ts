@@ -15,6 +15,7 @@ import type { Env } from '../app';
 import { apiErrorResponse } from '../errors';
 import { log } from '../log';
 import { DraftStore, fullDraftBucket } from './drafts';
+import { ensureEpoch } from './epoch';
 import { parseClientFrame, SWITCHING_PROTOCOLS } from './frames';
 import {
   departed,
@@ -103,13 +104,15 @@ export class Room extends DurableObject<Env> {
 
   /**
    * RPC: the map version, 0 until the first area change, then one more per `broadcast`. Kept in
-   * the SQLite `counters` table, so it survives eviction (D6: M2 keys the viewport cache on it).
+   * the SQLite `counters` table, so it survives eviction (D6: the viewport cache keys on it). A
+   * Room that lost its storage counts from 0 again, so `epoch` (epoch.ts; written here when there
+   * is none yet) names the run: `(epoch, version)` never repeats.
    */
-  async getVersion(): Promise<number> {
+  async getVersion(): Promise<{ epoch: string; version: number }> {
     const [row] = this.ctx.storage.sql
       .exec<{ value: number }>(`SELECT value FROM counters WHERE name = 'mapVersion'`)
       .toArray();
-    return row?.value ?? 0;
+    return { epoch: ensureEpoch(this.ctx.storage), version: row?.value ?? 0 };
   }
 
   /**
