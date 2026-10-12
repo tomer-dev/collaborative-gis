@@ -2,6 +2,7 @@ import { ROOM, ROUTES } from '@cgis/shared';
 import { evictDurableObject, runInDurableObject } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { TEST } from '../helpers';
 import { createApp, type Env } from '../../src/app';
 import { laneEnv } from './lane-db';
 import { SESSION_COOKIE, signUp } from './session';
@@ -39,7 +40,8 @@ async function expectRefused(res: Response, status: number, body: unknown) {
   expect(await roomUsers()).toEqual([]);
 }
 
-describe('GET /ws session gate (TOM-26)', () => {
+// Real sign-ups (scrypt, Better Auth's first import): { timeout } for a loaded machine.
+describe('GET /ws session gate (TOM-26)', { timeout: TEST.SLOW_TIMEOUT_MS }, () => {
   it('upgrades a signed-in browser on CLIENT_ORIGIN to 101, as the session user', async () => {
     const { id, cookie } = await signUp(authEnv);
     const res = await openWs({ ...UPGRADE, cookie, origin: env.CLIENT_ORIGIN });
