@@ -249,7 +249,7 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 
 ## CACHE
 
-`cache.ts`. The viewport cache (D6, spec §5): `GET /api/areas` answers from the Workers Cache API under a key of the quantised tile, the zoom and the Room's map version.
+`cache.ts`. The viewport cache (D6, spec §5): `GET /api/areas` answers from the Workers Cache API under a key of the quantised tile and the Room's map version (not the zoom: the response does not vary by it).
 
 | Name | Value | Notes |
 |---|---|---|

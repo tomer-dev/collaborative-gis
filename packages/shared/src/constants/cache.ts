@@ -1,6 +1,7 @@
 /**
  * The viewport cache (D6, spec §5): `GET /api/areas` answers from the Workers Cache API under a
- * key of the quantised tile, the zoom and the Room's map version.
+ * key of the quantised tile and the Room's map version (not the zoom: the response does not vary
+ * by it).
  */
 export const CACHE = {
   /**

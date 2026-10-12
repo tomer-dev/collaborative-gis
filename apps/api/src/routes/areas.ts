@@ -72,7 +72,7 @@ export const areas = new Hono<AppEnv>()
     describeRoute({
       summary: 'Areas in a viewport',
       description:
-        'Live areas whose bounding box meets `bbox` (`w,s,e,n`) snapped outward to the `CACHE.TILE_QUANT_DEG` grid, newest edits first, at most `LIMITS.BOUNDS_LIMIT`. Served from the edge cache while the map version is unchanged (`X-Cache: HIT`, `MISS`, or `BYPASS` when the version is unavailable); `zoom` is part of the cache key. Every 200 but a `BYPASS` carries an `ETag`; `If-None-Match` naming it answers 304.',
+        'Live areas whose bounding box meets `bbox` (`w,s,e,n`) snapped outward to the `CACHE.TILE_QUANT_DEG` grid, newest edits first, at most `LIMITS.BOUNDS_LIMIT`. Served from the edge cache while the map version is unchanged (`X-Cache: HIT`, `MISS`, or `BYPASS` when the version is unavailable); `zoom` is accepted but does not change the response or the cache key yet. Every 200 but a `BYPASS` carries an `ETag`; `If-None-Match` naming it answers 304.',
       responses: {
         200: { description: 'The areas in the viewport', content: json(AreaListSchema) },
         304: { description: 'Not modified: `If-None-Match` names the current `ETag`' },
