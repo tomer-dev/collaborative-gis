@@ -10,6 +10,9 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "noEmit": true
+    "noEmit": true,
+    // Node loads @cgis/shared/constants as TypeScript (Vite config files import it natively), and
+    // Node resolves relative imports only with their real extension: those imports name the .ts file.
+    "allowImportingTsExtensions": true
   }
 }
