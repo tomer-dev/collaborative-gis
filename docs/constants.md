@@ -10,9 +10,27 @@ Import from `@cgis/shared` in app code (`@cgis/shared/constants` in Node-side co
 |---|---|---|---|
 | `POLYGON_MAX_VERTICES` | `1000` | `packages/shared/src/geo.ts` (ring max; re-exported under the old name), `apps/web/src/App.tsx` | Spec §5 polygon rule; bounds payload and `ST_IsValid` cost |
 | `AREA_NAME_MAX` | `120` | `packages/shared/src/area.ts` (`AreaSchema.name`) | D13 name length cap |
-| `BOUNDS_LIMIT` | `500` | Planned: T15 `GET /api/areas` row limit | Caps one viewport response |
+| `BOUNDS_LIMIT` | `500` | `apps/api/src/db/spatial.ts` `selectAreasInBounds` default `limit`; planned: T15 `GET /api/areas` | Caps one viewport response |
 | `SIMPLIFY_ZOOM_BELOW` | `12` | Planned: T15 (zoom below this gets simplified geometry) | Fewer vertices when zoomed out |
 | `SIMPLIFY_TOLERANCE` | `0.0005` | Planned: T15 / T2 `ST_SimplifyPreserveTopology` tolerance (degrees) | ~50 m at the equator: invisible at zoom < 12 |
+
+## GEO
+
+| Name | Value | Where used | Why |
+|---|---|---|---|
+| `SRID` | `4326` | `apps/api/src/db/geometry.ts` (`geometry(Polygon,4326)` column type), `apps/api/src/db/spatial.ts` (`ST_MakeEnvelope(w, s, e, n, SRID)`) | WGS 84 lng/lat: what the map and GeoJSON use (`ST_GeomFromGeoJSON` defaults to it) |
+
+## SEED
+
+The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmark seed is M2.
+
+| Name | Value | Where used | Why |
+|---|---|---|---|
+| `COUNT` | `50` | `seedAreas` default; `apps/api/test/db/spatial.test.ts` (rows before `ANALYZE` + `EXPLAIN`) | Enough rows for the planner to have statistics, fast to insert |
+| `BBOX` | `[34.27, 29.49, 35.9, 33.34]` | `seedAreas` default | Israel as `[w, s, e, n]`, the demo region |
+| `MAX_RADIUS_DEG` | `0.02` | `seedAreas` | Polygons up to ~4 km across: viewport-sized at city zoom |
+| `VERTICES` | `{ min: 4, max: 8 }` | `seedAreas` | Small, varied rings |
+| `USER_ID` | `'seed'` | `seedAreas` default `created_by` | Seeded rows are recognisable |
 
 ## WS
 
