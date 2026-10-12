@@ -31,7 +31,7 @@ Import from `@cgis/shared` in app code (`@cgis/shared/constants` in Node-side co
 
 | Name | Value | Where used | Why |
 |---|---|---|---|
-| `DB_CONNECT_MS` | `3000` | `apps/api/src/db/index.ts` `withClient` (`connectionTimeoutMillis`) | `/readyz` and requests fail fast when the DB is unreachable |
+| `DB_CONNECT_MS` | `3000` | `apps/api/src/db/index.ts` `withClient`: `connectionTimeoutMillis` and a hard `Promise.race` deadline (workerd cannot abort a TCP connect in flight) | `/readyz` and every DB call fail fast when the DB is unreachable |
 | `DB_QUERY_MS` | `3000` | `apps/api/src/db/index.ts` `withClient` (`query_timeout`) | Bounds one query inside the request budget |
 | `REQUEST_MS` | `10_000` | Planned: T3 `timeout()` middleware → 504 `TIMEOUT` | Whole-request budget (§6) |
 
@@ -75,29 +75,40 @@ Import from `@cgis/shared` in app code (`@cgis/shared/constants` in Node-side co
 
 ## ERROR_CODES
 
-Every `ApiError.code` the API sends; `ApiErrorCodeSchema = z.enum(ERROR_CODES)`. `apps/api/src/errors.ts` `codeFor(status)` maps an `HTTPException` status onto these (`HTTP_<status>` when none fits).
+Every `ApiError.code` the API sends; `ApiErrorCodeSchema = z.enum(ERROR_CODES)`. `apps/api/src/errors.ts` holds the code → HTTP status table (`satisfies Record<ApiErrorCode, …>`, so a code added here without a status fails the build), one helper per code (`notFoundError(c, message?, details?)`, …), and `codeFor(status)` for a thrown `HTTPException` (`HTTP_<status>` when no code fits).
 
-| Name | Value | Where used | Why |
-|---|---|---|---|
-| `BAD_REQUEST` | `'BAD_REQUEST'` | `codeFor(400)`; planned T6 (426 non-upgrade), T7 bad frame | Malformed request |
-| `UNAUTHORIZED` | `'UNAUTHORIZED'` | `codeFor(401)`; planned T5, T6 | No session |
-| `FORBIDDEN` | `'FORBIDDEN'` | `codeFor(403)` | Reserved (D12: any signed-in user edits) |
-| `NOT_FOUND` | `'NOT_FOUND'` | `apps/api/src/app.ts` `notFound`, `codeFor(404)`; planned T15 | Unknown route or area |
-| `CONFLICT` | `'CONFLICT'` | `codeFor(409)`; planned T15 stale `version` | Optimistic concurrency |
-| `UNPROCESSABLE` | `'UNPROCESSABLE'` | `codeFor(422)`; planned T15 Zod and `ST_IsValid` failures | Validation |
-| `PAYLOAD_TOO_LARGE` | `'PAYLOAD_TOO_LARGE'` | `codeFor(413)` | Body limit |
-| `RATE_LIMITED` | `'RATE_LIMITED'` | `codeFor(429)`; planned T7 draft bucket | D13 rate limits |
-| `TIMEOUT` | `'TIMEOUT'` | `codeFor(504)`; planned T3 timeout middleware | Request budget exceeded |
-| `NOT_READY` | `'NOT_READY'` | `apps/api/src/routes/health.ts` `/readyz` 503 | DB unreachable |
-| `INTERNAL` | `'INTERNAL'` | `apps/api/src/app.ts` `onError` 500, T0 501 stubs (`auth.ts`, `ws.ts`) | Sanitised server error |
+| Name | Value | Status | Where used | Why |
+|---|---|---|---|---|
+| `BAD_REQUEST` | `'BAD_REQUEST'` | 400 | `badRequestError`; planned T7 bad frame | Malformed request |
+| `UNAUTHORIZED` | `'UNAUTHORIZED'` | 401 | `unauthorizedError`; planned T5 `requireUser`, T6 | No session |
+| `FORBIDDEN` | `'FORBIDDEN'` | 403 | `forbiddenError` | Reserved (D12: any signed-in user edits) |
+| `NOT_FOUND` | `'NOT_FOUND'` | 404 | `apps/api/src/app.ts` `notFound`; planned T15 | Unknown route or area |
+| `CONFLICT` | `'CONFLICT'` | 409 | `conflictError`; planned T15 stale `version` | Optimistic concurrency |
+| `UNPROCESSABLE` | `'UNPROCESSABLE'` | 422 | `unprocessableError`; planned T15 Zod and `ST_IsValid` failures | Validation |
+| `PAYLOAD_TOO_LARGE` | `'PAYLOAD_TOO_LARGE'` | 413 | `payloadTooLargeError` | Body limit |
+| `RATE_LIMITED` | `'RATE_LIMITED'` | 429 | `rateLimitedError`; planned T7 draft bucket | D13 rate limits |
+| `TIMEOUT` | `'TIMEOUT'` | 504 | `codeFor(504)`; planned T3 timeout middleware | Request budget exceeded |
+| `NOT_READY` | `'NOT_READY'` | 503 | `apps/api/src/routes/health.ts` `/readyz` | DB unreachable |
+| `INTERNAL` | `'INTERNAL'` | 500 | `apps/api/src/app.ts` `onError` | Sanitised server error |
+| `NOT_IMPLEMENTED` | `'NOT_IMPLEMENTED'` | 501 | T0 stubs `apps/api/src/auth.ts`, `apps/api/src/ws.ts` | Mounted route whose lane has not landed |
+| `UPGRADE_REQUIRED` | `'UPGRADE_REQUIRED'` | 426 | Planned: T6 `wsUpgrade` without `Upgrade: websocket` | `/ws` only speaks WebSocket |
 
 ## ERROR_MESSAGES
 
+Default `ApiError.message` per code, same keys as `ERROR_CODES` (`satisfies` + a test keep them aligned). Each `errors.ts` helper uses it when no message is passed.
+
 | Name | Value | Where used | Why |
 |---|---|---|---|
-| `NOT_FOUND` | `'Not found'` | `apps/api/src/app.ts` `notFound` | Stable text clients and tests match |
-| `INTERNAL` | `'Internal Server Error'` | `apps/api/src/app.ts` `onError` | 5xx bodies never leak `err.message` |
+| `BAD_REQUEST` | `'Bad request'` | `badRequestError` default | Generic 400 |
+| `UNAUTHORIZED` | `'sign in'` | `unauthorizedError` default; planned T5, T6 | 401 body clients match |
+| `FORBIDDEN` | `'Forbidden'` | `forbiddenError` default | Generic 403 |
+| `NOT_FOUND` | `'Not found'` | `apps/api/src/app.ts` `notFound` | Stable 404 body |
+| `CONFLICT` | `'Conflict'` | `conflictError` default; T15 passes its own text | Generic 409 |
+| `UNPROCESSABLE` | `'Unprocessable'` | `unprocessableError` default | Generic 422 |
+| `PAYLOAD_TOO_LARGE` | `'Payload too large'` | `payloadTooLargeError` default | Generic 413 |
+| `RATE_LIMITED` | `'Too many requests'` | `rateLimitedError` default | Generic 429 |
+| `TIMEOUT` | `'timeout'` | Planned: T3 `HTTPException(504, { message: ERROR_MESSAGES.TIMEOUT })` | 504 body |
 | `NOT_READY` | `'database unreachable'` | `apps/api/src/routes/health.ts` | `/readyz` 503 body |
-| `UNAUTHORIZED` | `'sign in'` | Planned: T5 `requireUser`, T6 `wsUpgrade` | 401 body |
-| `TIMEOUT` | `'timeout'` | Planned: T3 `HTTPException(504, { message })` | 504 body |
-| `NOT_IMPLEMENTED` | `'not implemented'` | `apps/api/src/auth.ts`, `apps/api/src/ws.ts` (T0 stubs) | 501 until the lane fills the stub |
+| `INTERNAL` | `'Internal Server Error'` | `apps/api/src/app.ts` `onError` | 5xx bodies never leak `err.message` |
+| `NOT_IMPLEMENTED` | `'not implemented'` | T0 stubs `auth.ts`, `ws.ts` | 501 until the lane fills the stub |
+| `UPGRADE_REQUIRED` | `'websocket upgrade required'` | Planned: T6 | 426 body |

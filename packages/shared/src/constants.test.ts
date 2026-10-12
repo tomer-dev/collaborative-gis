@@ -21,6 +21,10 @@ describe('constants', () => {
     }
   });
 
+  it('every error code has a default message', () => {
+    expect(Object.keys(shared.ERROR_MESSAGES)).toEqual(Object.keys(shared.ERROR_CODES));
+  });
+
   it('POLYGON_MAX_VERTICES keeps its old import path and matches LIMITS', () => {
     expect(shared.POLYGON_MAX_VERTICES).toBe(shared.LIMITS.POLYGON_MAX_VERTICES);
   });

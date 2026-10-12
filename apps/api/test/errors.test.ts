@@ -9,12 +9,14 @@ import {
   forbiddenError,
   internalError,
   notFoundError,
+  notImplementedError,
   notReadyError,
   payloadTooLargeError,
   rateLimitedError,
   timeoutError,
   unauthorizedError,
   unprocessableError,
+  upgradeRequiredError,
 } from '../src/errors';
 
 describe('error helpers', () => {
@@ -30,10 +32,17 @@ describe('error helpers', () => {
     ['INTERNAL', 500, internalError],
     ['NOT_READY', 503, notReadyError],
     ['TIMEOUT', 504, timeoutError],
+    ['NOT_IMPLEMENTED', 501, notImplementedError],
+    ['UPGRADE_REQUIRED', 426, upgradeRequiredError],
   ] as const)('%s responds with status %i', async (code, status, helper) => {
     const res = await new Hono().get('/', (c) => helper(c)).request('/');
     expect(res.status).toBe(status);
     expect(await res.json()).toMatchObject({ code, message: expect.any(String) });
+  });
+
+  it('default messages come from ERROR_MESSAGES in @cgis/shared', async () => {
+    const res = await new Hono().get('/', (c) => unauthorizedError(c)).request('/');
+    expect(await res.json()).toEqual({ code: 'UNAUTHORIZED', message: 'sign in' });
   });
 
   it('passes a custom message and details through', async () => {
