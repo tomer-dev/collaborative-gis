@@ -59,10 +59,10 @@ export function invalidReason(vertices: readonly LngLat[]): string | null {
   return hasSelfIntersection(ring) ? DRAW.SELF_INTERSECTION_REASON : null;
 }
 
-/** The app theme's signal colour (index.css), or the inherited text colour when the token is absent. */
-const SIGNAL = 'var(--color-signal, currentColor)';
-function signalColor(el: HTMLElement): string {
-  return getComputedStyle(el).getPropertyValue('--color-signal').trim() || 'currentColor';
+/** The accent token (styles/tokens.css: the draft you are drawing), or the inherited text colour when the token is absent. */
+const ACCENT = 'var(--color-accent, currentColor)';
+function accentColor(el: HTMLElement): string {
+  return getComputedStyle(el).getPropertyValue('--color-accent').trim() || 'currentColor';
 }
 
 /** Vertex handle: a `HANDLE_RADIUS_PX` dot centred in a `HANDLE_HIT_PX` hit box; the first one is filled ("close here"). */
@@ -76,8 +76,8 @@ function handleIcon(first: boolean): L.DivIcon {
     `height:${2 * r}px`,
     `margin:${hit / 2 - r}px`,
     'border-radius:50%',
-    `border:${border}px solid ${SIGNAL}`,
-    `background:${first ? SIGNAL : 'var(--color-paper, Canvas)'}`,
+    `border:${border}px solid ${ACCENT}`,
+    `background:${first ? ACCENT : 'var(--color-bg, Canvas)'}`,
   ].join(';');
   return L.divIcon({ className: 'cgis-draw-handle', iconSize: [hit, hit], html: dot });
 }
@@ -112,7 +112,7 @@ export class PolygonDraw extends L.Handler {
     const container = map.getContainer();
     if (pane && !map.getPane(pane)) map.createPane(pane);
 
-    const color = signalColor(container);
+    const color = accentColor(container);
     this.group = L.layerGroup().addTo(map);
     this.shape = L.polygon([], {
       ...(pane ? { pane } : {}),

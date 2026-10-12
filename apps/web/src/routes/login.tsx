@@ -25,7 +25,7 @@ function LoginRoute() {
               name="email"
               autoComplete="email"
               required
-              className="rounded border border-current/30 px-3 py-2"
+              className="rounded-md border border-line-control px-3 py-2"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm">
@@ -35,12 +35,12 @@ function LoginRoute() {
               name="password"
               autoComplete="current-password"
               required
-              className="rounded border border-current/30 px-3 py-2"
+              className="rounded-md border border-line-control px-3 py-2"
             />
           </label>
           <button
             type="submit"
-            className="rounded border border-current/30 px-3 py-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="rounded-md border border-line-control px-3 py-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-2"
           >
             Sign in
           </button>
