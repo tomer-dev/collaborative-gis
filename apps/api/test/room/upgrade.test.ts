@@ -147,6 +147,7 @@ describe('Room Durable Object', () => {
       tokens: WS.DRAFT_RATE_PER_SEC,
       refilledAt: expect.any(Number),
       lastSeq: null,
+      epoch: null,
     });
     const { color, lastSeen } = PresenceAttachmentSchema.parse(attachment);
     expect(MAP.PRESENCE_COLORS).toContain(color);

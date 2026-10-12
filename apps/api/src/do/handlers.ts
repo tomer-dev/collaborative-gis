@@ -3,6 +3,7 @@ import { env } from 'cloudflare:workers';
 import { auditDrawSession } from '../db/audit';
 import { log } from '../log';
 import { type DraftOp, type DraftStore, takeDraftToken } from './drafts';
+import { ensureEpoch, storedEpoch } from './epoch';
 import type { DraftRelay } from './frames';
 import { presenceOf } from './presence';
 import type { TakeResult } from './rate-limiter';
@@ -18,11 +19,30 @@ export type RoomCtx = {
   takeDrawAction: (userId: string) => Promise<TakeResult>;
 };
 
-/** `join`: into presence (broadcast to all), then the current drafts to the joiner. */
+/**
+ * `join`: into presence (broadcast to all), then all current drafts to the joiner. The socket
+ * takes the Room's storage epoch, so a join is also how a socket told to resync recovers.
+ */
 export function join(room: RoomCtx, socket: Socket): void {
-  save(socket, { joined: true });
+  save(socket, { joined: true, epoch: ensureEpoch(room.ctx.storage) });
   sendPresence(room);
   sendTo(room.ctx, socket.ws, { type: 'draft:state', payload: { drafts: room.drafts.all() } });
+}
+
+/**
+ * True, after answering `error CONFLICT` with `resync: true`, when `socket` joined state the Room
+ * no longer has: it is joined, but its epoch is not the stored one (the storage was lost while the
+ * socket stayed attached). The caller drops the frame; the socket's frames keep getting this
+ * answer until it joins again.
+ */
+export function outlivedState(room: RoomCtx, socket: Socket): boolean {
+  const { joined, epoch } = socket.attachment;
+  if (!joined || epoch === storedEpoch(room.ctx.storage)) return false;
+  save(socket, {});
+  sendError(room.ctx, socket.ws, ERROR_CODES.CONFLICT, WS_MESSAGES.ROOM_STATE_LOST, {
+    resync: true,
+  });
+  return true;
 }
 
 /** `leave`: out of presence; the socket stays open. */
@@ -43,8 +63,9 @@ export function setPresence(room: RoomCtx, socket: Socket, state: PresenceState)
  * action from the user's `RateLimiter` budget (D5, shared with REST mutations). A frame with
  * `seq <= lastSeq` is dropped silently in between, so it spends no budget; a failed limiter call
  * is `error INTERNAL` (fails closed). Then the op is applied to the sender's draft and relayed to
- * everyone else. room.ts runs one user's frames one at a time, so no other frame of theirs touches
- * this attachment while the limiter answers.
+ * everyone else; an op that does not fit the Room's copy (the two diverged, or the Room dropped
+ * the draft) is `error DRAFT_OP_MISFIT` with `resync: true`. room.ts runs one user's frames one at
+ * a time, so no other frame of theirs touches this attachment while the limiter answers.
  */
 export async function draftUpdate(
   room: RoomCtx,
@@ -86,7 +107,9 @@ export async function draftUpdate(
   save(socket, { ...take.bucket, lastSeq: seq });
   const ended = op.op === 'clear' ? draftSize(room, attachment.userId) : 0;
   if (!room.drafts.apply(attachment.userId, op, now)) {
-    sendError(room.ctx, ws, ERROR_CODES.DRAFT_OP_MISFIT, ERROR_MESSAGES.DRAFT_OP_MISFIT);
+    sendError(room.ctx, ws, ERROR_CODES.DRAFT_OP_MISFIT, ERROR_MESSAGES.DRAFT_OP_MISFIT, {
+      resync: true,
+    });
     return;
   }
   // userId after the spread: the sender's id overwrites any userId the client put in the op.
@@ -138,7 +161,8 @@ export function departed(room: RoomCtx, socket: Socket): void {
  * auto-answered ping) with `WS.CLOSE_IDLE`, drops drafts not edited for `WS.PRESENCE_IDLE_MS`
  * (D13), and broadcasts `presence` / `draft:state` only when they changed. The socket cutoff is
  * the longer one, so a hidden tab whose pings the browser throttles to one a minute stays open
- * (its draft still expires). True while open sockets remain.
+ * (its draft still expires). True while open sockets or drafts remain: a killed Room's sockets are
+ * cut without a close event, so their drafts outlive them, and they still expire on time.
  */
 export function sweepIdle(room: RoomCtx, now: number): boolean {
   const cutoff = now - WS.SOCKET_IDLE_MS;
@@ -157,7 +181,7 @@ export function sweepIdle(room: RoomCtx, now: number): boolean {
   draftsChanged = room.drafts.deleteIdle(now - WS.PRESENCE_IDLE_MS) || draftsChanged;
   if (presenceChanged) sendPresence(room);
   if (draftsChanged) sendDraftState(room);
-  return sockets(room.ctx).length > 0;
+  return sockets(room.ctx).length > 0 || room.drafts.count() > 0;
 }
 
 /** Deletes the user's draft unless another open, joined socket of theirs remains. */

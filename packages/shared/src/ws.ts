@@ -93,7 +93,15 @@ const error = z.object({
   type: z.literal('error'),
   ...base,
   // retryAfter is in milliseconds (RATE_LIMITED: wait at least this long before retrying).
-  payload: z.object({ code: z.string(), message: z.string(), retryAfter: z.number().optional() }),
+  // resync: the Room no longer has what the client relies on (its state was lost, the sender's
+  // draft diverged or was dropped, or the frame failed inside the Room). The frame was dropped;
+  // the client joins again and resends its draft as `clear` + `add`s. Optional (additive).
+  payload: z.object({
+    code: z.string(),
+    message: z.string(),
+    retryAfter: z.number().optional(),
+    resync: z.boolean().optional(),
+  }),
 });
 
 export const WsEnvelopeSchema = z.discriminatedUnion('type', [

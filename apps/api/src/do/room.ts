@@ -3,6 +3,7 @@ import {
   type AuthUser,
   AreaEventSchema,
   ERROR_CODES,
+  ERROR_MESSAGES,
   PresenceStateSchema,
   RATE_LIMIT,
   ROUTES,
@@ -20,6 +21,7 @@ import {
   draftUpdate,
   join,
   leave,
+  outlivedState,
   type RoomCtx,
   setPresence,
   strike,
@@ -27,14 +29,14 @@ import {
 } from './handlers';
 import { isWebSocketUpgrade, readRoomUser } from './handoff';
 import { attachmentOf, type PresenceAttachment, presenceColor } from './presence';
-import { bump, createSeqCounter, sendAll, sockets } from './sockets';
+import { bump, createSeqCounter, sendAll, sendError, sockets } from './sockets';
 
 /**
  * The single map room (id `ROOM.DEFAULT_ROOM_ID`). Sockets use the WebSocket Hibernation API:
  * the runtime keeps them open while the object is evicted, so per-socket state lives in
  * attachments and nothing presence-related is kept in instance memory. Drafts, the outgoing
- * `seq` counter and the map version (`mapVersion`) live in SQLite. This class holds only the
- * entry points; handlers.ts does the work.
+ * `seq` counter and the map version (`mapVersion`) live in SQLite, the storage epoch (epoch.ts)
+ * in the synchronous KV. This class holds only the entry points; handlers.ts does the work.
  */
 export class Room extends DurableObject<Env> {
   private readonly room: RoomCtx;
@@ -151,8 +153,11 @@ export class Room extends DurableObject<Env> {
   /**
    * Unparseable → `error BAD_REQUEST` and a strike (the socket is closed with
    * `WS.CLOSE_POLICY_VIOLATION` at `WS.BAD_FRAME_STRIKES`); otherwise `join`, `leave`,
-   * `presence:set` or `draft:update`. Every path stores the updated attachment, read here (not at
-   * enqueue time) so it includes the frames handled before this one. `now` is the arrival time.
+   * `presence:set` or `draft:update`. The last two are dropped with `error CONFLICT` + `resync`
+   * from a socket that outlived the state it joined (`outlivedState`). A handler that throws (a
+   * storage failure) is logged and answered `error INTERNAL` + `resync`; the socket stays open
+   * (§6). Every path stores the updated attachment, read here (not at enqueue time) so it includes
+   * the frames handled before this one. `now` is the arrival time.
    */
   private async handleFrame(
     ws: WebSocket,
@@ -168,15 +173,25 @@ export class Room extends DurableObject<Env> {
     const parsed = parseClientFrame(message);
     if (!parsed.success) return strike(this.room, socket, parsed.message);
     const { event } = parsed;
-    switch (event.type) {
-      case 'join':
-        return join(this.room, socket);
-      case 'leave':
-        return leave(this.room, socket);
-      case 'presence:set':
-        return setPresence(this.room, socket, event.payload.state);
-      case 'draft:update':
-        return draftUpdate(this.room, socket, event.seq, event.payload, now);
+    try {
+      switch (event.type) {
+        case 'join':
+          // Storage lost under attached sockets takes the alarm with it; the re-join re-arms it.
+          await this.armSweep(now);
+          return join(this.room, socket);
+        case 'leave':
+          return leave(this.room, socket);
+        case 'presence:set':
+          if (outlivedState(this.room, socket)) return;
+          return setPresence(this.room, socket, event.payload.state);
+        case 'draft:update':
+          if (outlivedState(this.room, socket)) return;
+          return await draftUpdate(this.room, socket, event.seq, event.payload, now);
+      }
+    } catch (err) {
+      const stack = err instanceof Error ? err.stack : String(err);
+      log('error', 'room frame failed', { type: event.type, stack });
+      sendError(this.ctx, ws, ERROR_CODES.INTERNAL, ERROR_MESSAGES.INTERNAL, { resync: true });
     }
   }
 
@@ -199,13 +214,18 @@ export class Room extends DurableObject<Env> {
     if (sweepIdle(this.room, now)) await this.ctx.storage.setAlarm(now + WS.ALARM_INTERVAL_MS);
   }
 
-  private async accept(user: AuthUser): Promise<Response> {
-    const now = Date.now();
-    // One alarm per object: the first socket starts the sweep and alarm() re-arms it. Armed before
-    // accepting, so a storage failure here is a 500 that leaves no socket behind.
+  /** One alarm per object: armed here when none is, and alarm() re-arms it. */
+  private async armSweep(now: number): Promise<void> {
     if ((await this.ctx.storage.getAlarm()) === null) {
       await this.ctx.storage.setAlarm(now + WS.ALARM_INTERVAL_MS);
     }
+  }
+
+  private async accept(user: AuthUser): Promise<Response> {
+    const now = Date.now();
+    // The first socket starts the sweep. Armed before accepting, so a storage failure here is a
+    // 500 that leaves no socket behind.
+    await this.armSweep(now);
     const attachment: PresenceAttachment = {
       userId: user.id,
       name: user.name,
@@ -216,6 +236,7 @@ export class Room extends DurableObject<Env> {
       strikes: 0,
       ...fullDraftBucket(now),
       lastSeq: null,
+      epoch: null,
     };
     const pair = new WebSocketPair();
     const [client, server] = [pair[0], pair[1]];

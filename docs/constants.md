@@ -434,3 +434,4 @@ Saved areas on /map: the save dialog, the selected-area panel and the conflict d
 |---|---|---|
 | `NOT_JSON` | `'frames must be JSON text'` | Says what the Room accepts; a schema failure sends Zod's issue text instead. |
 | `NOT_JOINED` | `'send join first'` | Drafts come only from users in presence. |
+| `ROOM_STATE_LOST` | `'room state lost; join again'` | `error CONFLICT` with `resync: true`: the socket joined state the Room has since lost (its storage went while the socket stayed attached); every frame but `join`/`leave` is dropped until it joins again. |
