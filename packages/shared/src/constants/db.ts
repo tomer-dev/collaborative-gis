@@ -18,7 +18,13 @@ export const SEED = {
  */
 export const AUDIT = {
   ENTITIES: { AREA: 'area' },
-  ACTIONS: { AREA_CREATE: 'area.create', AREA_UPDATE: 'area.update', AREA_DELETE: 'area.delete' },
+  ACTIONS: {
+    AREA_CREATE: 'area.create',
+    AREA_UPDATE: 'area.update',
+    AREA_DELETE: 'area.delete',
+    /** `POST /api/areas/:id/revert/:version`; the row's `version` is the new version it wrote. */
+    AREA_REVERT: 'area.revert',
+  },
 } as const;
 
 /**
