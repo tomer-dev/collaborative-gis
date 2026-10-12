@@ -17,7 +17,8 @@
     "db:up": "docker compose up -d --wait postgis",
     "db:down": "docker compose down",
     "db:check": "bash scripts/db-check.sh",
-    "e2e": "pnpm --filter @cgis/web e2e"
+    "e2e": "pnpm --filter @cgis/web e2e",
+    "bench": "k6 run bench/rest.js && k6 run bench/ws.js"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
