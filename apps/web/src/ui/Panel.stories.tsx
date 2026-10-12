@@ -1,3 +1,4 @@
+import { MAP } from '@cgis/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Button } from './Button';
 import { IconClose } from './icons';
@@ -16,9 +17,10 @@ const meta = {
       <div className="flex flex-col gap-6">
         <Stat label="Area" value={12.3456} unit="km²" />
         <PresenceList
+          selfId="u1"
           users={[
-            { id: 'u1', name: 'Ada Lovelace', colorSlot: 0, state: 'drawing', self: true },
-            { id: 'u2', name: 'Grace Hopper', colorSlot: 1 },
+            { userId: 'u1', name: 'Ada Lovelace', color: MAP.PRESENCE_COLORS[0], state: 'drawing' },
+            { userId: 'u2', name: 'Grace Hopper', color: MAP.PRESENCE_COLORS[1], state: 'viewing' },
           ]}
         />
       </div>

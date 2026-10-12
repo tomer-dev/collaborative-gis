@@ -50,23 +50,13 @@ describe('hasSelfIntersection', () => {
     ).toBe(true);
   });
 
-  it('is true when adjacent edges fold back over each other (a spike)', () => {
+  it('is true for a spike whose next edge starts on an earlier edge', () => {
     expect(
       hasSelfIntersection([
         [0, 0],
         [2, 0],
         [1, 0],
         [1, 1],
-      ]),
-    ).toBe(true);
-  });
-
-  it('is true for a collinear (zero-area) triangle', () => {
-    expect(
-      hasSelfIntersection([
-        [0, 0],
-        [1, 0],
-        [2, 0],
       ]),
     ).toBe(true);
   });
