@@ -17,6 +17,15 @@ describe(`GET ${ROUTES.DOCS}`, () => {
     expect(html).toContain(OPENAPI.UI_BUNDLE);
   });
 
+  it('loads the pinned script with Subresource Integrity, so a changed CDN file never runs', async () => {
+    const html = await (await get()).text();
+    expect(html).toContain(
+      `<script src="${OPENAPI.UI_BUNDLE}" integrity="${OPENAPI.UI_BUNDLE_INTEGRITY}" crossorigin="anonymous">`,
+    );
+    // One script from outside the page: the signed one (the rest is the inline initialiser).
+    expect(html.match(/<script [^>]*src=/g)).toHaveLength(1);
+  });
+
   it('sits behind the cross-cutting middleware', async () => {
     const res = await get();
     expect(res.headers.get('x-request-id')).toMatch(/^[0-9a-f-]{36}$/);
