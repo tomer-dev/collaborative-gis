@@ -10,7 +10,7 @@ import {
   ERROR_MESSAGES,
   type WsClientEvent,
 } from '@cgis/shared';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, QueryObserver } from '@tanstack/react-query';
 import { act, cleanup, renderHook } from '@testing-library/react';
 import * as L from 'leaflet';
 import type { ReactNode } from 'react';
@@ -254,6 +254,34 @@ describe('useRoom', () => {
     expect(
       room.queryClient.getQueryData<AreaList>(areasKey)?.areas.map((cached) => cached.id),
     ).toEqual([A2]);
+  });
+
+  it('fetches a viewport again when an area event lands while its first GET is in flight', async () => {
+    const room = renderRoom();
+    room.open();
+    let gets = 0;
+    const viewport = new QueryObserver(room.queryClient, {
+      queryKey: areasKey,
+      queryFn: () => {
+        gets += 1;
+        return new Promise<AreaList>(() => {});
+      },
+    });
+    const unsubscribe = viewport.subscribe(() => {});
+    expect(gets).toBe(1);
+
+    room.receive(serverFrame({ type: 'area:created', payload: { area: area(A2) } }));
+    await act(async () => {});
+    expect(gets).toBe(2);
+    unsubscribe();
+  });
+
+  it('leaves a viewport with a list alone (patched, not refetched) on an area event', () => {
+    const room = renderRoom();
+    room.queryClient.setQueryData<AreaList>(areasKey, { areas: [area(A1)] });
+    room.open();
+    room.receive(serverFrame({ type: 'area:created', payload: { area: area(A2) } }));
+    expect(room.queryClient.getQueryState(areasKey)?.isInvalidated).toBe(false);
   });
 
   it('invalidates the areas queries on every reopen (the resync), not on the first open', () => {
