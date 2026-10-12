@@ -11,9 +11,11 @@ const STATUS_BY_CODE = {
   NOT_FOUND: 404,
   CONFLICT: 409,
   PAYLOAD_TOO_LARGE: 413,
+  UNPROCESSABLE: 422,
   RATE_LIMITED: 429,
   INTERNAL: 500,
   NOT_READY: 503,
+  TIMEOUT: 504,
 } as const satisfies Record<string, ContentfulStatusCode>;
 export type ErrorCode = keyof typeof STATUS_BY_CODE;
 
@@ -44,9 +46,11 @@ export const forbiddenError = errorFor('FORBIDDEN', 'Forbidden');
 export const notFoundError = errorFor('NOT_FOUND', 'Not found');
 export const conflictError = errorFor('CONFLICT', 'Conflict');
 export const payloadTooLargeError = errorFor('PAYLOAD_TOO_LARGE', 'Payload too large');
+export const unprocessableError = errorFor('UNPROCESSABLE', 'Unprocessable');
 export const rateLimitedError = errorFor('RATE_LIMITED', 'Too many requests');
 export const internalError = errorFor('INTERNAL', 'Internal Server Error');
 export const notReadyError = errorFor('NOT_READY', 'Not ready');
+export const timeoutError = errorFor('TIMEOUT', 'Timed out');
 
 const CODE_BY_STATUS = new Map<number, string>(
   Object.entries(STATUS_BY_CODE).map(([code, status]) => [status, code]),
