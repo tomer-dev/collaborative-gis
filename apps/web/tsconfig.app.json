@@ -17,9 +17,11 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Linting */
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    /*
+     * Linting. Unused locals and parameters are ESLint's (@typescript-eslint/no-unused-vars), as in
+     * the api: this program also checks the api's route modules for AppType (src/lib/api-client.ts),
+     * and the api marks its deliberate exceptions with eslint-disable comments tsc does not read.
+     */
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
