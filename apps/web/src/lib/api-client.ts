@@ -59,6 +59,11 @@ export async function readBody<T>(
   return schema.parse(await res.json());
 }
 
+/** A request the API refused for want of a session (`UNAUTHORIZED`): the session ended elsewhere. */
+export function isUnauthorized(error: unknown): boolean {
+  return error instanceof ApiRequestError && error.code === ERROR_CODES.UNAUTHORIZED;
+}
+
 /** Resolves when `res` has the `expected` status (a body-less 204); otherwise throws `ApiRequestError`. */
 export async function expectStatus(res: ApiResponse, expected: number): Promise<void> {
   if (res.status !== expected) throw await requestError(res);
