@@ -26,6 +26,7 @@ Import from `@cgis/shared` in app code (`@cgis/shared/constants` in Node-side co
 | `BAD_FRAME_STRIKES` | `10` | Planned: T7 (strikes before closing a socket) | Tolerates a few bad frames, stops a flood |
 | `CLOSE_POLICY_VIOLATION` | `1008` | Planned: T7 close code after the strikes | RFC 6455 "policy violation" |
 | `CLOSE_INTERNAL_ERROR` | `1011` | `apps/api/src/do/room.ts` closes an open socket without a valid attachment | RFC 6455 "internal error": the server cannot attribute the socket |
+| `CLOSE_IDLE` | `1001` | `apps/api/src/do/room.ts` `alarm()` closes a socket silent for `PRESENCE_IDLE_MS` (no frame and no auto-answered ping) | RFC 6455 "going away": a client that pings every `PING_INTERVAL_MS` is never reaped; one that stopped is dead, and reconnects if it is not |
 | `PING_INTERVAL_MS` | `30_000` | Planned: T14 client ping (DO auto-responds ping→pong) | Keeps idle sockets and proxies alive |
 | `AUTO_PING` / `AUTO_PONG` | `'ping'` / `'pong'` | `apps/api/src/do/room.ts` `setWebSocketAutoResponse`; planned T14 client ping | The runtime answers without waking a hibernated Room |
 | `RECONNECT_BACKOFF_MS` | `{ min: 1000, max: 30_000 }` | Planned: T14 reconnect backoff (+ jitter) | Fast first retry, bounded worst case |
@@ -125,3 +126,13 @@ Default `ApiError.message` per code, same keys as `ERROR_CODES` (`satisfies` + a
 | `INTERNAL` | `'Internal Server Error'` | `apps/api/src/app.ts` `onError` | 5xx bodies never leak `err.message` |
 | `NOT_IMPLEMENTED` | `'not implemented'` | T0 stubs `auth.ts`, `ws.ts` | 501 until the lane fills the stub |
 | `UPGRADE_REQUIRED` | `'websocket upgrade required'` | Planned: T6 | 426 body |
+
+## WS_MESSAGES
+
+`error` frame messages the Room sends beside the `ERROR_CODES` code, where the `ERROR_MESSAGES` default says too little. Clients branch on the code, never on the message.
+
+| Name | Value | Where used | Why |
+|---|---|---|---|
+| `NOT_JSON` | `'frames must be JSON text'` | `apps/api/src/do/room.ts` (binary or non-JSON frame → `BAD_REQUEST`, one strike) | Says what the Room accepts; a schema failure sends Zod's issue text instead |
+| `NOT_JOINED` | `'send join first'` | `apps/api/src/do/room.ts` (`draft:update` before `join` → `BAD_REQUEST`, no strike) | Drafts come only from users in presence |
+| `DRAFT_OP_MISFIT` | `'draft op does not fit the current draft'` | `apps/api/src/do/room.ts` (index past the end, or an `add` beyond `LIMITS.POLYGON_MAX_VERTICES` → `BAD_REQUEST`, no strike) | The client's draft and the Room's have diverged; the op is not relayed |
