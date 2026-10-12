@@ -93,8 +93,9 @@ function isType<T extends WsEventType>(event: WsEvent, type: T): event is Incomi
 
 /**
  * A self-healing connection to the Room over the native `WebSocket`: connects at once, pings
- * every `WS.PING_INTERVAL_MS` while open (the Room auto-answers, so the idle sweep never closes a
- * live tab), parses every frame with the shared protocol, and reconnects with backoff.
+ * every `WS.PING_INTERVAL_MS` while open and once more when the tab is shown again (the Room
+ * auto-answers, so the idle sweep never closes a live tab), parses every frame with the shared
+ * protocol, and reconnects with backoff.
  */
 export function createRoomConnection({
   url,
@@ -182,8 +183,15 @@ export function createRoomConnection({
     if (!socket && !halted && !disposed) connect();
   };
 
+  // A hidden tab's timers are throttled (Chrome wakes them once a minute after five minutes), so
+  // its pings arrive late; one ping as the tab is shown again tells the Room at once it is alive.
+  const shown = () => {
+    if (document.visibilityState === 'visible' && state === 'open') socket?.send(WS.AUTO_PING);
+  };
+
   connect();
   window.addEventListener('online', online);
+  document.addEventListener('visibilitychange', shown);
 
   return {
     get state() {
@@ -222,6 +230,7 @@ export function createRoomConnection({
       disposed = true;
       clearTimeout(retryTimer);
       window.removeEventListener('online', online);
+      document.removeEventListener('visibilitychange', shown);
       detach();
     },
   };

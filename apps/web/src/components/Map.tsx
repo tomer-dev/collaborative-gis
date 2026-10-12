@@ -1,8 +1,9 @@
+import type { Bbox } from '@cgis/shared';
 import { MAP } from '@cgis/shared/constants';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef } from 'react';
-import { boundsToBbox, type Bbox } from '../lib/map';
+import { boundsToBbox } from '../lib/map';
 
 export type MapViewProps = {
   /**

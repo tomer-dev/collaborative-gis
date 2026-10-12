@@ -1,7 +1,8 @@
 import { ApiErrorSchema, ERROR_CODES, ERROR_MESSAGES, type ApiError } from '@cgis/shared';
 import { hc } from 'hono/client';
 import { z } from 'zod';
-// Type only (erased from the bundle); see src/api-bindings.d.ts for what this pulls into tsc.
+// Type only (erased from the bundle). tsconfig.app.json references the api's declaration project,
+// so tsc reads apps/api/dist-types/app.d.ts here, never the Worker's source.
 import type { AppType } from '../../../api/src/app';
 
 /**
@@ -45,8 +46,9 @@ async function requestError(res: ApiResponse): Promise<ApiRequestError> {
 
 /**
  * The body of `res` parsed with `schema` when the status is `expected`; any other status throws an
- * `ApiRequestError`. `hc` cannot tell success bodies from errors by status (the api's error helper
- * is typed with every status), so each body goes through its Zod schema here.
+ * `ApiRequestError`. `hc` already types each status's body (the api's `apiError` is typed per
+ * code); the Zod parse is the run-time check at the boundary, which a stale deploy or a proxy page
+ * would otherwise slip past.
  */
 export async function readBody<T>(
   res: ApiResponse,
@@ -55,6 +57,11 @@ export async function readBody<T>(
 ): Promise<T> {
   if (res.status !== expected) throw await requestError(res);
   return schema.parse(await res.json());
+}
+
+/** A request the API refused for want of a session (`UNAUTHORIZED`): the session ended elsewhere. */
+export function isUnauthorized(error: unknown): boolean {
+  return error instanceof ApiRequestError && error.code === ERROR_CODES.UNAUTHORIZED;
 }
 
 /** Resolves when `res` has the `expected` status (a body-less 204); otherwise throws `ApiRequestError`. */

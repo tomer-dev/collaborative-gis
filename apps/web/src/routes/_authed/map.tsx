@@ -1,7 +1,7 @@
-import type { Area } from '@cgis/shared';
+import type { Bbox, Area } from '@cgis/shared';
 import { createFileRoute } from '@tanstack/react-router';
 import type * as L from 'leaflet';
-import { useState } from 'react';
+import { use, useEffect, useState } from 'react';
 import { AreaPanel } from '../../components/AreaPanel';
 import { AreasLayer } from '../../components/AreasLayer';
 import { ConflictDialog } from '../../components/ConflictDialog';
@@ -12,10 +12,10 @@ import { LayerSwitch } from '../../components/LayerSwitch';
 import { MapView } from '../../components/Map';
 import { PresenceList } from '../../components/PresenceList';
 import { SaveDialog } from '../../components/SaveDialog';
-import { useAreasInBounds, type AreaEdit } from '../../lib/areas-query';
+import { useAreasInBounds, usePendingAreaIds, type AreaEdit } from '../../lib/areas-query';
 import type { LngLat } from '../../lib/geo/geodesic';
-import type { Bbox } from '../../lib/map';
 import { useRoom } from '../../lib/use-room';
+import { ReportSelfColor } from '../-components/AppFrame';
 
 // URL /map; the session guard lives on the parent _authed layout.
 export const Route = createFileRoute('/_authed/map')({
@@ -48,7 +48,14 @@ function MapRoute() {
   const [mode, setMode] = useState<MapMode>(BROWSE);
   const selfId = Route.useRouteContext({ select: (context) => context.user.id });
   const room = useRoom({ selfId, map });
+  const selfColor = room.users.find((user) => user.userId === selfId)?.color ?? null;
+  const reportSelfColor = use(ReportSelfColor);
+  useEffect(() => {
+    reportSelfColor(selfColor);
+    return () => reportSelfColor(null);
+  }, [reportSelfColor, selfColor]);
   const areas = useAreasInBounds(bbox).data?.areas ?? NO_AREAS;
+  const pendingIds = usePendingAreaIds();
   const selectedId = mode.kind === 'selected' ? mode.id : null;
 
   return (
@@ -60,6 +67,7 @@ function MapRoute() {
             map={map}
             areas={areas}
             selectedId={selectedId}
+            pendingIds={pendingIds}
             onSelect={(area) => setMode({ kind: 'selected', id: area.id })}
           />
           <DrawControl map={map} onDone={(ring) => setMode({ kind: 'draft', ring })} />
@@ -67,8 +75,14 @@ function MapRoute() {
           <LayerSwitch map={map} />
         </>
       ) : null}
-      <MapOverlay mode={mode} setMode={setMode} areas={areas} bbox={bbox} />
-      <PresenceList users={room.users} selfId={selfId} />
+      {/* One bottom-left column: the selected area's panel stacks above the presence list. */}
+      <div
+        data-testid="map-corner"
+        className="absolute bottom-3 left-3 z-controls flex flex-col items-start gap-2"
+      >
+        <MapOverlay mode={mode} setMode={setMode} areas={areas} bbox={bbox} />
+        <PresenceList users={room.users} selfId={selfId} />
+      </div>
       <ConnectionBanner state={room.state} onRetry={room.reconnect} />
     </div>
   );
