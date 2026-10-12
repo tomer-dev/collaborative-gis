@@ -199,10 +199,10 @@ describe('selectAreasInBounds', () => {
   });
 
   it('uses the areas_geom_gist index once seeded and analysed', async () => {
-    const seeded = await seedAreas(client);
+    const { inserted: seeded } = await seedAreas(client);
     expect(seeded).toHaveLength(SEED.COUNT);
     const inSeedBbox = await selectAreasInBounds(client, SEED.BBOX, { limit: LIMITS.BOUNDS_LIMIT });
-    expect(inSeedBbox.map((a) => a.id)).toEqual(expect.arrayContaining(seeded.map((a) => a.id)));
+    expect(inSeedBbox.map((a) => a.id)).toEqual(expect.arrayContaining(seeded));
 
     await client.query('analyze areas');
     // A ~10 km viewport over Tel Aviv. At this table size a sequential scan costs less than any

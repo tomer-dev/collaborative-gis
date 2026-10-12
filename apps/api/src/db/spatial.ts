@@ -1,8 +1,9 @@
-import { GEO, LIMITS, type Area, type Polygon } from '@cgis/shared';
+import type { Area, Polygon } from '@cgis/shared';
+import { GEO, LIMITS } from '@cgis/shared/constants';
 import { sql, type SQL } from 'drizzle-orm';
 import type pg from 'pg';
-import { db } from './index';
-import { auditLog } from './schema';
+import { db } from './index.ts';
+import { auditLog } from './schema.ts';
 
 // Spatial reads and writes on `areas` / `area_versions` / `audit_log`, one `pg.Client` per call
 // (from `withClient`). Every write that touches geometry is a single statement, so it is atomic
