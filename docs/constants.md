@@ -328,6 +328,7 @@ Saved areas on /map: the save dialog, the selected-area panel and the conflict d
 | `INTERNAL` | `'INTERNAL'` | Sanitised server error. |
 | `NOT_IMPLEMENTED` | `'NOT_IMPLEMENTED'` | Mounted route whose lane has not landed. |
 | `UPGRADE_REQUIRED` | `'UPGRADE_REQUIRED'` | `/ws` only speaks WebSocket. |
+| `DRAFT_OP_MISFIT` | `'DRAFT_OP_MISFIT'` | WebSocket only: a `draft:update` op does not fit the Room's copy of the sender's draft (the two diverged), so it is not relayed; the client clears its draft and sends it again. |
 
 ## ERROR_MESSAGES
 
@@ -348,6 +349,7 @@ Saved areas on /map: the save dialog, the selected-area panel and the conflict d
 | `INTERNAL` | `'Internal Server Error'` | 5xx bodies never leak `err.message`. |
 | `NOT_IMPLEMENTED` | `'not implemented'` | 501 until the lane fills the stub. |
 | `UPGRADE_REQUIRED` | `'websocket upgrade required'` | 426 body. |
+| `DRAFT_OP_MISFIT` | `'draft op does not fit the current draft'` | `error` frame text for a draft op the Room's copy cannot take. |
 
 ## ERROR_REASONS
 
@@ -361,10 +363,9 @@ Saved areas on /map: the save dialog, the selected-area panel and the conflict d
 
 ## WS_MESSAGES
 
-`errors.ts`. `error` frame messages the Room sends where ERROR_MESSAGES' per-code default says too little.
+`errors.ts`. `error` frame messages the Room sends where ERROR_MESSAGES' per-code default says too little. Clients branch on the code, never on these texts.
 
 | Name | Value | Notes |
 |---|---|---|
 | `NOT_JSON` | `'frames must be JSON text'` | Says what the Room accepts; a schema failure sends Zod's issue text instead. |
 | `NOT_JOINED` | `'send join first'` | Drafts come only from users in presence. |
-| `DRAFT_OP_MISFIT` | `'draft op does not fit the current draft'` | The client's draft and the Room's have diverged; the op is not relayed. |

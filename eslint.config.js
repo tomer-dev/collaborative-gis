@@ -13,6 +13,7 @@ export default tseslint.config(
   {
     ignores: [
       '**/dist/**',
+      '**/dist-types/**',
       '**/.wrangler/**',
       '**/node_modules/**',
       '**/worker-configuration.d.ts',

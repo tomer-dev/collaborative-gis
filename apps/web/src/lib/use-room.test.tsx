@@ -7,7 +7,7 @@ import {
   QUERY,
   ROOM,
   WS,
-  WS_MESSAGES,
+  ERROR_MESSAGES,
   type WsClientEvent,
 } from '@cgis/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -396,7 +396,7 @@ describe('useRoom', () => {
     room.receive(
       serverFrame({
         type: 'error',
-        payload: { code: ERROR_CODES.BAD_REQUEST, message: WS_MESSAGES.DRAFT_OP_MISFIT },
+        payload: { code: ERROR_CODES.DRAFT_OP_MISFIT, message: ERROR_MESSAGES.DRAFT_OP_MISFIT },
       }),
     );
     room.advance(DRAFT_INTERVAL_MS * 4);

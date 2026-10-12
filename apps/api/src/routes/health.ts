@@ -1,10 +1,11 @@
-import { READINESS, ROOM, ROUTES, TIMEOUTS } from '@cgis/shared';
+import { ERROR_CODES, READINESS, ROOM, ROUTES, TIMEOUTS } from '@cgis/shared';
 import { sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { AppEnv, Env } from '../app';
 import { db, withClient, withDeadline } from '../db';
 import { areas } from '../db/schema';
-import { notReadyError } from '../errors';
+import { apiError } from '../errors';
+import { log, requestFields } from '../log';
 
 export const health = new Hono<AppEnv>();
 
@@ -20,16 +21,8 @@ health.get(ROUTES.READYZ, async (c) => {
   if (db.status === 'fulfilled' && room.status === 'fulfilled') {
     return c.json({ status: READINESS.READY, ...state });
   }
-  console.error(
-    JSON.stringify({
-      level: 'error',
-      msg: 'not ready',
-      path: c.req.path,
-      db: reasonOf(db),
-      room: reasonOf(room),
-    }),
-  );
-  return notReadyError(c, undefined, state);
+  log('error', 'not ready', { ...requestFields(c), db: reasonOf(db), room: reasonOf(room) });
+  return apiError(c, ERROR_CODES.NOT_READY, undefined, state);
 });
 
 /**

@@ -1,4 +1,5 @@
 import { ERROR_CODES, ERROR_MESSAGES, type PresenceState, WS, WS_MESSAGES } from '@cgis/shared';
+import { log } from '../log';
 import { type DraftOp, type DraftStore, takeDraftToken } from './drafts';
 import type { DraftRelay } from './frames';
 import { presenceOf } from './presence';
@@ -82,7 +83,7 @@ export async function draftUpdate(
   }
   save(socket, { ...take.bucket, lastSeq: seq });
   if (!room.drafts.apply(attachment.userId, op, now)) {
-    sendError(room.ctx, ws, ERROR_CODES.BAD_REQUEST, WS_MESSAGES.DRAFT_OP_MISFIT);
+    sendError(room.ctx, ws, ERROR_CODES.DRAFT_OP_MISFIT, ERROR_MESSAGES.DRAFT_OP_MISFIT);
     return;
   }
   // userId after the spread: the sender's id overwrites any userId the client put in the op.
@@ -98,9 +99,7 @@ async function spendDrawAction(room: RoomCtx, userId: string): Promise<TakeResul
   try {
     return await room.takeDrawAction(userId);
   } catch (err) {
-    console.error(
-      JSON.stringify({ level: 'error', msg: 'rate limiter call failed', error: String(err) }),
-    );
+    log('error', 'rate limiter call failed', { error: String(err) });
     return undefined;
   }
 }
