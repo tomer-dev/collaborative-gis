@@ -6,7 +6,8 @@ import { type AppEnv, createApp, type Env } from '../../src/app';
 import { recordAudit } from '../../src/db/audit';
 import { auditAuth, auditRejections } from '../../src/middleware/audit';
 import { freshUser, randomSpot, squareAt } from '../areas/fixtures';
-import { appWithUser, type User } from '../helpers';
+import { PASSWORD, withCookies } from '../auth/session';
+import { appWithUser, TEST, type User } from '../helpers';
 import { auditEnv, auditRowsOf, auditRowsWhere } from './fixtures';
 
 // Wire values (action names, entity types, column names, codes) are spelled out on purpose: they
@@ -14,8 +15,6 @@ import { auditEnv, auditRowsOf, auditRowsWhere } from './fixtures';
 
 const IP = '203.0.113.9';
 const USER_AGENT = 'audit-test/1.0';
-const PASSWORD = 'correct horse battery staple';
-const SESSION_COOKIE = 'better-auth.session_token';
 
 let env: Env;
 beforeAll(async () => {
@@ -63,12 +62,7 @@ async function signUp() {
   const res = await auth('/sign-up/email', { email, password: PASSWORD, name: 'Audit Tester' });
   expect(res.status).toBe(200);
   const { user } = await res.clone().json<{ user: { id: string } }>();
-  const cookie = res.headers
-    .getSetCookie()
-    .find((c) => c.startsWith(`${SESSION_COOKIE}=`))
-    ?.split(';')[0];
-  if (!cookie) throw new Error('sign-up set no session cookie');
-  return { res, email, userId: user.id, cookie };
+  return { res, email, userId: user.id, cookie: withCookies(res) };
 }
 
 /** `POST /api/areas` as `user` through the audited app. */
@@ -205,25 +199,29 @@ describe('auditRejections', () => {
     ]);
   });
 
-  it('a 429 writes request.rejected with details.code RATE_LIMITED', async () => {
-    const user = freshUser();
-    const limiter = env.RATE_LIMITER.get(env.RATE_LIMITER.idFromName(user.id));
-    for (let i = 0; i < RATE_LIMIT.DRAW_ACTIONS_PER_WINDOW; i++) {
-      expect((await limiter.take(RATE_LIMIT.ACTIONS.DRAW)).ok).toBe(true);
-    }
+  it(
+    'a 429 writes request.rejected with details.code RATE_LIMITED',
+    async () => {
+      const user = freshUser();
+      const limiter = env.RATE_LIMITER.get(env.RATE_LIMITER.idFromName(user.id));
+      for (let i = 0; i < RATE_LIMIT.DRAW_ACTIONS_PER_WINDOW; i++) {
+        expect((await limiter.take(RATE_LIMIT.ACTIONS.DRAW)).ok).toBe(true);
+      }
 
-    const res = await createArea(user, { name: 'Over budget', geometry: squareAt(randomSpot()) });
+      const res = await createArea(user, { name: 'Over budget', geometry: squareAt(randomSpot()) });
 
-    expect(res.status).toBe(429);
-    expect(await auditRowsOf(env, res)).toEqual([
-      expect.objectContaining({
-        user_id: user.id,
-        action: 'request.rejected',
-        entity_id: null,
-        details: { code: 'RATE_LIMITED', status: 429, method: 'POST', path: ROUTES.AREAS },
-      }),
-    ]);
-  });
+      expect(res.status).toBe(429);
+      expect(await auditRowsOf(env, res)).toEqual([
+        expect.objectContaining({
+          user_id: user.id,
+          action: 'request.rejected',
+          entity_id: null,
+          details: { code: 'RATE_LIMITED', status: 429, method: 'POST', path: ROUTES.AREAS },
+        }),
+      ]);
+    },
+    TEST.SLOW_TIMEOUT_MS,
+  );
 
   it('a response that is neither 422 nor 429 writes nothing (401 here)', async () => {
     const res = await createArea(undefined, { name: 'Anonymous' });

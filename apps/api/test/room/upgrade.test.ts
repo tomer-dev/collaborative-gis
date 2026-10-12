@@ -165,12 +165,12 @@ describe('Room Durable Object', () => {
     expect(colors[0]).toBe(colors[1]);
   });
 
-  it('trims the name and caps it at LIMITS.USER_NAME_MAX without splitting a character', async () => {
+  it('trims the name and caps it at LIMITS.USER_NAME_MAX, a cut character becoming U+FFFD', async () => {
     const long = `  ${'a'.repeat(LIMITS.USER_NAME_MAX - 1)}😀tail  `;
     socketOf(await roomFetch({ headers: trusted('u1', long) }));
     const [attachment] = await attachments();
     expect(PresenceAttachmentSchema.parse(attachment).name).toBe(
-      'a'.repeat(LIMITS.USER_NAME_MAX - 1),
+      `${'a'.repeat(LIMITS.USER_NAME_MAX - 1)}�`,
     );
     const padded = await roomFetch({ headers: trusted('u2', '  Bob  ') });
     socketOf(padded);

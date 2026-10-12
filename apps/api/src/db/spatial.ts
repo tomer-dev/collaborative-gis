@@ -1,4 +1,4 @@
-import { GEO, LIMITS, type Area, type AreaVersion, type Polygon } from '@cgis/shared';
+import { GEO, LIMITS, type Area, type AreaVersion, type Bbox, type Polygon } from '@cgis/shared';
 import { and, desc, eq, isNull, sql, type SQL } from 'drizzle-orm';
 import type pg from 'pg';
 import { db } from './index';
@@ -9,9 +9,6 @@ import { areas, areaVersions, auditLog } from './schema';
 // without a transaction (Hyperdrive pools in transaction mode).
 
 export type AreaRow = Area;
-
-/** A viewport as [west, south, east, north] in degrees, `GEO.SRID`. */
-export type Bbox = readonly [west: number, south: number, east: number, north: number];
 
 export type AreaInput = { name: string; geometry: Polygon; userId: string };
 

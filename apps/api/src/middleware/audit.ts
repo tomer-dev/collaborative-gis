@@ -2,8 +2,10 @@ import { AUDIT, HEADERS } from '@cgis/shared';
 import type { Context, MiddlewareHandler } from 'hono';
 import { z } from 'zod';
 import type { AppEnv } from '../app';
+import { readSession } from '../auth';
 import { type AuditEvent, recordAudit } from '../db/audit';
 import { codeFor } from '../errors';
+import { log, requestFields } from '../log';
 
 // D20 rows for what happens around the routes rather than in them: auth events, read from Better
 // Auth's answers, and rejected requests (422, 429). Both look at the finished response, write on
@@ -38,17 +40,19 @@ function authAction(path: string, ok: boolean): AuthAction | null {
 
 /**
  * Records sign-in, sign-up, sign-out and failed sign-in by path and status. The user comes from
- * the response body (sign-in, sign-up) or the session `attachUser` found (sign-out); a failed
- * sign-in has none and keeps the status and Better Auth's error code in `details`.
+ * the response body (sign-in, sign-up) or, for sign-out, from the session read just before Better
+ * Auth ends it (`attachUser` skips `/api/auth/*`; a lookup that fails only leaves the user null).
+ * A failed sign-in has no user and keeps the status and Better Auth's error code in `details`.
  */
 export function auditAuth(): MiddlewareHandler<AppEnv> {
   return async (c, next) => {
+    const signingOut = c.req.path === AUDIT.CAPTURE.SIGN_OUT_PATH;
+    const session = signingOut ? await sessionUserId(c) : null;
     await next();
     const { status, ok } = c.res;
     const action = authAction(c.req.path, ok);
     if (!action) return;
     const res = c.res.clone();
-    const sessionUserId = c.get('user')?.id ?? null;
     const base = { ...requestFacts(c), action, entity: AUDIT.ENTITIES.USER };
     afterResponse(c, async () => {
       switch (action) {
@@ -57,7 +61,7 @@ export function auditAuth(): MiddlewareHandler<AppEnv> {
           return { ...base, userId: null, entityId: null, details: { status, code } };
         }
         case AUDIT.ACTIONS.AUTH_SIGN_OUT:
-          return { ...base, userId: sessionUserId, entityId: sessionUserId };
+          return { ...base, userId: session, entityId: session };
         default: {
           const userId = UserBodySchema.safeParse(await bodyOf(res)).data?.user.id ?? null;
           return { ...base, userId, entityId: userId };
@@ -92,6 +96,16 @@ export function auditRejections(): MiddlewareHandler<AppEnv> {
       return { ...base, details: { code, status, method, path } };
     });
   };
+}
+
+/** The id of the user whose session cookie the request carries; null without one or on error. */
+async function sessionUserId(c: Context<AppEnv>): Promise<string | null> {
+  try {
+    return (await readSession(c.env, c.req.raw.headers)).user?.id ?? null;
+  } catch (err) {
+    log('error', 'audit session lookup failed', { ...requestFields(c), error: String(err) });
+    return null;
+  }
 }
 
 /** What every request-borne row carries: client IP and user agent (D20) and the request id. */
