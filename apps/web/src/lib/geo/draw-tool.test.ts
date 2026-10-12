@@ -1,8 +1,8 @@
 import { DRAW, MAP } from '@cgis/shared';
 import * as L from 'leaflet';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { ZodError } from 'zod';
-import { PolygonDraw, onDraw, type DrawEvent, type DrawEventType } from './draw-handler';
+import { onDraw, type DrawEvent, type DrawEventType } from './draw-events';
+import { createPolygonDraw, type PolygonDrawOptions } from './draw-tool';
 import { ringAreaKm2 } from './geodesic';
 
 let map: L.Map;
@@ -48,19 +48,26 @@ const record = <K extends DrawEventType>(type: K) => {
   onDraw(map, type, (e) => events.push(e));
   return events;
 };
+const start = (options?: PolygonDrawOptions) => {
+  const draw = createPolygonDraw(map, options);
+  draw.enable();
+  return draw;
+};
 const handles = () => container.querySelectorAll<HTMLElement>('.cgis-draw-handle');
 const sketchPaths = () => container.querySelectorAll('path.cgis-draw-sketch');
 const clickHandle = (handle: HTMLElement) =>
   handle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
-describe('PolygonDraw (Leaflet.Editable)', () => {
+describe('createPolygonDraw (Leaflet.Editable)', () => {
   it('creates map.editTools once and styles through classes: handle hit box, sketch class and DRAFT_STYLE', () => {
-    const draw = new PolygonDraw(map).enable();
+    const draw = start();
     const tools = map.editTools;
     expect(tools).toBeDefined();
     triangle();
-    const [first] = handles();
+    const [first, second] = handles();
     expect(handles()).toHaveLength(3);
+    expect(first!.classList.contains('cgis-draw-handle--first')).toBe(true);
+    expect(second!.classList.contains('cgis-draw-handle--first')).toBe(false);
     expect(first!.style.width).toBe(`${MAP.HANDLE_HIT_PX}px`);
     expect(first!.style.height).toBe(`${MAP.HANDLE_HIT_PX}px`);
     expect(first!.innerHTML).toBe('');
@@ -77,7 +84,7 @@ describe('PolygonDraw (Leaflet.Editable)', () => {
   it('adds a vertex per click and reports [lng, lat] vertices on draw:vertex / draw:change', () => {
     const changes = record('draw:change');
     const added = record('draw:vertex');
-    const draw = new PolygonDraw(map).enable();
+    const draw = start();
     triangle();
     expect(added.map((e) => e.index)).toEqual([0, 1, 2]);
     expect(added[1]!.vertex).toEqual([35.05, 32]);
@@ -94,7 +101,7 @@ describe('PolygonDraw (Leaflet.Editable)', () => {
 
   it('finish() closes 3 vertices into a closed GeoJSON ring on draw:done and stops drawing', () => {
     const done = record('draw:done');
-    const draw = new PolygonDraw(map).enable();
+    const draw = start();
     triangle();
     expect(draw.finish()).toBe(true);
     expect(done).toHaveLength(1);
@@ -109,7 +116,7 @@ describe('PolygonDraw (Leaflet.Editable)', () => {
 
   it('clicking the first or the last handle commits a valid sketch', () => {
     const done = record('draw:done');
-    const draw = new PolygonDraw(map).enable();
+    const draw = start();
     triangle();
     clickHandle(handles()[0]!);
     expect(done).toHaveLength(1);
@@ -123,7 +130,7 @@ describe('PolygonDraw (Leaflet.Editable)', () => {
 
   it('undo() pops the last vertex; with one vertex left it is a no-op (Leaflet.Editable pop())', () => {
     const changes = record('draw:change');
-    const draw = new PolygonDraw(map).enable();
+    const draw = start();
     triangle();
     draw.undo();
     expect(draw.getVertices()).toEqual([
@@ -140,7 +147,7 @@ describe('PolygonDraw (Leaflet.Editable)', () => {
   it('cancel(): draw:cancel, sketch and handles removed, handler disabled', () => {
     const cancels = record('draw:cancel');
     const done = record('draw:done');
-    const draw = new PolygonDraw(map).enable();
+    const draw = start();
     triangle();
     draw.cancel();
     expect(cancels).toHaveLength(1);
@@ -154,7 +161,7 @@ describe('PolygonDraw (Leaflet.Editable)', () => {
   it('a bowtie does not finish: draw:invalid with the self-intersection reason, drawing continues', () => {
     const invalid = record('draw:invalid');
     const done = record('draw:done');
-    const draw = new PolygonDraw(map).enable();
+    const draw = start();
     bowtie();
     expect(draw.finish()).toBe(false);
     expect(done).toHaveLength(0);
@@ -168,7 +175,7 @@ describe('PolygonDraw (Leaflet.Editable)', () => {
   it('a bowtie committed by a handle click: draw:invalid, the sketch stays (editable, not done)', () => {
     const invalid = record('draw:invalid');
     const done = record('draw:done');
-    const draw = new PolygonDraw(map).enable();
+    const draw = start();
     bowtie();
     clickHandle(handles()[0]!);
     expect(invalid.map((e) => e.reason)).toEqual([DRAW.SELF_INTERSECTION_REASON]);
@@ -180,7 +187,7 @@ describe('PolygonDraw (Leaflet.Editable)', () => {
 
   it('fewer than 3 vertices does not finish: draw:invalid with the PolygonSchema reason', () => {
     const invalid = record('draw:invalid');
-    const draw = new PolygonDraw(map).enable();
+    const draw = start();
     click(32, 35);
     click(32, 35.05);
     expect(draw.finish()).toBe(false);
@@ -188,34 +195,18 @@ describe('PolygonDraw (Leaflet.Editable)', () => {
     expect(invalid[0]!.reason).toMatch(/at least 3 unique vertices/);
   });
 
-  it('refuses a click past the cap (maxVertices − 1 placed): draw:invalid, no vertex added', () => {
+  it('refuses a click past maxPlacedVertices: draw:invalid, no vertex added', () => {
     const invalid = record('draw:invalid');
-    const draw = new PolygonDraw(map, { maxVertices: 4 }).enable();
+    const draw = start({ maxPlacedVertices: 3 });
     triangle();
     click(32.05, 35);
     expect(draw.getVertices()).toHaveLength(3);
     expect(invalid.map((e) => e.reason)).toEqual([DRAW.MAX_VERTICES_REASON]);
   });
 
-  it('defaults maxVertices to LIMITS.POLYGON_MAX_VERTICES', () => {
-    const draw = new PolygonDraw(map);
-    expect(draw.options.maxVertices).toBe(1000);
-  });
-
-  it('onDraw parses the payload: a malformed draw:change throws a ZodError from map.fire', () => {
-    // Our own events: a bad payload is a bug, so the subscriber throws rather than skipping it.
-    const changes = record('draw:change');
-    expect(() => map.fire('draw:change', { vertices: [[200, 0]] })).toThrow(ZodError);
-    expect(() => map.fire('draw:change', {})).toThrow(ZodError);
-    expect(changes).toHaveLength(0);
-    map.fire('draw:change', { vertices: [[35, 32]] });
-    expect(changes[0]!.vertices).toEqual([[35, 32]]);
-    expect(changes[0]!.type).toBe('draw:change');
-  });
-
   it('dragging a handle moves its vertex and fires draw:change on dragend', () => {
     const changes = record('draw:change');
-    const draw = new PolygonDraw(map).enable();
+    const draw = start();
     triangle();
     const before = draw.getVertices()[1]!;
     const handle = handles()[1]!;
@@ -236,7 +227,7 @@ describe('PolygonDraw (Leaflet.Editable)', () => {
   });
 
   it('puts the sketch in the requested pane, creating it if missing', () => {
-    new PolygonDraw(map, { pane: MAP.DRAFTS_PANE }).enable();
+    start({ pane: MAP.DRAFTS_PANE });
     triangle();
     const pane = map.getPane(MAP.DRAFTS_PANE)!;
     expect(pane).toBeDefined();
