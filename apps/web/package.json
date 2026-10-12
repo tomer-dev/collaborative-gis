@@ -14,6 +14,8 @@
     "@cgis/shared": "workspace:*",
     "@tanstack/react-query": "^5.104.1",
     "@tanstack/react-router": "^1.170.42",
+    "@turf/area": "7.4.0",
+    "@turf/kinks": "7.4.0",
     "leaflet": "^1.9.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"

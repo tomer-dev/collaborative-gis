@@ -81,7 +81,7 @@ Import from `@cgis/shared` in app code (`@cgis/shared/constants` in Node-side co
 
 | Name | Value | Where used | Why |
 |---|---|---|---|
-| `EARTH_RADIUS_M` | `6371008.8` | `apps/web/src/lib/geo/geodesic.ts` (`ringAreaM2`, spherical excess) | WGS84 mean radius R1 = (2a + b) / 3. Versus the server's spheroidal `ST_Area(geography)` the sphere reads +0.13% at 29°N, +0.07% at 32°N, +0.03% at 34°N (Israel), +0.45% at the equator, −0.56% at 60°N (T11a report) |
+| `EARTH_RADIUS_M` | `6371008.8` | `apps/web/src/lib/geo/geodesic.test.ts` (exact-sphere and L'Huilier references); equals `earthRadius` in `@turf/helpers`, which `@turf/area` uses in `ringAreaM2` | WGS84 mean radius R1 = (2a + b) / 3. Versus the server's spheroidal `ST_Area(geography)` the sphere reads +0.13% at 29°N, +0.07% at 32°N, +0.03% at 34°N (Israel), +0.45% at the equator, −0.56% at 60°N (T11a report) |
 
 ## DRAW
 
