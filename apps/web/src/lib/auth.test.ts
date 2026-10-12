@@ -1,120 +1,116 @@
-import { COPY } from '@cgis/shared';
+import { COPY } from '@cgis/shared/constants';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiRequestError } from './api';
-import { authErrorMessage, signIn, signOut, signUp } from './auth';
+import { AuthError, authErrorMessage, signIn, signOut, signUp } from './auth';
 
-// Better Auth's user object as sign-up and sign-in return it; the app keeps id and name.
-const betterAuthUser = {
-  id: 'user_1',
-  name: 'Ada Lovelace',
-  email: 'ada@example.com',
-  emailVerified: false,
-  image: null,
-  createdAt: '2026-10-12T00:00:00.000Z',
-  updatedAt: '2026-10-12T00:00:00.000Z',
-};
+const client = vi.hoisted(() => ({
+  signInEmail: vi.fn(),
+  signUpEmail: vi.fn(),
+  signOut: vi.fn(),
+}));
 
-function stubFetch(response: () => Promise<Response>) {
-  const fetchMock = vi.fn(response);
-  vi.stubGlobal('fetch', fetchMock);
-  return fetchMock;
-}
+vi.mock('./auth-client', () => ({
+  authClient: {
+    signIn: { email: client.signInEmail },
+    signUp: { email: client.signUpEmail },
+    signOut: client.signOut,
+  },
+}));
 
-function postInit(body: unknown) {
-  return {
-    method: 'POST',
-    credentials: 'same-origin',
-    headers: { accept: 'application/json', 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  };
-}
+// Better Auth's `{ data, error }` results as the client resolves them.
+const ok = (data: unknown) => ({ data, error: null });
+const failed = (status: number, statusText: string, body: { code?: string; message?: string }) => ({
+  data: null,
+  error: { status, statusText, ...body },
+});
+
+const user = { id: 'user_1', name: 'Ada Lovelace', email: 'ada@example.com' };
 
 afterEach(() => {
-  vi.unstubAllGlobals();
+  vi.resetAllMocks();
 });
 
 describe('signIn', () => {
-  it('POSTs email and password to /api/auth/sign-in/email and resolves to { id, name }', async () => {
-    const fetchMock = stubFetch(async () =>
-      Response.json({ redirect: false, token: 'tok_1', user: betterAuthUser }),
-    );
+  it('calls authClient.signIn.email with email and password', async () => {
+    client.signInEmail.mockResolvedValue(ok({ redirect: false, token: 'tok_1', user }));
 
-    await expect(signIn({ email: 'ada@example.com', password: 'correct horse' })).resolves.toEqual({
-      id: 'user_1',
-      name: 'Ada Lovelace',
+    await expect(
+      signIn({ email: 'ada@example.com', password: 'correct horse' }),
+    ).resolves.toBeUndefined();
+    expect(client.signInEmail).toHaveBeenCalledWith({
+      email: 'ada@example.com',
+      password: 'correct horse',
     });
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/auth/sign-in/email',
-      postInit({ email: 'ada@example.com', password: 'correct horse' }),
-    );
   });
 
-  it('rejects a 401 with an ApiRequestError carrying the server message', async () => {
-    stubFetch(async () =>
-      Response.json(
-        { code: 'INVALID_EMAIL_OR_PASSWORD', message: 'Invalid email or password' },
-        { status: 401 },
-      ),
+  it('rejects a 401 with an AuthError carrying the server message', async () => {
+    client.signInEmail.mockResolvedValue(
+      failed(401, 'Unauthorized', {
+        code: 'INVALID_EMAIL_OR_PASSWORD',
+        message: 'Invalid email or password',
+      }),
     );
 
     const error = await signIn({ email: 'ada@example.com', password: 'wrong' }).catch(
       (e: unknown) => e,
     );
-    expect(error).toBeInstanceOf(ApiRequestError);
-    expect(error).toMatchObject({
-      status: 401,
-      message: 'Invalid email or password',
-      body: { code: 'INVALID_EMAIL_OR_PASSWORD', message: 'Invalid email or password' },
+    expect(error).toBeInstanceOf(AuthError);
+    expect(error).toMatchObject({ status: 401, message: 'Invalid email or password' });
+  });
+
+  it('rejects with the generic copy when the error carries no message', async () => {
+    client.signInEmail.mockResolvedValue(failed(502, 'Bad Gateway', {}));
+
+    await expect(signIn({ email: 'ada@example.com', password: 'x' })).rejects.toMatchObject({
+      status: 502,
+      message: COPY.AUTH.ERROR_GENERIC,
     });
   });
 });
 
 describe('signUp', () => {
-  it('POSTs name, email and password to /api/auth/sign-up/email and resolves to { id, name }', async () => {
-    const fetchMock = stubFetch(async () =>
-      Response.json({ token: 'tok_1', user: betterAuthUser }),
-    );
+  it('calls authClient.signUp.email with email, password and name', async () => {
+    client.signUpEmail.mockResolvedValue(ok({ token: 'tok_1', user }));
     const input = { email: 'ada@example.com', password: 'correct horse', name: 'Ada Lovelace' };
 
-    await expect(signUp(input)).resolves.toEqual({ id: 'user_1', name: 'Ada Lovelace' });
-    expect(fetchMock).toHaveBeenCalledWith('/api/auth/sign-up/email', postInit(input));
+    await expect(signUp(input)).resolves.toBeUndefined();
+    expect(client.signUpEmail).toHaveBeenCalledWith(input);
+  });
+
+  it('rejects with the server message when the email is taken', async () => {
+    client.signUpEmail.mockResolvedValue(
+      failed(422, 'Unprocessable Entity', {
+        code: 'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL',
+        message: 'User already exists. Use another email.',
+      }),
+    );
+
+    await expect(
+      signUp({ email: 'ada@example.com', password: 'correct horse', name: 'Ada' }),
+    ).rejects.toMatchObject({ status: 422, message: 'User already exists. Use another email.' });
   });
 });
 
 describe('signOut', () => {
-  it('POSTs to /api/auth/sign-out', async () => {
-    const fetchMock = stubFetch(async () => Response.json({ success: true }));
+  it('calls authClient.signOut', async () => {
+    client.signOut.mockResolvedValue(ok({ success: true }));
 
     await expect(signOut()).resolves.toBeUndefined();
-    expect(fetchMock).toHaveBeenCalledWith('/api/auth/sign-out', postInit({}));
+    expect(client.signOut).toHaveBeenCalledTimes(1);
   });
 
   it('rejects when the server refuses', async () => {
-    stubFetch(async () =>
-      Response.json(
-        { code: 'FAILED_TO_GET_SESSION', message: 'Failed to get session' },
-        { status: 400 },
-      ),
-    );
+    client.signOut.mockResolvedValue(failed(500, 'Internal Server Error', {}));
 
-    await expect(signOut()).rejects.toBeInstanceOf(ApiRequestError);
+    await expect(signOut()).rejects.toBeInstanceOf(AuthError);
   });
 });
 
 describe('authErrorMessage', () => {
-  it("is the server's message when the response carried an ApiError body", () => {
-    const error = new ApiRequestError(422, {
-      code: 'USER_ALREADY_EXISTS',
-      message: 'User already exists',
-    });
-    expect(authErrorMessage(error)).toBe('User already exists');
+  it("is an AuthError's message", () => {
+    expect(authErrorMessage(new AuthError(422, 'User already exists'))).toBe('User already exists');
   });
 
-  it('is the generic copy for a response without an ApiError body', () => {
-    expect(authErrorMessage(new ApiRequestError(502, null))).toBe(COPY.AUTH.ERROR_GENERIC);
-  });
-
-  it('is the generic copy for anything else (network failure, malformed body)', () => {
+  it('is the generic copy for anything else (network failure, thrown by the client)', () => {
     expect(authErrorMessage(new TypeError('Failed to fetch'))).toBe(COPY.AUTH.ERROR_GENERIC);
     expect(authErrorMessage(null)).toBe(COPY.AUTH.ERROR_GENERIC);
   });

@@ -30,19 +30,12 @@ export const TIMEOUTS = {
   REQUEST_MS: 10_000,
 } as const;
 
-// Better Auth mount; the endpoint paths below are built on it.
-const AUTH = '/api/auth';
-
 /** HTTP paths the Worker serves and the SPA calls. */
 export const ROUTES = {
   API_PREFIX: '/api',
   HEALTHZ: '/healthz',
   READYZ: '/readyz',
-  AUTH,
-  AUTH_SIGN_UP: `${AUTH}/sign-up/email`,
-  AUTH_SIGN_IN: `${AUTH}/sign-in/email`,
-  AUTH_SIGN_OUT: `${AUTH}/sign-out`,
-  AUTH_GET_SESSION: `${AUTH}/get-session`,
+  AUTH: '/api/auth',
   AREAS: '/api/areas',
   WS: '/ws',
   OPENAPI: '/openapi.json',
@@ -105,12 +98,6 @@ export const DRAW = {
   MAX_VERTICES_REASON: 'Vertex limit reached',
 } as const;
 
-/** TanStack Query options the SPA sets per query. */
-export const QUERY = {
-  /** GET get-session retries: a failed check counts as signed out, so the guard redirects at once. */
-  SESSION_RETRY: 0,
-} as const;
-
 /** User-facing text in the SPA, grouped by screen. */
 export const COPY = {
   APP: {
@@ -133,7 +120,7 @@ export const COPY = {
     EMAIL_LABEL: 'Email',
     PASSWORD_LABEL: 'Password',
     PASSWORD_HINT: `At least ${LIMITS.PASSWORD_MIN} characters.`,
-    /** Shown when a failed auth call carries no server message (network error, non-JSON body). */
+    /** Shown when a failed auth call carries no server message (network error, empty body). */
     ERROR_GENERIC: 'Something went wrong. Try again.',
     SIGN_OUT: 'Sign out',
     SIGN_OUT_ERROR: 'Could not sign out. Try again.',
