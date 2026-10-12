@@ -1,0 +1,12 @@
+{"method":"POST","path":"/api/areas","body":{"name":"anonymous","geometry":{"type":"Polygon","coordinates":[[[34.78,32.08],[34.79,32.08],[34.79,32.09],[34.78,32.09],[34.78,32.08]]]}},"expect":{"status":401,"body":{"code":"UNAUTHORIZED"}}}
+{"method":"POST","path":"/api/auth/sign-up/email","headers":{"origin":"http://localhost:5173"},"body":{"email":"batch-areas@example.com","password":"batch-only-not-a-secret","name":"Batch User"},"expect":{}}
+{"method":"POST","path":"/api/auth/sign-in/email","headers":{"origin":"http://localhost:5173"},"body":{"email":"batch-areas@example.com","password":"batch-only-not-a-secret"},"expect":{"status":200}}
+{"method":"POST","path":"/api/areas","body":{"name":"Batch field","geometry":{"type":"Polygon","coordinates":[[[34.78,32.08],[34.79,32.08],[34.79,32.09],[34.78,32.09],[34.78,32.08]]]}},"expect":{"status":201,"body":{"name":"Batch field","version":1}},"save":{"id":".id"}}
+{"method":"POST","path":"/api/areas","body":{"name":"bowtie","geometry":{"type":"Polygon","coordinates":[[[34.78,32.08],[34.79,32.09],[34.79,32.08],[34.78,32.09],[34.78,32.08]]]}},"expect":{"status":422,"body":{"code":"UNPROCESSABLE","message":"invalid geometry"}}}
+{"method":"GET","path":"/api/areas?bbox=34.7,32,34.9,32.2&zoom=14","expect":{"status":200}}
+{"method":"PUT","path":"/api/areas/{{id}}","body":{"name":"Batch field (edited)","geometry":{"type":"Polygon","coordinates":[[[34.78,32.08],[34.8,32.08],[34.8,32.1],[34.78,32.1],[34.78,32.08]]]},"version":1},"expect":{"status":200,"body":{"id":"{{id}}","version":2}}}
+{"method":"PUT","path":"/api/areas/{{id}}","body":{"name":"stale edit","geometry":{"type":"Polygon","coordinates":[[[34.78,32.08],[34.79,32.08],[34.79,32.09],[34.78,32.09],[34.78,32.08]]]},"version":1},"expect":{"status":409,"body":{"code":"CONFLICT","details":{"current":{"id":"{{id}}","version":2}}}}}
+{"method":"PUT","path":"/api/areas/not-a-uuid","body":{"name":"x","geometry":{"type":"Polygon","coordinates":[[[34.78,32.08],[34.79,32.08],[34.79,32.09],[34.78,32.09],[34.78,32.08]]]},"version":1},"expect":{"status":422,"body":{"code":"UNPROCESSABLE"}}}
+{"method":"DELETE","path":"/api/areas/{{id}}","expect":{"status":204}}
+{"method":"DELETE","path":"/api/areas/{{id}}","expect":{"status":404,"body":{"code":"NOT_FOUND"}}}
+{"method":"GET","path":"/openapi.json","expect":{"status":200,"body":{"info":{"title":"Collaborative GIS API"}}}}

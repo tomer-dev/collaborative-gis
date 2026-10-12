@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { withRoomUser } from '../../src/do/handoff';
 import { attachmentOf } from '../../src/do/presence';
 import { Room } from '../../src/do/room';
+import { socketClient } from './socket-client';
 
 // Wire values (types, codes, payload shapes) are spelled out: they are the contract T8 and T14 use.
 
@@ -53,38 +54,11 @@ async function connect(userId: string, name = userId.toUpperCase()): Promise<Cli
   const ws = res.webSocket;
   if (!ws) throw new Error('expected a webSocket on the 101 response');
 
-  const frames: Frame[] = [];
-  let wake = () => {};
-  ws.addEventListener('message', (event) => {
-    if (typeof event.data === 'string') frames.push(FrameSchema.parse(JSON.parse(event.data)));
-    wake();
-  });
-  const closed = new Promise<CloseEvent>((resolve) => {
-    ws.addEventListener('close', (event) => {
-      resolve(event);
-      wake();
-    });
-  });
-  ws.accept();
-
-  const of = (type: string) => frames.filter((frame) => frame.type === type);
   let seq = 0;
   const client: Client = {
     userId,
     ws,
-    frames,
-    of,
-    async waitFor(type, count = 1) {
-      for (;;) {
-        const matching = of(type);
-        const frame = matching[count - 1];
-        if (frame) return frame;
-        await new Promise<void>((resolve) => {
-          wake = resolve;
-        });
-      }
-    },
-    closed,
+    ...socketClient(ws, (data) => FrameSchema.parse(JSON.parse(data))),
     send(type, payload, explicitSeq) {
       seq = explicitSeq ?? seq + 1;
       ws.send(JSON.stringify({ type, seq, ts: Date.now(), payload }));
