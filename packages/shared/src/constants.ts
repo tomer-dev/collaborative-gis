@@ -77,8 +77,8 @@ export const MAP = {
   HANDLE_RADIUS_PX: 6,
   HANDLE_HIT_PX: 24,
   HANDLE_BORDER_PX: 2,
-  /** Leaflet path options for a sketch in progress (own draft now, remote ghosts in T14). */
-  DRAFT_STYLE: { weight: 2, dashArray: '6 4', fillOpacity: 0.12 },
+  /** Leaflet path options for a sketch in progress (own draft now, remote ghosts in T14); design brief §4: 2 px, dashed 8/4, fill 12 %. */
+  DRAFT_STYLE: { weight: 2, dashArray: '8 4', fillOpacity: 0.12 },
 } as const;
 
 /** Geodesy constants for client-side measurements. */
