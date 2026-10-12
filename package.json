@@ -16,7 +16,8 @@
     "constants:docs": "node packages/shared/scripts/constants-docs.ts",
     "db:up": "docker compose up -d --wait postgis",
     "db:down": "docker compose down",
-    "db:check": "bash scripts/db-check.sh"
+    "db:check": "bash scripts/db-check.sh",
+    "e2e": "pnpm --filter @cgis/web e2e"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
