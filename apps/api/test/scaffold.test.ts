@@ -12,10 +12,10 @@ describe('M1 composition stubs', () => {
     expect(await res.json()).toEqual({ code: 'NOT_FOUND', message: 'Not found' });
   });
 
-  it('GET /api/auth/* answers 501 until Better Auth lands', async () => {
+  it('GET /api/auth/* reaches Better Auth (M1 T4)', async () => {
     const res = await SELF.fetch('http://x/api/auth/ok');
-    expect(res.status).toBe(501);
-    expect(await res.json()).toEqual({ code: 'NOT_IMPLEMENTED', message: 'not implemented' });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
   });
 
   it('GET /ws answers 501 until the Room upgrade lands', async () => {
