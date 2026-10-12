@@ -6,20 +6,8 @@ import { withClient } from '../../src/db';
 import { laneEnv } from '../auth/lane-db';
 import { appWithUser } from '../helpers';
 
-const LANE_DB = 'cgis_api';
-const UNIQUE_VIOLATION = '23505';
-
-/**
- * The area tests' own database (created and migrated by `laneEnv`), shared by test/areas/*.
- * When the files start together on a fresh server, two `create database` calls can race inside
- * the catalog and the loser gets 23505 (not the 42P04 `laneEnv` tolerates); by then the database
- * exists, so one retry goes straight to the (advisory-locked) migration step.
- */
-export const areasEnv = (): Promise<Env> =>
-  laneEnv(LANE_DB).catch((err: { code?: string }) => {
-    if (err.code !== UNIQUE_VIOLATION) throw err;
-    return laneEnv(LANE_DB);
-  });
+/** The area tests' own database (created and migrated by `laneEnv`), shared by test/areas/*. */
+export const areasEnv = (): Promise<Env> => laneEnv('cgis_api');
 
 export type TestUser = { id: string; name: string };
 
