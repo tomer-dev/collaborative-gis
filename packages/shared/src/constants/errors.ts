@@ -20,7 +20,7 @@ export const ERROR_CODES = {
   RATE_LIMITED: 'RATE_LIMITED',
   /** Request budget exceeded. */
   TIMEOUT: 'TIMEOUT',
-  /** DB unreachable. */
+  /** `/readyz`: the database or the Room did not answer. */
   NOT_READY: 'NOT_READY',
   /** Sanitised server error. */
   INTERNAL: 'INTERNAL',
@@ -55,8 +55,8 @@ export const ERROR_MESSAGES = {
   RATE_LIMITED: 'Too many requests',
   /** 504 body. */
   TIMEOUT: 'timeout',
-  /** `/readyz` 503 body. */
-  NOT_READY: 'database unreachable',
+  /** `/readyz` 503 body; `details: { db, room }` says which one is down. */
+  NOT_READY: 'dependency unreachable',
   /** 5xx bodies never leak `err.message`. */
   INTERNAL: 'Internal Server Error',
   /** 501 until the lane fills the stub. */
