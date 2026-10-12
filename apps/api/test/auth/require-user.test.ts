@@ -4,7 +4,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createApp, type Env } from '../../src/app';
 import { requireUser } from '../../src/middleware/require-user';
 import { laneEnv } from './lane-db';
-import { SESSION_COOKIE, signUp } from './session';
+import { authRequest, SESSION_COOKIE, signUp, tokenCookie, withCookies } from './session';
 
 // Wire values are spelled out on purpose: they are the contract the SPA relies on.
 const UNREACHABLE_DB = 'postgresql://nobody:x@127.0.0.1:1/none';
@@ -62,11 +62,11 @@ describe('requireUser() (TOM-26)', () => {
   });
 
   it('answers 401 for a real session token whose signature was tampered with', async () => {
-    const { cookie } = await signUp(authEnv);
+    const token = tokenCookie((await signUp(authEnv)).cookie);
     // `<token>.<hmac>`: flip the first HMAC character (the last one partly holds padding bits).
-    const at = cookie.lastIndexOf('.') + 1;
-    const forged = `${cookie.slice(0, at)}${cookie[at] === 'A' ? 'B' : 'A'}${cookie.slice(at + 1)}`;
-    expect(forged).not.toBe(cookie);
+    const at = token.lastIndexOf('.') + 1;
+    const forged = `${token.slice(0, at)}${token[at] === 'A' ? 'B' : 'A'}${token.slice(at + 1)}`;
+    expect(forged).not.toBe(token);
     const res = await get('/t/protected', { cookie: forged });
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ code: 'UNAUTHORIZED', message: 'sign in' });
@@ -74,17 +74,15 @@ describe('requireUser() (TOM-26)', () => {
 
   it('answers 401 once the session is signed out', async () => {
     const { cookie } = await signUp(authEnv);
-    const signOut = await createApp().request(
-      `${env.BETTER_AUTH_URL}${ROUTES.AUTH}/sign-out`,
-      {
-        method: 'POST',
-        headers: { origin: env.CLIENT_ORIGIN, 'content-type': 'application/json', cookie },
-        body: '{}',
-      },
-      authEnv,
-    );
+    const signOut = await authRequest(authEnv, '/sign-out', {
+      method: 'POST',
+      body: {},
+      headers: { cookie },
+    });
     expect(signOut.status).toBe(200);
-    expect((await get('/t/protected', { cookie })).status).toBe(401);
+    // What the browser sends next (its auth cookies cleared), and the old token alone (row gone).
+    expect((await get('/t/protected', { cookie: withCookies(signOut, cookie) })).status).toBe(401);
+    expect((await get('/t/protected', { cookie: tokenCookie(cookie) })).status).toBe(401);
   });
 });
 

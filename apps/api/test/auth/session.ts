@@ -48,6 +48,11 @@ export function withCookies(res: Response, jar = ''): string {
   return [...cookies.values()].join('; ');
 }
 
+/** The session token alone from a Cookie header: what a browser whose cookie cache lapsed sends. */
+export function tokenCookie(cookie: string): string {
+  return cookie.split('; ').find((pair) => pair.startsWith(`${SESSION_COOKIE}=`)) ?? '';
+}
+
 /**
  * Signs a fresh user up through Better Auth: the response (body already read), the user, its
  * email and the Cookie header a browser would send next (session token and cookie cache).
