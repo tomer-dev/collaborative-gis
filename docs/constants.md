@@ -75,6 +75,24 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, presence
 | `DRAFTS_PANE` / `DRAFTS_PANE_Z` | `'drafts'` / `460` | `apps/web/src/ui/map-styles.ts` (path options), `tokens.css` `--z-index-map-drafts` (drift-tested); planned: T10 creates, T14 draws ghost drafts | Live drafts render above saved areas |
 | `MOVEEND_DEBOUNCE_MS` | `250` | Planned: T13 bbox query on `moveend` | One fetch per pan gesture |
 | `PRESENCE_COLORS` | `['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948']` | `apps/web/src/styles/tokens.css` `--color-presence-1..8` (drift-tested), `apps/web/src/ui/Avatar.tsx` slot count; planned T14 ghost drafts | Design brief §3: categorical, CVD-checked, assigned by join order; the 9th user gets a neutral |
+| `HANDLE_RADIUS_PX` | `6` | `apps/web/src/lib/geo/draw-handler.ts` (visible vertex dot radius) | Small enough not to hide the edge, big enough to see |
+| `HANDLE_HIT_PX` | `24` | `apps/web/src/lib/geo/draw-handler.ts` (vertex handle hit box, the marker icon size) | WCAG 2.5.8 target size (≥24 CSS px) for dragging a vertex |
+| `HANDLE_BORDER_PX` | `2` | `apps/web/src/lib/geo/draw-handler.ts` (vertex dot ring) | Ring stays visible over busy tiles |
+| `DRAFT_STYLE` | `{ weight: 2, dashArray: '6 4', fillOpacity: 0.12 }` | `apps/web/src/lib/geo/draw-handler.ts` (live sketch); planned T14 ghost drafts | Dashed and faint: reads as unsaved next to solid saved areas |
+
+## GEO
+
+| Name | Value | Where used | Why |
+|---|---|---|---|
+| `EARTH_RADIUS_M` | `6371008.8` | `apps/web/src/lib/geo/geodesic.ts` (`ringAreaM2`, spherical excess) | WGS84 mean radius R1 = (2a + b) / 3. Versus the server's spheroidal `ST_Area(geography)` the sphere reads +0.13% at 29°N, +0.07% at 32°N, +0.03% at 34°N (Israel), +0.45% at the equator, −0.56% at 60°N (T11a report) |
+
+## DRAW
+
+| Name | Value | Where used | Why |
+|---|---|---|---|
+| `ARIA_LABEL` | `'Polygon drawing. Click to add a vertex, …, Escape to cancel.'` | `apps/web/src/lib/geo/draw-handler.ts` (map container `aria-label` while drawing) | The container is `role="application"`; the label announces the gestures and keys |
+| `SELF_INTERSECTION_REASON` | `'Polygon edges must not cross or touch each other'` | `draw-handler.ts` `draw:invalid` | Client mirror of the server's `ST_IsValid` rejection |
+| `MAX_VERTICES_REASON` | `'Vertex limit reached'` | `draw-handler.ts` `draw:invalid` when a click would pass `LIMITS.POLYGON_MAX_VERTICES` | The cap counts the closing vertex, so the UI should not promise a number here |
 
 ## ERROR_CODES
 
