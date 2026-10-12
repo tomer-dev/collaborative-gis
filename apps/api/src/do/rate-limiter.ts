@@ -1,8 +1,9 @@
-import { RATE_LIMIT } from '@cgis/shared';
+import { RATE_LIMIT, type RateLimitAction } from '@cgis/shared';
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../app';
 
 const { DRAW_ACTIONS_PER_WINDOW: LIMIT, WINDOW_MS } = RATE_LIMIT;
+const KNOWN_ACTIONS: ReadonlySet<unknown> = new Set(Object.values(RATE_LIMIT.ACTIONS));
 
 /** One `take`: the budget left after it, or how long until an action leaves the window. */
 export type TakeResult = { ok: true; remaining: number } | { ok: false; retryAfterMs: number };
@@ -17,8 +18,18 @@ export type TakeResult = { ok: true; remaining: number } | { ok: false; retryAft
  * limit), and every call prunes the rest first.
  */
 export class RateLimiter extends DurableObject<Env> {
-  /** Records the action if the window has room; otherwise says when the oldest one leaves it. */
-  async take(action: string): Promise<TakeResult> {
+  /**
+   * Records the action if the window has room; otherwise says when the oldest one leaves it.
+   * Throws on an action outside RATE_LIMIT.ACTIONS: RPC does not enforce the TS type.
+   */
+  async take(action: RateLimitAction): Promise<TakeResult> {
+    if (!KNOWN_ACTIONS.has(action)) {
+      // Caller-controlled value: log its length, never the value itself.
+      const length = typeof action === 'string' ? action.length : null;
+      console.warn(JSON.stringify({ level: 'warn', msg: 'unknown rate limit action', length }));
+      throw new Error('unknown rate limit action');
+    }
+
     const now = Date.now();
     const sql = this.#prune(now);
     const { count } = sql.exec<{ count: number }>('SELECT COUNT(*) AS count FROM actions').one();

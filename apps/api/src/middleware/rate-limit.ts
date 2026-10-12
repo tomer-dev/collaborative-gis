@@ -1,4 +1,4 @@
-import { ERROR_MESSAGES } from '@cgis/shared';
+import { ERROR_MESSAGES, type RateLimitAction } from '@cgis/shared';
 import type { MiddlewareHandler } from 'hono';
 import type { AppEnv } from '../app';
 import { rateLimitedError, unauthorizedError } from '../errors';
@@ -7,13 +7,14 @@ const MS_PER_SECOND = 1000;
 
 /**
  * Spends one action from the signed-in user's `RateLimiter` budget (D5) before the handler runs.
- * Mount it after the session guard on each mutation: `areas.post('/', rateLimit('draw'), handler)`.
+ * Mount it after the session guard on each mutation:
+ * `areas.post('/', rateLimit(RATE_LIMIT.ACTIONS.MUTATE), handler)`.
  *
  * Over budget: 429 `{ code: 'RATE_LIMITED', message, details: { retryAfterMs } }` with
  * `Retry-After` in whole seconds, rounded up. No `user`: 401. A limiter failure propagates to
  * `onError` (500), so the request fails closed.
  */
-export function rateLimit(action: string): MiddlewareHandler<AppEnv> {
+export function rateLimit(action: RateLimitAction): MiddlewareHandler<AppEnv> {
   return async (c, next) => {
     const user = c.get('user');
     if (!user) return unauthorizedError(c);
