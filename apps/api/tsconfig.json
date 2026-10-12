@@ -1,5 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "types": ["@cloudflare/vitest-plugin/types", "vitest/globals"] },
+  "compilerOptions": {
+    // The target's default libs, with ES2024 for String.prototype.toWellFormed (workerd has it).
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "types": ["@cloudflare/vitest-plugin/types", "vitest/globals"]
+  },
   "include": ["src", "test", "worker-configuration.d.ts"]
 }

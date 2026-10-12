@@ -30,19 +30,12 @@ const percentDecoded = z.string().transform((value, ctx) => {
   }
 });
 
-/** Cuts at a code-point boundary, so the cap never splits a surrogate pair. */
-function capName(name: string): string {
-  let capped = '';
-  for (const char of name) {
-    if (capped.length + char.length > LIMITS.USER_NAME_MAX) break;
-    capped += char;
-  }
-  return capped;
-}
-
 const RoomUserHeadersSchema = z.object({
   id: z.string().min(1).max(LIMITS.USER_ID_MAX),
-  name: percentDecoded.pipe(z.string().trim().min(1)).transform(capName),
+  // A surrogate pair cut by the cap becomes U+FFFD, so the stored name is always well formed.
+  name: percentDecoded
+    .pipe(z.string().trim().min(1))
+    .transform((name) => name.slice(0, LIMITS.USER_NAME_MAX).toWellFormed()),
 });
 
 /** The user `withRoomUser` wrote, validated: non-empty id, name decoded, trimmed and capped. */
