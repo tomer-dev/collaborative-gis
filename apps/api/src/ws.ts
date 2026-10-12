@@ -1,9 +1,9 @@
-import { ERROR_REASONS, HEADERS, ROOM } from '@cgis/shared';
+import { ERROR_CODES, ERROR_REASONS, HEADERS, ROOM } from '@cgis/shared';
 import type { MiddlewareHandler } from 'hono';
 import { every } from 'hono/combine';
 import type { AppEnv } from './app';
 import { isWebSocketUpgrade, withRoomUser } from './do/handoff';
-import { forbiddenError, upgradeRequiredError } from './errors';
+import { apiError } from './errors';
 import { requireUser } from './middleware/require-user';
 
 /** `new URL(value).origin`, or null for a missing or unparsable value. */
@@ -25,10 +25,10 @@ function originOf(value: string | undefined): string | null {
  */
 export function wsGate(): MiddlewareHandler<AppEnv> {
   return async (c, next) => {
-    if (!isWebSocketUpgrade(c.req.raw)) return upgradeRequiredError(c);
+    if (!isWebSocketUpgrade(c.req.raw)) return apiError(c, ERROR_CODES.UPGRADE_REQUIRED);
     const origin = originOf(c.req.header(HEADERS.ORIGIN));
     if (!origin || origin !== originOf(c.env.CLIENT_ORIGIN)) {
-      return forbiddenError(c, ERROR_REASONS.ORIGIN_NOT_ALLOWED);
+      return apiError(c, ERROR_CODES.FORBIDDEN, ERROR_REASONS.ORIGIN_NOT_ALLOWED);
     }
     await next();
   };

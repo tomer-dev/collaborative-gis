@@ -1,6 +1,7 @@
+import { ERROR_CODES } from '@cgis/shared';
 import type { MiddlewareHandler } from 'hono';
 import type { SessionUser } from '../auth';
-import { unauthorizedError } from '../errors';
+import { apiError } from '../errors';
 
 /** What `requireUser()` guarantees the handlers after it: `c.get('user')` is set. */
 export type SignedIn = { Variables: { user: SessionUser } };
@@ -13,7 +14,7 @@ export type SignedIn = { Variables: { user: SessionUser } };
 export function requireUser(): MiddlewareHandler<SignedIn> {
   return async (c, next) => {
     // The type already describes the handlers after this guard; here the user may be missing.
-    if (!c.get('user')) return unauthorizedError(c);
+    if (!c.get('user')) return apiError(c, ERROR_CODES.UNAUTHORIZED);
     await next();
   };
 }
