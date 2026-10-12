@@ -1,4 +1,4 @@
-import { AUTH, type AuthUser } from '@cgis/shared';
+import { AUTH, type AuthUser, ERROR_REASONS, LIMITS } from '@cgis/shared';
 import type { Auth } from 'better-auth';
 import type { Handler } from 'hono';
 import type pg from 'pg';
@@ -20,9 +20,10 @@ export async function createAuth(
   env: Env,
   client: pg.Client,
 ): Promise<Pick<Auth, 'handler' | 'api'>> {
-  const [{ betterAuth }, { drizzleAdapter }] = await Promise.all([
+  const [{ betterAuth }, { drizzleAdapter }, { APIError }] = await Promise.all([
     import('better-auth/minimal'),
     import('better-auth/adapters/drizzle'),
+    import('better-auth/api'),
   ]);
   return betterAuth({
     // `better-auth/minimal` leaves out Kysely, which only direct database connections need.
@@ -31,6 +32,21 @@ export async function createAuth(
     // D24: a signed `session_data` cookie answers session checks for this long without a database
     // read. Same-device sign-out clears it at once; a session revoked elsewhere lags up to maxAge.
     session: { cookieCache: { enabled: true, maxAge: AUTH.COOKIE_CACHE_MAX_AGE_S } },
+    databaseHooks: {
+      user: {
+        create: {
+          // Better Auth's sign-up takes a name of any length; the header, presence list and ghost
+          // labels show it, and get-session returns it on every check. Trimmed and capped here.
+          before: async (user) => {
+            const name = user.name.trim();
+            if (name.length > LIMITS.USER_NAME_MAX) {
+              throw new APIError('UNPROCESSABLE_ENTITY', { message: ERROR_REASONS.NAME_TOO_LONG });
+            }
+            return { data: { ...user, name } };
+          },
+        },
+      },
+    },
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
     // The SPA's origin; Better Auth also trusts its own baseURL.

@@ -351,6 +351,7 @@ Saved areas on /map: the save dialog, the selected-area panel and the conflict d
 | `ORIGIN_NOT_ALLOWED` | `'origin not allowed'` | Cross-site WebSocket hijacking: Better Auth's `getSession` ignores Origin, so without this a foreign page could open a socket with the victim's cookie. |
 | `INVALID_GEOMETRY` | `'invalid geometry'` | 422: PostGIS `ST_IsValid` rejected a polygon Zod accepted; `details.reason` says why. |
 | `VERSION_CONFLICT` | `'version conflict'` | 409: the area's stored `version` is not the one the client edited; `details.current` is. |
+| `NAME_TOO_LONG` | `'name too long'` | 422 on sign-up: the trimmed name is longer than `LIMITS.USER_NAME_MAX`. |
 
 ## WS_MESSAGES
 

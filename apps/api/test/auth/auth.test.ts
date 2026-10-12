@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import pg from 'pg';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { ROUTES } from '@cgis/shared';
+import { ERROR_REASONS, LIMITS, ROUTES } from '@cgis/shared';
 import { createApp, type Env } from '../../src/app';
 import { readSession } from '../../src/auth';
 import { laneEnv } from './lane-db';
@@ -74,6 +74,21 @@ describe('Better Auth on Workers (TOM-25)', () => {
     const token = tokenCookie(cookie);
     expect((await readSession(authEnv, new Headers({ cookie: token }))).user).toBeNull();
     expect(await (await call('/get-session', { headers: { cookie: token } })).json()).toBeNull();
+  });
+
+  it('sign-up trims the name and refuses one over LIMITS.USER_NAME_MAX with 422', async () => {
+    const longest = 'a'.repeat(LIMITS.USER_NAME_MAX);
+    const { user } = await signUp(authEnv, `  ${longest}  `);
+    expect(user.name).toBe(longest);
+
+    const email = `user-${crypto.randomUUID()}@example.com`;
+    const res = await call('/sign-up/email', {
+      method: 'POST',
+      body: { email, password: PASSWORD, name: `${longest}a` },
+    });
+    expect(res.status).toBe(422);
+    expect(await res.json()).toMatchObject({ message: ERROR_REASONS.NAME_TOO_LONG });
+    expect(res.headers.getSetCookie().some((c) => c.startsWith(`${SESSION_COOKIE}=`))).toBe(false);
   });
 
   it('a wrong password answers 401 and sets no session cookie', async () => {
