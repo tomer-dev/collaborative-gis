@@ -1,13 +1,13 @@
 import { AreaSchema } from '@cgis/shared';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Env } from '../../src/app';
+import { withClient } from '../../src/db';
 import {
   areasClient,
   areasEnv,
   auditRows,
   countRows,
   freshUser,
-  query,
   randomSpot,
   squareAt,
 } from './fixtures';
@@ -19,7 +19,7 @@ const FAILING_PREFIX = 'audit-fails';
 let env: Env;
 beforeAll(async () => {
   env = await areasEnv();
-  await query(env, async (client) => {
+  await withClient(env, async (client) => {
     await client.query(`
       create or replace function test_fail_audit() returns trigger language plpgsql as $$
       begin
@@ -36,7 +36,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await query(env, async (client) => {
+  await withClient(env, async (client) => {
     await client.query('drop trigger if exists test_fail_audit on audit_log');
     await client.query('drop function if exists test_fail_audit()');
   });
