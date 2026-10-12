@@ -11,6 +11,18 @@ export const MAP = {
     '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   /** Highest zoom OSM serves. */
   OSM_MAX_ZOOM: 19,
+  /**
+   * Web Mercator metres per pixel at zoom 0 on the equator: 2π × 6,378,137 m / 256 px. Times
+   * cos(latitude) / 2^zoom it is OSM's ground resolution, which the layer switch matches to the
+   * nearest `GOVMAP.RESOLUTIONS` level.
+   */
+  OSM_Z0_METRES_PER_PIXEL: 156543.03392804097,
+  /**
+   * Base-layer switch: the new base layer fades in over a still copy of the old one for this long,
+   * with no fade under prefers-reduced-motion. tokens.css `--transition-duration-slow` mirrors it
+   * (drift-tested).
+   */
+  CROSSFADE_MS: 300,
   /** Saved areas' pane: above the tiles and Leaflet's overlay pane (400). */
   AREAS_PANE: 'areas',
   /** `AREAS_PANE`'s z-index; tokens.css `--z-index-map-areas` mirrors it (drift-tested). */

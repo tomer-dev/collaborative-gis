@@ -1,6 +1,6 @@
 # End-to-end tests
 
-Two browser contexts on one map (`collaboration.spec.ts`), against the real Worker and SPA.
+Two browser contexts on one map (`collaboration.spec.ts`), against the real Worker and SPA. `layer-switch.spec.ts` checks that switching to govmap's aerial layer keeps the centre, a saved polygon and a draft in place; it loads govmap's tiles, so it needs the internet.
 
 ## Running
 
