@@ -159,9 +159,9 @@ function mapVersion(env: Env): Promise<MapVersion> {
 
 /**
  * A strong ETag: SHA-256 of the map version (epoch and counter) and the tile, known before any
- * lookup or query. One version and tile hold one set of rows, except while a committed write waits for its fan-out to
- * bump the version (`waitUntil`, after the response): a read in that gap can see the new rows
- * under the old version, and the bump retires that key.
+ * lookup or query. One version and tile hold one set of rows, except while a committed write
+ * waits for its fan-out to bump the version (`waitUntil`, after the response): a read in that gap
+ * can see the new rows under the old version, and the bump retires that key.
  */
 async function etagOf(version: MapVersion, tile: Tile): Promise<string> {
   const data = new TextEncoder().encode(`${stamp(version)}:${tile.key}`);
