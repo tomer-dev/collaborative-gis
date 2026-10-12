@@ -1,9 +1,12 @@
-import type { ApiError } from '@cgis/shared';
+import { type ApiError, type ApiErrorCode, ERROR_CODES, ERROR_MESSAGES } from '@cgis/shared';
 import type { Context } from 'hono';
 import type { HTTPException } from 'hono/http-exception';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 
-/** Every `ApiError.code` the API sends, and the HTTP status that goes with it. */
+/**
+ * The HTTP status for every `ApiError.code`. Codes and default messages live in
+ * `@cgis/shared` constants; `satisfies` fails the build if a code is added there without a status.
+ */
 const STATUS_BY_CODE = {
   BAD_REQUEST: 400,
   UNAUTHORIZED: 401,
@@ -12,12 +15,14 @@ const STATUS_BY_CODE = {
   CONFLICT: 409,
   PAYLOAD_TOO_LARGE: 413,
   UNPROCESSABLE: 422,
+  UPGRADE_REQUIRED: 426,
   RATE_LIMITED: 429,
   INTERNAL: 500,
+  NOT_IMPLEMENTED: 501,
   NOT_READY: 503,
   TIMEOUT: 504,
-} as const satisfies Record<string, ContentfulStatusCode>;
-export type ErrorCode = keyof typeof STATUS_BY_CODE;
+} as const satisfies Record<ApiErrorCode, ContentfulStatusCode>;
+export type ErrorCode = ApiErrorCode;
 
 function send(
   c: Context,
@@ -35,22 +40,25 @@ export function apiError(c: Context, code: ErrorCode, message: string, details?:
   return send(c, STATUS_BY_CODE[code], code, message, details);
 }
 
+/** A helper for one code; the message defaults to `ERROR_MESSAGES[code]`. */
 const errorFor =
-  (code: ErrorCode, defaultMessage: string) =>
-  (c: Context, message: string = defaultMessage, details?: unknown) =>
+  (code: ErrorCode) =>
+  (c: Context, message: string = ERROR_MESSAGES[code], details?: unknown) =>
     apiError(c, code, message, details);
 
-export const badRequestError = errorFor('BAD_REQUEST', 'Bad request');
-export const unauthorizedError = errorFor('UNAUTHORIZED', 'Unauthorized');
-export const forbiddenError = errorFor('FORBIDDEN', 'Forbidden');
-export const notFoundError = errorFor('NOT_FOUND', 'Not found');
-export const conflictError = errorFor('CONFLICT', 'Conflict');
-export const payloadTooLargeError = errorFor('PAYLOAD_TOO_LARGE', 'Payload too large');
-export const unprocessableError = errorFor('UNPROCESSABLE', 'Unprocessable');
-export const rateLimitedError = errorFor('RATE_LIMITED', 'Too many requests');
-export const internalError = errorFor('INTERNAL', 'Internal Server Error');
-export const notReadyError = errorFor('NOT_READY', 'Not ready');
-export const timeoutError = errorFor('TIMEOUT', 'Timed out');
+export const badRequestError = errorFor(ERROR_CODES.BAD_REQUEST);
+export const unauthorizedError = errorFor(ERROR_CODES.UNAUTHORIZED);
+export const forbiddenError = errorFor(ERROR_CODES.FORBIDDEN);
+export const notFoundError = errorFor(ERROR_CODES.NOT_FOUND);
+export const conflictError = errorFor(ERROR_CODES.CONFLICT);
+export const payloadTooLargeError = errorFor(ERROR_CODES.PAYLOAD_TOO_LARGE);
+export const unprocessableError = errorFor(ERROR_CODES.UNPROCESSABLE);
+export const upgradeRequiredError = errorFor(ERROR_CODES.UPGRADE_REQUIRED);
+export const rateLimitedError = errorFor(ERROR_CODES.RATE_LIMITED);
+export const internalError = errorFor(ERROR_CODES.INTERNAL);
+export const notImplementedError = errorFor(ERROR_CODES.NOT_IMPLEMENTED);
+export const notReadyError = errorFor(ERROR_CODES.NOT_READY);
+export const timeoutError = errorFor(ERROR_CODES.TIMEOUT);
 
 const CODE_BY_STATUS = new Map<number, string>(
   Object.entries(STATUS_BY_CODE).map(([code, status]) => [status, code]),
