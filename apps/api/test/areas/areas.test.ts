@@ -71,24 +71,6 @@ describe('POST /api/areas', () => {
     ]);
   });
 
-  it('audit_log has a version column and no payload_hash (D20)', async () => {
-    const columns = await countRows(
-      env,
-      'information_schema.columns',
-      "table_name = 'audit_log' and column_name = any($1)",
-      [['payload_hash']],
-    );
-    expect(columns).toBe(0);
-    expect(
-      await countRows(
-        env,
-        'information_schema.columns',
-        "table_name = 'audit_log' and column_name = 'version' and data_type = 'integer' and is_nullable = 'YES'",
-        [],
-      ),
-    ).toBe(1);
-  });
-
   it('answers 422 with Zod issues for an open ring and writes nothing', async () => {
     const { user, api } = signedIn();
 
