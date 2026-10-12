@@ -1,8 +1,9 @@
+import type { AuthUser } from '@cgis/shared';
 import { Hono } from 'hono';
 import { type AppEnv, createApp } from '../src/app';
 
 /** A signed-in user as `c.get('user')` holds it. */
-export type User = NonNullable<AppEnv['Variables']['user']>;
+export type User = AuthUser;
 
 /**
  * The real app with `user` already signed in: sets `c.get('user')` at the composition layer, where

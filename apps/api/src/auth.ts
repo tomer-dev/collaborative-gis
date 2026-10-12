@@ -1,13 +1,10 @@
-import { AUTH } from '@cgis/shared';
+import { AUTH, type AuthUser } from '@cgis/shared';
 import type { Auth } from 'better-auth';
 import type { Handler } from 'hono';
 import type pg from 'pg';
 import type { AppEnv, Env } from './app';
 import { db, withClient } from './db';
 import * as schema from './db/auth-schema';
-
-/** The signed-in user as handlers see it (`c.get('user')`). */
-export type SessionUser = NonNullable<AppEnv['Variables']['user']>;
 
 /**
  * Better Auth bound to one request's `pg.Client` (from `withClient`). Built per request, never at
@@ -54,7 +51,7 @@ export const authHandler: Handler<AppEnv> = (c) =>
   withClient(c.env, async (client) => (await createAuth(c.env, client)).handler(c.req.raw));
 
 /** One session check: the user (null without a session) and the cookies Better Auth set doing it. */
-export type SessionRead = { user: SessionUser | null; setCookie: string[] };
+export type SessionRead = { user: AuthUser | null; setCookie: string[] };
 
 /**
  * The session in `headers` (only the Cookie header matters). Without Better Auth's session cookie
