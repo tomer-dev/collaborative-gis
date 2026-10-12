@@ -4,10 +4,9 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createApp, type Env } from '../../src/app';
 import { requireUser } from '../../src/middleware/require-user';
 import { laneEnv } from './lane-db';
+import { SESSION_COOKIE, signUp } from './session';
 
 // Wire values are spelled out on purpose: they are the contract the SPA relies on.
-const SESSION_COOKIE = 'better-auth.session_token';
-const PASSWORD = 'correct horse battery staple';
 const UNREACHABLE_DB = 'postgresql://nobody:x@127.0.0.1:1/none';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
@@ -34,34 +33,12 @@ function testApp() {
   return app;
 }
 
-/** Signs a fresh user up through Better Auth; returns its id and the `name=value` session cookie. */
-async function signUp(): Promise<{ id: string; cookie: string }> {
-  const res = await createApp().request(
-    `${env.BETTER_AUTH_URL}${ROUTES.AUTH}/sign-up/email`,
-    {
-      method: 'POST',
-      headers: { origin: env.CLIENT_ORIGIN, 'content-type': 'application/json' },
-      body: JSON.stringify({
-        email: `ada-${crypto.randomUUID()}@example.com`,
-        password: PASSWORD,
-        name: 'Ada Lovelace',
-      }),
-    },
-    authEnv,
-  );
-  expect(res.status).toBe(200);
-  const { user } = await res.json<{ user: { id: string } }>();
-  const cookie = res.headers.getSetCookie().find((c) => c.startsWith(`${SESSION_COOKIE}=`));
-  if (!cookie) throw new Error(`no ${SESSION_COOKIE} in set-cookie`);
-  return { id: user.id, cookie: cookie.split(';')[0]! };
-}
-
 const get = (path: string, headers: HeadersInit = {}, testEnv: Env = authEnv) =>
   testApp().request(path, { headers }, testEnv);
 
 describe('requireUser() (TOM-26)', () => {
   it('lets a signed-in request through with c.get("user") set to the session user', async () => {
-    const { id, cookie } = await signUp();
+    const { id, cookie } = await signUp(authEnv);
     const res = await get('/t/protected', { cookie });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ id });
@@ -85,7 +62,7 @@ describe('requireUser() (TOM-26)', () => {
   });
 
   it('answers 401 for a real session token whose signature was tampered with', async () => {
-    const { cookie } = await signUp();
+    const { cookie } = await signUp(authEnv);
     // `<token>.<hmac>`: flip the first HMAC character (the last one partly holds padding bits).
     const at = cookie.lastIndexOf('.') + 1;
     const forged = `${cookie.slice(0, at)}${cookie[at] === 'A' ? 'B' : 'A'}${cookie.slice(at + 1)}`;
@@ -96,7 +73,7 @@ describe('requireUser() (TOM-26)', () => {
   });
 
   it('answers 401 once the session is signed out', async () => {
-    const { cookie } = await signUp();
+    const { cookie } = await signUp(authEnv);
     const signOut = await createApp().request(
       `${env.BETTER_AUTH_URL}${ROUTES.AUTH}/sign-out`,
       {
@@ -142,7 +119,7 @@ describe('attachUser() (TOM-26)', () => {
   );
 
   it('sets c.get("user") to { id, name } from a valid session cookie on any route', async () => {
-    const { id, cookie } = await signUp();
+    const { id, cookie } = await signUp(authEnv);
     const res = await get('/t/whoami', { cookie });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ user: { id, name: 'Ada Lovelace' } });

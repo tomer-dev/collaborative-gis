@@ -4,10 +4,9 @@ import { env } from 'cloudflare:workers';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createApp, type Env } from '../../src/app';
 import { laneEnv } from './lane-db';
+import { SESSION_COOKIE, signUp } from './session';
 
 // Wire values are spelled out on purpose: they are the contract the SPA and browsers rely on.
-const SESSION_COOKIE = 'better-auth.session_token';
-const PASSWORD = 'correct horse battery staple';
 const UPGRADE = { Upgrade: 'websocket' };
 const SIGN_IN = { code: 'UNAUTHORIZED', message: 'sign in' };
 const ORIGIN_NOT_ALLOWED = { code: 'FORBIDDEN', message: 'origin not allowed' };
@@ -28,28 +27,6 @@ afterEach(async () => {
   if ((await roomUsers()).length > 0) await evictDurableObject(room(), { webSockets: 'close' });
 });
 
-/** Signs a fresh user up through Better Auth; returns its id and the `name=value` session cookie. */
-async function signUp(): Promise<{ id: string; cookie: string }> {
-  const res = await createApp().request(
-    `${env.BETTER_AUTH_URL}${ROUTES.AUTH}/sign-up/email`,
-    {
-      method: 'POST',
-      headers: { origin: env.CLIENT_ORIGIN, 'content-type': 'application/json' },
-      body: JSON.stringify({
-        email: `ada-${crypto.randomUUID()}@example.com`,
-        password: PASSWORD,
-        name: 'Ada Lovelace',
-      }),
-    },
-    authEnv,
-  );
-  expect(res.status).toBe(200);
-  const { user } = await res.json<{ user: { id: string } }>();
-  const cookie = res.headers.getSetCookie().find((c) => c.startsWith(`${SESSION_COOKIE}=`));
-  if (!cookie) throw new Error(`no ${SESSION_COOKIE} in set-cookie`);
-  return { id: user.id, cookie: cookie.split(';')[0]! };
-}
-
 /** `GET /ws` through the real app (real chain, real `/ws` route) against the cgis_auth database. */
 const openWs = (headers: Record<string, string>) =>
   createApp().request(ROUTES.WS, { headers }, authEnv);
@@ -64,7 +41,7 @@ async function expectRefused(res: Response, status: number, body: unknown) {
 
 describe('GET /ws session gate (TOM-26)', () => {
   it('upgrades a signed-in browser on CLIENT_ORIGIN to 101, as the session user', async () => {
-    const { id, cookie } = await signUp();
+    const { id, cookie } = await signUp(authEnv);
     const res = await openWs({ ...UPGRADE, cookie, origin: env.CLIENT_ORIGIN });
     expect(res.status).toBe(101);
     const ws = res.webSocket;
@@ -90,13 +67,13 @@ describe('GET /ws session gate (TOM-26)', () => {
   });
 
   it('answers 403 to a signed-in upgrade from a foreign Origin and opens no socket', async () => {
-    const { cookie } = await signUp();
+    const { cookie } = await signUp(authEnv);
     const res = await openWs({ ...UPGRADE, cookie, origin: 'https://evil.example' });
     await expectRefused(res, 403, ORIGIN_NOT_ALLOWED);
   });
 
   it('answers 403 to a signed-in upgrade without an Origin header (not a browser)', async () => {
-    const { cookie } = await signUp();
+    const { cookie } = await signUp(authEnv);
     await expectRefused(await openWs({ ...UPGRADE, cookie }), 403, ORIGIN_NOT_ALLOWED);
   });
 
@@ -107,12 +84,12 @@ describe('GET /ws session gate (TOM-26)', () => {
     ['a look-alike host', 'http://localhost.evil.example:5173'],
     ['an unparsable value', 'not a url'],
   ])('answers 403 to Origin: %s', async (_label, origin) => {
-    const { cookie } = await signUp();
+    const { cookie } = await signUp(authEnv);
     await expectRefused(await openWs({ ...UPGRADE, cookie, origin }), 403, ORIGIN_NOT_ALLOWED);
   });
 
   it('compares the normalised origin: scheme and host case do not matter', async () => {
-    const { cookie } = await signUp();
+    const { cookie } = await signUp(authEnv);
     const res = await openWs({ ...UPGRADE, cookie, origin: env.CLIENT_ORIGIN.toUpperCase() });
     expect(res.status).toBe(101);
     res.webSocket?.accept();
@@ -120,7 +97,7 @@ describe('GET /ws session gate (TOM-26)', () => {
   });
 
   it('answers 426 to a signed-in request without Upgrade: websocket, after the session check', async () => {
-    const { cookie } = await signUp();
+    const { cookie } = await signUp(authEnv);
     const res = await openWs({ cookie, origin: env.CLIENT_ORIGIN });
     await expectRefused(res, 426, {
       code: 'UPGRADE_REQUIRED',
