@@ -4,6 +4,8 @@
 export const LIMITS = {
   POLYGON_MAX_VERTICES: 1000,
   AREA_NAME_MAX: 120,
+  USER_NAME_MAX: 60,
+  USER_ID_MAX: 128,
   BOUNDS_LIMIT: 500,
   SIMPLIFY_ZOOM_BELOW: 12,
   SIMPLIFY_TOLERANCE: 0.0005,
@@ -16,6 +18,7 @@ export const WS = {
   ALARM_INTERVAL_MS: 30_000,
   BAD_FRAME_STRIKES: 10,
   CLOSE_POLICY_VIOLATION: 1008,
+  CLOSE_INTERNAL_ERROR: 1011,
   PING_INTERVAL_MS: 30_000,
   AUTO_PING: 'ping',
   AUTO_PONG: 'pong',
@@ -45,10 +48,6 @@ export const ROUTES = {
 export const DEV = {
   API_ORIGIN: 'http://localhost:8787',
   WEB_ORIGIN: 'http://localhost:5173',
-  // `x-debug-user: <id>:<name>` stands in for a session only while env.DEBUG_STUB_AUTH === STUB_AUTH_ON.
-  STUB_AUTH_ON: '1',
-  STUB_AUTH_HEADER: 'x-debug-user',
-  STUB_AUTH_SEPARATOR: ':',
 } as const;
 
 /** The single shared map (D11). */
@@ -56,7 +55,6 @@ export const ROOM = {
   DEFAULT_ROOM_ID: 'default',
   USER_ID_HEADER: 'x-user-id',
   USER_NAME_HEADER: 'x-user-name',
-  DEBUG_COUNT_PATH: '/_count',
 } as const;
 
 /** Leaflet map defaults; DEFAULT_CENTER is Leaflet's [lat, lng] order. */
