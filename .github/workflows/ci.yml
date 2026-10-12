@@ -3,6 +3,11 @@ on:
   pull_request:
   push:
     branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   ci:
     runs-on: ubuntu-latest
@@ -16,7 +21,7 @@ jobs:
         # Host port 5433 matches localConnectionString in apps/api/wrangler.jsonc.
         ports: ['5433:5432']
         options: >-
-          --health-cmd "pg_isready -U cgis -d cgis" --health-interval 5s --health-timeout 3s --health-retries 10
+          --health-cmd "pg_isready -U cgis -d cgis" --health-interval 5s --health-timeout 3s --health-retries 10 --health-start-period 10s
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -29,5 +34,7 @@ jobs:
       - run: pnpm format:check
       - run: pnpm typecheck
       - run: pnpm test
+      - name: web build
+        run: pnpm --filter @cgis/web build
       - name: wrangler dry run
         run: pnpm --filter @cgis/api exec wrangler deploy --dry-run --outdir dist
