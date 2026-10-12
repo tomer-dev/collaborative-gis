@@ -37,6 +37,8 @@ export type IncomingEvent<T extends WsEventType> = Extract<WsEvent, { type: T }>
 
 export interface RoomConnection {
   readonly state: ConnectionState;
+  /** The `seq` stamped on the last frame written to a socket (0 before any). */
+  readonly lastSeq: number;
   /**
    * Sends now when open. Otherwise queues the frame for the next open, except a `draft:update`
    * while offline, which is dropped (the room hook resends the whole draft after reconnecting).
@@ -204,6 +206,9 @@ export function createRoomConnection({
   return {
     get state() {
       return state;
+    },
+    get lastSeq() {
+      return seq;
     },
     send(event) {
       if (state === 'open') {

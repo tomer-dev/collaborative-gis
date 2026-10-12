@@ -95,6 +95,9 @@ export function nextDraftOp(
   return { op: 'move', index: prefix, vertex };
 }
 
+/** The last op sent: its frame's `seq`, and the sender's state before it, to take it back. */
+type LastOp = { seq: number; sent: Position[]; mustClear: boolean };
+
 /**
  * Streams the signed-in user's draft to the Room as single-op `draft:update`s, one every
  * `DRAFT_INTERVAL_MS` at most (the first at once). Ops are computed when sent, from what the Room
@@ -106,15 +109,19 @@ export class DraftSender {
   private sent: Position[] = [];
   private target: Position[] = [];
   private mustClear = false;
+  private last: LastOp | undefined;
   private lastSentAt = -Infinity;
   private resumeAt = -Infinity;
   private timer: ReturnType<typeof setTimeout> | undefined;
   private disposed = false;
-  private readonly send: (op: DraftOp) => boolean;
+  private readonly send: (op: DraftOp) => number | null;
   private readonly canSend: () => boolean;
 
-  /** `send` returns false when the frame was dropped; nothing is sent while `canSend()` is false. */
-  constructor(send: (op: DraftOp) => boolean, canSend: () => boolean) {
+  /**
+   * `send` returns the frame's `seq`, or null when it was dropped; nothing is sent while
+   * `canSend()` is false.
+   */
+  constructor(send: (op: DraftOp) => number | null, canSend: () => boolean) {
     this.send = send;
     this.canSend = canSend;
   }
@@ -129,13 +136,27 @@ export class DraftSender {
   restart(): void {
     this.mustClear = this.sent.length > 0 || this.target.length > 0;
     this.sent = [];
+    this.last = undefined;
     this.pump();
   }
 
-  /** `RATE_LIMITED`: send nothing for `ms`, then restart (the refused op never reached the Room). */
-  pause(ms: number): void {
+  /**
+   * `RATE_LIMITED` on the frame `frameSeq`: send nothing for `ms`. The Room refused that op before
+   * applying it, so when it is the last op sent, taking it back leaves `sent` exact and the ops
+   * still needed (that one first) go out once the pause ends. When ops were sent after it (built
+   * on it) or no frame is named, the Room's copy is unknown: the draft restarts.
+   */
+  pause(ms: number, frameSeq?: number): void {
     this.resumeAt = Date.now() + ms;
-    this.restart();
+    const last = this.last;
+    if (last === undefined || frameSeq !== last.seq) {
+      this.restart();
+      return;
+    }
+    this.sent = last.sent;
+    this.mustClear = last.mustClear;
+    this.last = undefined;
+    this.pump();
   }
 
   dispose(): void {
@@ -156,7 +177,9 @@ export class DraftSender {
       }, wait);
       return;
     }
-    if (!this.send(op)) return;
+    const seq = this.send(op);
+    if (seq === null) return;
+    this.last = { seq, sent: this.sent, mustClear: this.mustClear };
     this.lastSentAt = Date.now();
     this.mustClear = false;
     this.sent = next;
@@ -261,7 +284,8 @@ export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
       shouldRetry: () => !sessionEnded(queryClient),
     });
     const sender = new DraftSender(
-      (op) => connection.send({ type: 'draft:update', payload: op }),
+      // Sent only while open, so the frame is written at once and `lastSeq` is its seq.
+      (op) => (connection.send({ type: 'draft:update', payload: op }) ? connection.lastSeq : null),
       () => connection.state === 'open',
     );
     connectionRef.current = connection;
@@ -356,7 +380,7 @@ export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
       connection.on('error', ({ payload }) => {
         if (payload.resync) resync();
         else if (payload.code === ERROR_CODES.RATE_LIMITED) {
-          sender.pause(payload.retryAfter ?? DRAFT_INTERVAL_MS);
+          sender.pause(payload.retryAfter ?? DRAFT_INTERVAL_MS, payload.frameSeq);
         }
       }),
     ];

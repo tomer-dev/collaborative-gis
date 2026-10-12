@@ -237,12 +237,15 @@ describe('send', () => {
     vi.setSystemTime(5000);
     const fake = connect();
     fake.latest().open();
+    expect(connection.lastSeq).toBe(0);
     connection.send(join);
     connection.send(drawing);
     expect(fake.latest().frames()).toEqual([
       { ...join, seq: 1, ts: 5000 },
       { ...drawing, seq: 2, ts: 5000 },
     ]);
+    // The seq of the last frame written: the room hook matches a refusal's frameSeq against it.
+    expect(connection.lastSeq).toBe(2);
   });
 
   it('queues while connecting and flushes after the open handlers (join goes first)', () => {
