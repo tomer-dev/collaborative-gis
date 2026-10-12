@@ -9,6 +9,7 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/worker-configuration.d.ts',
       '**/routeTree.gen.ts',
+      '**/coverage/**',
     ],
   },
   js.configs.recommended,
