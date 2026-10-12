@@ -244,6 +244,20 @@ describe('PUT /api/areas/:id', () => {
   });
 });
 
+describe('PUT /api/areas/:id version bound', () => {
+  it('answers 422, not 500, for a version past the Postgres integer range, and changes nothing', async () => {
+    const { api } = signedIn();
+    const { spot, area } = await createSquare(api);
+
+    for (const version of [2_147_483_648, 1e300]) {
+      const res = await api.update(area.id, { name: 'x', geometry: squareAt(spot), version });
+      expect(res.status).toBe(422);
+      expect(await res.json()).toMatchObject({ code: 'UNPROCESSABLE' });
+    }
+    expect((await auditRows(env, area.id)).map((r) => r.action)).toEqual(['area.create']);
+  });
+});
+
 describe('DELETE /api/areas/:id', () => {
   it('soft-deletes (204), hides it from bbox, audits area.delete at the bumped version, then 404', async () => {
     const { user, api } = signedIn();

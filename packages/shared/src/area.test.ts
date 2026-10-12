@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AreaVersionSchema, BoundsQuerySchema } from './index';
+import { AreaUpdateSchema, AreaVersionSchema, BoundsQuerySchema, LIMITS } from './index';
 
 const polygon = {
   type: 'Polygon' as const,
@@ -27,6 +27,21 @@ describe('AreaVersionSchema', () => {
   it('parses a valid history entry and rejects version 0', () => {
     expect(AreaVersionSchema.safeParse(entry).success).toBe(true);
     expect(AreaVersionSchema.safeParse({ ...entry, version: 0 }).success).toBe(false);
+  });
+});
+
+describe('AreaUpdateSchema', () => {
+  const update = { name: 'Yarkon park', geometry: polygon };
+
+  it('accepts versions up to LIMITS.VERSION_MAX (the Postgres integer max) and nothing past it', () => {
+    expect(LIMITS.VERSION_MAX).toBe(2_147_483_647);
+    expect(AreaUpdateSchema.safeParse({ ...update, version: LIMITS.VERSION_MAX }).success).toBe(
+      true,
+    );
+    expect(AreaUpdateSchema.safeParse({ ...update, version: LIMITS.VERSION_MAX + 1 }).success).toBe(
+      false,
+    );
+    expect(AreaUpdateSchema.safeParse({ ...update, version: 1e300 }).success).toBe(false);
   });
 });
 

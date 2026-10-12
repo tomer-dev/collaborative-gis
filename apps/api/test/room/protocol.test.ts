@@ -567,7 +567,7 @@ describe('draft:update spends the per-user draw budget (RateLimiter, D5)', () =>
 
   it('one budget with REST: spent by mutations, a draft:update is refused; after retryAfter it is relayed', async () => {
     const id = drawer();
-    for (let i = 0; i < DRAW_LIMIT; i++) await limiterOf(id).take(ACTIONS.MUTATE);
+    for (let i = 0; i < DRAW_LIMIT; i++) await limiterOf(id).take(ACTIONS.DRAW);
     const a = await join(id);
     const b = await join('b');
     a.send('draft:update', add(0));

@@ -17,7 +17,9 @@ export type Area = z.infer<typeof AreaSchema>;
 export const AreaCreateSchema = AreaSchema.pick({ name: true, geometry: true });
 export type AreaCreate = z.infer<typeof AreaCreateSchema>;
 
-export const AreaUpdateSchema = AreaCreateSchema.extend({ version: z.number().int().positive() });
+export const AreaUpdateSchema = AreaCreateSchema.extend({
+  version: z.number().int().positive().max(LIMITS.VERSION_MAX),
+});
 export type AreaUpdate = z.infer<typeof AreaUpdateSchema>;
 
 /** `GET /api/areas?bbox=…` response body: the live areas in the viewport. */
