@@ -25,7 +25,7 @@ const { HANDLE_HIT_PX, DRAFT_STYLE } = MAP;
 
 /**
  * The map.css classes on plain SVG paths, as Leaflet renders them. As in
- * src/lib/geo/draw-handler.ts, the sketch takes its shape from MAP.DRAFT_STYLE and the vertex
+ * src/lib/geo/draw-tool.ts, the sketch takes its shape from MAP.DRAFT_STYLE and the vertex
  * handles are empty MAP.HANDLE_HIT_PX boxes whose dot comes from .cgis-draw-handle in map.css.
  */
 function MapSample() {

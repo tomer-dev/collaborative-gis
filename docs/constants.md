@@ -10,8 +10,8 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 
 | Name | Value | Where used | Why |
 |---|---|---|---|
-| `POLYGON_MAX_VERTICES` | `1000` | `packages/shared/src/geo.ts` (ring max; re-exported under the old name), `apps/web/src/lib/geo/draw-handler.ts` (vertex cap) | Spec §5 polygon rule; bounds payload and `ST_IsValid` cost |
-| `POLYGON_MAX_PLACED_VERTICES` | `POLYGON_MAX_VERTICES - 1` (`999`) | `apps/web/src/components/DrawControl.tsx` (`n / 999` vertex readout) | Positions minus the closing vertex: the cap the user can actually reach while drawing |
+| `POLYGON_MAX_VERTICES` | `1000` | `packages/shared/src/geo.ts` (ring max; re-exported under the old name), `apps/web/src/lib/geo/draw-tool.ts` (vertex cap via `POLYGON_MAX_PLACED_VERTICES`) | Spec §5 polygon rule; bounds payload and `ST_IsValid` cost |
+| `POLYGON_MAX_PLACED_VERTICES` | `POLYGON_MAX_VERTICES - 1` (`999`) | `apps/web/src/lib/geo/draw-tool.ts` (`maxPlacedVertices` default; cap on `editable:drawing:click`), `apps/web/src/components/DrawControl.tsx` (`n / 999` vertex readout) | Positions minus the closing vertex: the cap the user can actually reach while drawing |
 | `AREA_NAME_MAX` | `120` | `packages/shared/src/area.ts` (`AreaSchema.name`) | D13 name length cap |
 | `USER_NAME_MAX` | `60` | `apps/api/src/do/handoff.ts` (Room trims and caps the user name), `apps/api/src/do/presence.ts` `PresenceAttachmentSchema.name` | Presence list and ghost labels stay short; attachments stay small |
 | `USER_ID_MAX` | `128` | `apps/api/src/do/handoff.ts` (Room rejects longer ids with 400), `PresenceAttachmentSchema.userId`, `packages/shared/src/ws.ts` `draft:update` `payload.userId` (the author the Room stamps) | With both strings capped, a socket attachment cannot reach the runtime's 16 KiB limit |
@@ -142,11 +142,11 @@ The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmar
 | `OSM_ATTRIBUTION` | `'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'` | Planned: T10 | Required by the OSM tile usage policy |
 | `OSM_MAX_ZOOM` | `19` | Planned: T10 | Highest zoom OSM serves |
 | `AREAS_PANE` / `AREAS_PANE_Z` | `'areas'` / `450` | `apps/web/src/ui/map-styles.ts` `areaPathOptions()` (pane + `.map-area` class, used by `apps/web/src/components/AreasLayer.tsx` for every saved area), `tokens.css` `--z-index-map-areas` (drift-tested), `apps/web/src/components/Map.tsx` creates the pane | Above tiles and Leaflet's overlay pane (400) |
-| `DRAFTS_PANE` / `DRAFTS_PANE_Z` | `'drafts'` / `460` | `apps/web/src/ui/map-styles.ts` (path options), `tokens.css` `--z-index-map-drafts` (drift-tested), `apps/web/src/components/DrawControl.tsx` (`PolygonDraw` pane for the own sketch); planned: T10 creates, T14 draws ghost drafts | Live drafts render above saved areas |
+| `DRAFTS_PANE` / `DRAFTS_PANE_Z` | `'drafts'` / `460` | `apps/web/src/ui/map-styles.ts` (path options), `tokens.css` `--z-index-map-drafts` (drift-tested), `apps/web/src/components/DrawControl.tsx` (`createPolygonDraw` pane for the own sketch); planned: T10 creates, T14 draws ghost drafts | Live drafts render above saved areas |
 | `MOVEEND_DEBOUNCE_MS` | `250` | `apps/web/src/components/Map.tsx` (`moveend` → `onBoundsChange`), which feeds `useAreasInBounds` (`apps/web/src/lib/areas-query.ts`) | One fetch per pan gesture |
 | `PRESENCE_COLORS` | `['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948']` | `apps/api/src/do/presence.ts` `presenceColor` (SHA-256 of the user id, mod 8) and `PresenceAttachmentSchema.color`; the web takes that colour per user (`Avatar color`, `ghostPathOptions(color)`); Storybook Foundations/Colour | The 8-hue CVD-checked presence palette from the design-system brief (Grid 4) |
-| `HANDLE_HIT_PX` | `24` | `apps/web/src/lib/geo/draw-handler.ts` (vertex handle hit box, the `L.divIcon` size) | WCAG 2.5.8 target size (≥24 CSS px) for dragging a vertex. The dot's radius, ring and colours are CSS: `.cgis-draw-handle` / `.cgis-draw-handle--first` in the token stylesheet (T9b, PR #14) |
-| `DRAFT_STYLE` | `{ weight: 2, dashArray: '8 4', fillOpacity: 0.12 }` | `apps/web/src/lib/geo/draw-handler.ts` (live sketch, class `cgis-draw-sketch`), `apps/web/src/ui/map-styles.ts` `draftPathOptions()`; Storybook Foundations/Map; planned T14 ghost drafts | Dashed and faint: reads as unsaved next to solid saved areas. Dash 8/4 is the design brief's §4 value. Stroke and fill colours are CSS on `.cgis-draw-sketch` |
+| `HANDLE_HIT_PX` | `24` | `apps/web/src/lib/geo/draw-tool.ts` (Leaflet.Editable vertex icon size, via its `createVertexIcon` hook; the first handle also gets `cgis-draw-handle--first`) | WCAG 2.5.8 target size (≥24 CSS px) for dragging a vertex. The dot's radius, ring and colours are CSS: `.cgis-draw-handle` / `.cgis-draw-handle--first` in `apps/web/src/styles/map.css` |
+| `DRAFT_STYLE` | `{ weight: 2, dashArray: '8 4', fillOpacity: 0.12 }` | `apps/web/src/lib/geo/draw-tool.ts` (`editTools.startPolygon` options, class `cgis-draw-sketch`), `apps/web/src/ui/map-styles.ts` `draftPathOptions()`; Storybook Foundations/Map; planned T14 ghost drafts | Dashed and faint: reads as unsaved next to solid saved areas. Dash 8/4 is the design brief's §4 value. Stroke and fill colours are CSS on `.cgis-draw-sketch` |
 | `AREA_KM2_THRESHOLD` | `1` | `apps/web/src/components/DrawControl.tsx` (area readout unit), `apps/web/src/lib/area-readout.ts` `areaReadout()` (save dialog, area panel) | Below 1 km² the readout is whole m² (`12,345 m²`); from 1 km² it is km² to 3 decimals (`1.234 km²`, 1,000 m² resolution). Numbers use `Stat`'s user-locale formatter |
 | `AREA_DIFF_WARN_RATIO` | `0.005` | `apps/web/src/components/SaveDialog.tsx` (after a save, `abs(server − estimate) / server` above this shows `COPY.AREAS.AREA_DIFF_NOTE`) | The client's sphere and PostGIS's spheroid differ by about 0.03 % at Israel's latitude and 0.45–0.56 % at the equator or 60°N (`GEO.EARTH_RADIUS_M` row); a gap past 0.5 % is worth one line next to the saved value (TOM-49) |
 
@@ -154,13 +154,13 @@ The small test seed in `apps/api/src/db/seed.ts` (`seedAreas`); the 10k benchmar
 
 | Name | Value | Where used | Why |
 |---|---|---|---|
-| `SELF_INTERSECTION_REASON` | `'Polygon edges must not cross or touch each other'` | `draw-handler.ts` `draw:invalid` | Client mirror of the server's `ST_IsValid` rejection |
-| `MAX_VERTICES_REASON` | `'Vertex limit reached'` | `draw-handler.ts` `draw:invalid` when a click would pass `LIMITS.POLYGON_MAX_VERTICES` | The cap counts the closing vertex, so the UI should not promise a number here |
+| `SELF_INTERSECTION_REASON` | `'Polygon edges must not cross or touch each other'` | `apps/web/src/lib/geo/draw-events.ts` `invalidReason` → `draw:invalid` | Client mirror of the server's `ST_IsValid` rejection |
+| `MAX_VERTICES_REASON` | `'Vertex limit reached'` | `apps/web/src/lib/geo/draw-tool.ts` `draw:invalid` when a click would pass `LIMITS.POLYGON_MAX_PLACED_VERTICES` | The cap counts the closing vertex, so the UI should not promise a number here |
 | `TOOLBAR_LABEL` | `'Drawing tools'` | `apps/web/src/components/DrawControl.tsx` (idle `MapControl` toolbar name) | Names the toolbar landmark around the start button |
-| `START_LABEL` | `'Draw polygon'` | `DrawControl.tsx` (icon button's tooltip and accessible name) | The one action while idle |
+| `START_LABEL` | `'Draw polygon'` | `DrawControl.tsx` (icon button's `aria-label` and `title`) | The one action while idle |
 | `PANEL_TITLE` | `'New area'` | `DrawControl.tsx` (floating `Panel` heading and region name while drawing) | The sketch becomes an area when saved |
 | `AREA_LABEL` / `VERTICES_LABEL` | `'Area'` / `'Vertices'` | `DrawControl.tsx` (`Stat` labels of the live readout) | Visible labels; also the readouts' accessible names |
-| `FINISH_LABEL` / `UNDO_LABEL` / `CANCEL_LABEL` | `'Finish'` / `'Undo'` / `'Cancel'` | `DrawControl.tsx` (panel footer buttons → `finish()` / `undo()` / `cancel()`) | Pointer equivalents of Enter / Backspace / Escape |
+| `FINISH_LABEL` / `UNDO_LABEL` / `CANCEL_LABEL` | `'Finish'` / `'Undo'` / `'Cancel'` | `DrawControl.tsx` (panel footer buttons → `finish()` / `undo()` / `cancel()`) | The handler has no keyboard shortcuts, so these buttons are the keyboard path as well as the pointer one |
 | `M2_UNIT` / `KM2_UNIT` | `'m²'` / `'km²'` | `DrawControl.tsx` (area `Stat` unit), `apps/web/src/lib/area-readout.ts` | `Intl.NumberFormat` has no area units (ECMA-402 sanctions length units only) |
 
 ## QUERY
@@ -245,16 +245,6 @@ Default `ApiError.message` per code, same keys as `ERROR_CODES` (`satisfies` + a
 | `NOT_IMPLEMENTED` | `'not implemented'` | T0 stubs `auth.ts`, `ws.ts` | 501 until the lane fills the stub |
 | `UPGRADE_REQUIRED` | `'websocket upgrade required'` | Planned: T6 | 426 body |
 
-## WS_MESSAGES
-
-`error` frame messages the Room sends beside the `ERROR_CODES` code, where the `ERROR_MESSAGES` default says too little. Clients branch on the code, never on the message.
-
-| Name | Value | Where used | Why |
-|---|---|---|---|
-| `NOT_JSON` | `'frames must be JSON text'` | `apps/api/src/do/room.ts` (binary or non-JSON frame → `BAD_REQUEST`, one strike) | Says what the Room accepts; a schema failure sends Zod's issue text instead |
-| `NOT_JOINED` | `'send join first'` | `apps/api/src/do/room.ts` (`draft:update` before `join` → `BAD_REQUEST`, no strike) | Drafts come only from users in presence |
-| `DRAFT_OP_MISFIT` | `'draft op does not fit the current draft'` | `apps/api/src/do/room.ts` (index past the end, or an `add` beyond `LIMITS.POLYGON_MAX_VERTICES` → `BAD_REQUEST`, no strike) | The client's draft and the Room's have diverged; the op is not relayed |
-
 ## ERROR_REASONS
 
 `ApiError.message`s more specific than their code's default; `ERROR_MESSAGES` keeps exactly the `ERROR_CODES` keys, so route-specific text lives here.
@@ -264,3 +254,13 @@ Default `ApiError.message` per code, same keys as `ERROR_CODES` (`satisfies` + a
 | `ORIGIN_NOT_ALLOWED` | `'origin not allowed'` | `FORBIDDEN` (403) | `apps/api/src/ws.ts` `wsGate()`: a `GET /ws` upgrade whose Origin is missing or is not `env.CLIENT_ORIGIN` | Cross-site WebSocket hijacking: Better Auth's `getSession` ignores Origin, so without this a foreign page could open a socket with the victim's cookie |
 | `INVALID_GEOMETRY` | `'invalid geometry'` | `UNPROCESSABLE` (422) | `apps/api/src/routes/areas.ts`: `POST`/`PUT` whose polygon passed Zod but failed `ST_IsValid`; `details.reason` is the `ST_IsValidReason` text | Tells the client the geometry, not the request shape, is at fault |
 | `VERSION_CONFLICT` | `'version conflict'` | `CONFLICT` (409) | `apps/api/src/routes/areas.ts` `PUT`: the stored `version` is not the one sent; `details.current` is the stored area | The client can show the current area and let the user re-apply |
+
+## WS_MESSAGES
+
+`error` frame messages the Room sends beside the `ERROR_CODES` code, where the `ERROR_MESSAGES` default says too little. Clients branch on the code, never on the message.
+
+| Name | Value | Where used | Why |
+|---|---|---|---|
+| `NOT_JSON` | `'frames must be JSON text'` | `apps/api/src/do/room.ts` (binary or non-JSON frame → `BAD_REQUEST`, one strike) | Says what the Room accepts; a schema failure sends Zod's issue text instead |
+| `NOT_JOINED` | `'send join first'` | `apps/api/src/do/room.ts` (`draft:update` before `join` → `BAD_REQUEST`, no strike) | Drafts come only from users in presence |
+| `DRAFT_OP_MISFIT` | `'draft op does not fit the current draft'` | `apps/api/src/do/room.ts` (index past the end, or an `add` beyond `LIMITS.POLYGON_MAX_VERTICES` → `BAD_REQUEST`, no strike) | The client's draft and the Room's have diverged; the op is not relayed |
