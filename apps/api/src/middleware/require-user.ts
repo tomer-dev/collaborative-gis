@@ -1,10 +1,9 @@
-import { ERROR_CODES } from '@cgis/shared';
+import { type AuthUser, ERROR_CODES } from '@cgis/shared';
 import type { MiddlewareHandler } from 'hono';
-import type { SessionUser } from '../auth';
 import { apiError } from '../errors';
 
 /** What `requireUser()` guarantees the handlers after it: `c.get('user')` is set. */
-export type SignedIn = { Variables: { user: SessionUser } };
+export type SignedIn = { Variables: { user: AuthUser } };
 
 /**
  * Lets a request through only when `attachUser()` found a session; otherwise answers 401

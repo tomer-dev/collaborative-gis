@@ -1,4 +1,4 @@
-import { ERROR_CODES, OPENAPI, ROUTES } from '@cgis/shared';
+import { type AuthUser, ERROR_CODES, OPENAPI, ROUTES } from '@cgis/shared';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { openAPIRouteHandler } from 'hono-openapi';
@@ -15,7 +15,7 @@ export type Env = CloudflareBindings;
 
 export type AppEnv = {
   Bindings: Env;
-  Variables: { user?: { id: string; name: string }; requestId: string };
+  Variables: { user?: AuthUser; requestId: string };
 };
 
 /**

@@ -1,4 +1,4 @@
-import { LIMITS, ROOM } from '@cgis/shared';
+import { type AuthUser, LIMITS, ROOM } from '@cgis/shared';
 import { z } from 'zod';
 
 /**
@@ -7,16 +7,13 @@ import { z } from 'zod';
  * anyway. Both sides of that contract live here.
  */
 
-/** A user as the session layer sets it (`c.get('user')`). */
-export type RoomUser = { id: string; name: string };
-
 /** True for `Upgrade: websocket` (the token is case-insensitive, RFC 6455 §4.2.1). */
 export function isWebSocketUpgrade(request: Request): boolean {
   return request.headers.get('upgrade')?.toLowerCase() === 'websocket';
 }
 
 /** A copy of `request` that carries `user`; `set` replaces any copies the client sent. */
-export function withRoomUser(request: Request, user: RoomUser): Request {
+export function withRoomUser(request: Request, user: AuthUser): Request {
   const headers = new Headers(request.headers);
   headers.set(ROOM.USER_ID_HEADER, user.id);
   // Header values cannot carry non-Latin-1 text, so the name travels percent-encoded.
