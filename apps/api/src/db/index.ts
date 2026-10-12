@@ -2,6 +2,7 @@ import { TIMEOUTS } from '@cgis/shared';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import type { Env } from '../app';
+import { log } from '../log';
 import * as schema from './schema';
 
 /**
@@ -20,7 +21,7 @@ export async function withClient<T>(env: Env, fn: (client: pg.Client) => Promise
   // would otherwise vanish, so it is logged.
   client.on('error', (err) => {
     if (/socket.*closed/i.test(err.message)) return;
-    console.error(JSON.stringify({ level: 'error', msg: err.message, src: 'pg' }));
+    log('error', err.message, { src: 'pg' });
   });
 
   try {
@@ -45,7 +46,8 @@ export function db(client: pg.Client) {
   return drizzle(client, { schema });
 }
 
-async function withDeadline<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
+/** `promise`, or a rejection `<what> exceeded <ms> ms` once `ms` pass first. */
+export async function withDeadline<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error(`${what} exceeded ${ms} ms`)), ms);
