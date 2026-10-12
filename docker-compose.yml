@@ -1,6 +1,6 @@
 services:
   postgis:
-    image: postgis/postgis:16-3.4
+    image: imresamu/postgis:18-3.6
     environment:
       POSTGRES_USER: cgis
       POSTGRES_PASSWORD: cgis
@@ -15,6 +15,7 @@ services:
       timeout: 3s
       retries: 10
     volumes:
-      - postgis-data:/var/lib/postgresql/data
+      # PG 18 images set PGDATA=/var/lib/postgresql/18/docker; mount the parent (the image VOLUME).
+      - postgis-data:/var/lib/postgresql
 volumes:
   postgis-data:
