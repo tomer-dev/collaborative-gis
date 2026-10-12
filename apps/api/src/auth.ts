@@ -1,5 +1,3 @@
-import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { betterAuth } from 'better-auth/minimal';
 import type { Handler } from 'hono';
 import type pg from 'pg';
 import type { AppEnv, Env } from './app';
@@ -13,8 +11,16 @@ export type SessionUser = NonNullable<AppEnv['Variables']['user']>;
  * Better Auth bound to one request's `pg.Client` (from `withClient`). Built per request, never at
  * module scope: workerd cancels a request that waits on I/O opened by another request. Init costs
  * well under a millisecond (M1 spike).
+ *
+ * Better Auth is imported on first use rather than with this module, so code that never
+ * authenticates (Durable Objects, /healthz, and every workerd test isolate that loads the Worker)
+ * does not evaluate it; it is about half of the Worker bundle.
  */
-export function createAuth(env: Env, client: pg.Client) {
+export async function createAuth(env: Env, client: pg.Client) {
+  const [{ betterAuth }, { drizzleAdapter }] = await Promise.all([
+    import('better-auth/minimal'),
+    import('better-auth/adapters/drizzle'),
+  ]);
   return betterAuth({
     // `better-auth/minimal` leaves out Kysely, which only direct database connections need.
     database: drizzleAdapter(db(client), { provider: 'pg', schema }),
@@ -36,7 +42,7 @@ export function createAuth(env: Env, client: pg.Client) {
 
 /** Serves `/api/auth/*`: hands the raw request to Better Auth on a per-request client. */
 export const authHandler: Handler<AppEnv> = (c) =>
-  withClient(c.env, (client) => createAuth(c.env, client).handler(c.req.raw));
+  withClient(c.env, async (client) => (await createAuth(c.env, client)).handler(c.req.raw));
 
 /**
  * The user of the session in `headers` (only the Cookie header matters), or null. Without a
@@ -45,7 +51,7 @@ export const authHandler: Handler<AppEnv> = (c) =>
 export async function getSessionUser(env: Env, headers: Headers): Promise<SessionUser | null> {
   if (!headers.has('cookie')) return null;
   return withClient(env, async (client) => {
-    const session = await createAuth(env, client).api.getSession({ headers });
+    const session = await (await createAuth(env, client)).api.getSession({ headers });
     return session ? { id: session.user.id, name: session.user.name } : null;
   });
 }
