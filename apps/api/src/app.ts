@@ -1,5 +1,5 @@
-import type { ApiError } from '@cgis/shared';
 import { Hono } from 'hono';
+import { internalError, notFoundError } from './errors';
 import { health } from './routes/health';
 
 export type Env = {
@@ -11,11 +11,11 @@ export function createApp() {
 
   app.route('/', health);
 
-  app.notFound((c) => c.json<ApiError>({ code: 'NOT_FOUND', message: 'Not found' }, 404));
+  app.notFound((c) => notFoundError(c));
 
   app.onError((err, c) => {
     console.error(JSON.stringify({ level: 'error', msg: err.message, path: c.req.path }));
-    return c.json<ApiError>({ code: 'INTERNAL', message: 'Internal Server Error' }, 500);
+    return internalError(c);
   });
 
   return app;
