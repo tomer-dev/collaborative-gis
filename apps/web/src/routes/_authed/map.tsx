@@ -1,7 +1,7 @@
 import type { Bbox, Area } from '@cgis/shared';
 import { createFileRoute } from '@tanstack/react-router';
 import type * as L from 'leaflet';
-import { useState } from 'react';
+import { use, useEffect, useState } from 'react';
 import { AreaPanel } from '../../components/AreaPanel';
 import { AreasLayer } from '../../components/AreasLayer';
 import { ConflictDialog } from '../../components/ConflictDialog';
@@ -14,6 +14,7 @@ import { SaveDialog } from '../../components/SaveDialog';
 import { useAreasInBounds, type AreaEdit } from '../../lib/areas-query';
 import type { LngLat } from '../../lib/geo/geodesic';
 import { useRoom } from '../../lib/use-room';
+import { ReportSelfColor } from '../-components/AppFrame';
 
 // URL /map; the session guard lives on the parent _authed layout.
 export const Route = createFileRoute('/_authed/map')({
@@ -46,6 +47,12 @@ function MapRoute() {
   const [mode, setMode] = useState<MapMode>(BROWSE);
   const selfId = Route.useRouteContext({ select: (context) => context.user.id });
   const room = useRoom({ selfId, map });
+  const selfColor = room.users.find((user) => user.userId === selfId)?.color ?? null;
+  const reportSelfColor = use(ReportSelfColor);
+  useEffect(() => {
+    reportSelfColor(selfColor);
+    return () => reportSelfColor(null);
+  }, [reportSelfColor, selfColor]);
   const areas = useAreasInBounds(bbox).data?.areas ?? NO_AREAS;
   const selectedId = mode.kind === 'selected' ? mode.id : null;
 
