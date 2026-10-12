@@ -80,7 +80,7 @@ Better Auth sessions in httpOnly secure cookies; `trustedOrigins` and CORS with 
 ## 8. Testing
 
 - Unit (Vitest): area calc vs reference polygons, polygon validation rules, RateLimiter window, conflict path, ITM↔WGS84 utilities.
-- Integration (`@cloudflare/vitest-pool-workers`): REST routes with an ephemeral PostGIS; Room DO protocol (join, draft, broadcast, rate-limit error, hibernation-safe presence).
+- Integration (`@cloudflare/vitest-plugin`): REST routes with an ephemeral PostGIS; Room DO protocol (join, draft, broadcast, rate-limit error, hibernation-safe presence).
 - API contract suite: `hono batch` JSONL (auth → create → bounds → conflict → delete) run in CI against `--runtime workerd`; `hono snapshot`/`hono diff` as a refactor guard.
 - E2E (Playwright): two browsers; draw, see ghost polygon, save, toggle layer, conflict dialog.
 - Benchmarks: bounds query on 10k polygons with/without GiST; k6 WS + REST load at 10/50/100 users.
