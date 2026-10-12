@@ -56,7 +56,7 @@ Never run `wrangler deploy` without `--env production`: the top level would crea
 
 ## CI deploy
 
-`.github/workflows/deploy.yml` runs on every push to `main` and on demand (Actions → deploy → Run workflow). Its `secrets` job checks that the three GitHub secrets exist (a job-level `if` cannot read secrets); without them the `deploy` job is skipped, not failed. `deploy` then refuses a placeholder origin, installs, migrates Neon, generates the Worker types, builds the web and runs `wrangler deploy --minify --env production`. Deploys run one at a time and are never cancelled halfway.
+`.github/workflows/deploy.yml` runs when the `ci` workflow has passed on a push to `main` (a `workflow_run` trigger; it deploys the commit `ci` checked, and a failed or cancelled `ci` run deploys nothing), and on demand (Actions → deploy → Run workflow). Its `secrets` job checks that the three GitHub secrets exist (a job-level `if` cannot read secrets); without them the `deploy` job is skipped, not failed. `deploy` then refuses a placeholder origin, installs, migrates Neon, generates the Worker types, builds the web and runs `wrangler deploy --minify --env production`. Deploys run one at a time and are never cancelled halfway.
 
 Migrations run before the new Worker goes live, so the running Worker meets the new schema for a moment: keep migrations backward compatible (add, backfill, then remove in a later deploy). Every pull request runs `wrangler deploy --dry-run --env production` in `ci.yml`, which proves the production config resolves and bundles with the web build.
 
