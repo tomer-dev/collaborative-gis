@@ -1,34 +1,45 @@
 // The leading '-' keeps the TanStack Router generator from treating this file as a route.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory } from '@tanstack/react-router';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { sessionQuery } from '../lib/session';
 import { AppRouterProvider, createAppRouter } from '../router';
 
-const signedIn = {
-  session: { id: 'sess_1', userId: 'user_1' },
-  user: { id: 'user_1', name: 'Ada Lovelace', email: 'ada@example.com' },
+// What Better Auth's authClient.useSession() returns (only the fields the app reads).
+type BetterAuthSessionState = {
+  data: { user: { id: string; name: string } } | null;
+  isPending: boolean;
 };
 
-function stubGetSession(body: unknown, status = 200) {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async () => Response.json(body, { status })),
-  );
-}
+const signedIn: BetterAuthSessionState = {
+  data: { user: { id: 'user_1', name: 'Ada Lovelace' } },
+  isPending: false,
+};
+const signedOut: BetterAuthSessionState = { data: null, isPending: false };
 
-function renderAppAt(path: string) {
+const auth = vi.hoisted(() => {
+  const state: { current: BetterAuthSessionState } = {
+    current: { data: null, isPending: true },
+  };
+  return state;
+});
+
+vi.mock('../lib/auth-client', () => ({ authClient: { useSession: () => auth.current } }));
+
+function renderAppAt(path: string, session: BetterAuthSessionState) {
+  auth.current = session;
   // jsdom has no scrollTo; the router resets scroll after each navigation.
   vi.stubGlobal('scrollTo', vi.fn());
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const queryClient = new QueryClient();
   const router = createAppRouter(queryClient, createMemoryHistory({ initialEntries: [path] }));
-  render(
+  // A fresh element each time: React skips re-rendering an identical element object.
+  const app = () => (
     <QueryClientProvider client={queryClient}>
       <AppRouterProvider router={router} />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
-  return { queryClient, router };
+  const { rerender } = render(app());
+  return { router, rerenderApp: () => rerender(app()) };
 }
 
 afterEach(() => {
@@ -36,9 +47,15 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+it('shows a status and no route while the session is pending', () => {
+  renderAppAt('/map', { data: null, isPending: true });
+
+  expect(screen.getByRole('status').textContent).toMatch(/checking your session/i);
+  expect(screen.queryByTestId('map-root')).toBeNull();
+});
+
 it('redirects a signed-out visitor from /map to /login', async () => {
-  stubGetSession(null);
-  const { router } = renderAppAt('/map');
+  const { router } = renderAppAt('/map', signedOut);
 
   expect(await screen.findByRole('heading', { name: /sign in/i })).toBeTruthy();
   expect(router.state.location.pathname).toBe('/login');
@@ -48,17 +65,8 @@ it('redirects a signed-out visitor from /map to /login', async () => {
   expect(screen.queryByRole('button', { name: /sign out/i })).toBeNull();
 });
 
-it('treats a failing session check as signed out and lands on /login', async () => {
-  stubGetSession({ code: 'NOT_IMPLEMENTED', message: 'not implemented' }, 501);
-  const { router } = renderAppAt('/map');
-
-  expect(await screen.findByRole('heading', { name: /sign in/i })).toBeTruthy();
-  expect(router.state.location.pathname).toBe('/login');
-});
-
 it('renders the map route and the top bar for a signed-in user', async () => {
-  stubGetSession(signedIn);
-  const { router } = renderAppAt('/map');
+  const { router } = renderAppAt('/map', signedIn);
 
   expect(await screen.findByTestId('map-root')).toBeTruthy();
   expect(router.state.location.pathname).toBe('/map');
@@ -74,21 +82,18 @@ it('renders the map route and the top bar for a signed-in user', async () => {
 });
 
 it('redirects / to /map', async () => {
-  stubGetSession(signedIn);
-  const { router } = renderAppAt('/');
+  const { router } = renderAppAt('/', signedIn);
 
   expect(await screen.findByTestId('map-root')).toBeTruthy();
   expect(router.state.location.pathname).toBe('/map');
 });
 
 it('sends the user to /login when the session ends while on /map', async () => {
-  stubGetSession(signedIn);
-  const { queryClient, router } = renderAppAt('/map');
+  const { router, rerenderApp } = renderAppAt('/map', signedIn);
   await screen.findByTestId('map-root');
 
-  act(() => {
-    queryClient.setQueryData(sessionQuery.queryKey, null);
-  });
+  auth.current = signedOut;
+  rerenderApp();
 
   await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
   expect(await screen.findByRole('heading', { name: /sign in/i })).toBeTruthy();
