@@ -3,9 +3,23 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import * as L from 'leaflet';
 import { StrictMode, type ReactNode } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { invalidReason, PolygonDraw, type DrawEventMap } from '../lib/geo/draw-handler';
-import { ringAreaKm2, ringAreaM2, type LngLat } from '../lib/geo/geodesic';
+import {
+  createPolygonDraw,
+  invalidReason,
+  ringAreaKm2,
+  ringAreaM2,
+  type DrawEvent,
+  type DrawEventType,
+  type LngLat,
+  type PolygonDraw,
+} from '../lib/geo';
 import { DrawControl } from './DrawControl';
+
+// Wrap the real factory so a test can reach the tool the control created (it keeps it private).
+vi.mock('../lib/geo', async (importOriginal) => {
+  const geo = await importOriginal<typeof import('../lib/geo')>();
+  return { ...geo, createPolygonDraw: vi.fn(geo.createPolygonDraw) };
+});
 
 let map: L.Map;
 let container: HTMLDivElement;
@@ -52,15 +66,15 @@ const degreeBox: LngLat[] = [
 ];
 const closedSquare: LngLat[] = [...square, [34.9, 32]];
 
-/** Renders the control; `handler()` is the PolygonDraw it last enabled (the control keeps it private). */
+/** Renders the control; `handler()` is the PolygonDraw it last created (the control keeps it private). */
 function renderControl(ui: (props: { onDone: (ring: LngLat[]) => void }) => ReactNode) {
-  const enable = vi.spyOn(PolygonDraw.prototype, 'enable');
+  vi.mocked(createPolygonDraw).mockClear();
   const onDone = vi.fn<(ring: LngLat[]) => void>();
   const view = render(ui({ onDone }));
-  const handler = () => {
-    const enabled = enable.mock.contexts.at(-1);
-    if (!(enabled instanceof PolygonDraw)) throw new Error('no PolygonDraw was enabled');
-    return enabled;
+  const handler = (): PolygonDraw => {
+    const created = vi.mocked(createPolygonDraw).mock.results.at(-1);
+    if (created?.type !== 'return') throw new Error('no PolygonDraw was created');
+    return created.value;
   };
   return { ...view, onDone, handler };
 }
@@ -68,13 +82,17 @@ const renderOnMap = () => renderControl(({ onDone }) => <DrawControl map={map} o
 
 const button = (name: string) => screen.getByRole<HTMLButtonElement>('button', { name });
 const startDrawing = () => fireEvent.click(button(DRAW.START_LABEL));
-const fire = <K extends keyof DrawEventMap>(
-  type: K,
-  data?: Omit<DrawEventMap[K], keyof L.LeafletEvent>,
-) =>
+const fire = <K extends DrawEventType>(type: K, data?: Omit<DrawEvent<K>, keyof L.LeafletEvent>) =>
   act(() => {
     map.fire(type, data);
   });
+/** A map click as Leaflet.Editable reads it: the map's mousedown + mouseup, left button, in place. */
+const clickOn = (target: L.Map, lat: number, lng: number) => {
+  const latlng = L.latLng(lat, lng);
+  const originalEvent = new MouseEvent('mousedown', { which: 1, clientX: 10, clientY: 10 });
+  target.fire('mousedown', { latlng, originalEvent });
+  target.fire('mouseup', { latlng, originalEvent });
+};
 const readout = (label: string) => screen.getByRole('status', { name: label }).textContent;
 const panel = () => screen.queryByRole('region', { name: DRAW.PANEL_TITLE });
 
@@ -166,7 +184,7 @@ it('drives the handler from Undo and Finish: a too-small ring alerts, a valid on
   startDrawing();
   const add = (vertices: LngLat[]) =>
     act(() => {
-      for (const [lng, lat] of vertices) handler().addVertex([lat, lng]);
+      for (const [lng, lat] of vertices) clickOn(map, lat, lng);
     });
 
   add(square.slice(0, 2));
@@ -189,7 +207,7 @@ it('drives the handler from Undo and Finish: a too-small ring alerts, a valid on
 it('discards the sketch from Cancel', () => {
   const { handler, onDone } = renderOnMap();
   startDrawing();
-  act(() => handler().addVertex([32, 35]));
+  act(() => clickOn(map, 32, 35));
 
   fireEvent.click(button(DRAW.CANCEL_LABEL));
 
@@ -200,16 +218,16 @@ it('discards the sketch from Cancel', () => {
 });
 
 it('counts placed vertices up to the reachable cap, 999, where the handler stops', () => {
-  const { handler } = renderOnMap();
+  renderOnMap();
   startDrawing();
 
   act(() => {
-    for (let i = 0; i < 999; i++) handler().addVertex([32 + i * 1e-4, 35 + (i % 2) * 1e-4]);
+    for (let i = 0; i < 999; i++) clickOn(map, 32 + i * 1e-4, 35 + (i % 2) * 1e-4);
   });
   expect(readout(DRAW.VERTICES_LABEL)).toBe('999 / 999');
   expect(screen.queryByRole('alert')).toBeNull();
 
-  act(() => handler().addVertex([33, 36]));
+  act(() => clickOn(map, 33, 36));
   expect(readout(DRAW.VERTICES_LABEL)).toBe('999 / 999');
   expect(screen.getByRole('alert').textContent).toBe(DRAW.MAX_VERTICES_REASON);
 });
@@ -236,7 +254,7 @@ it('survives the map being removed before the control unmounts (route teardown o
     <DrawControl map={own.map} onDone={onDone} />
   ));
   startDrawing();
-  act(() => handler().addVertex([32, 35]));
+  act(() => clickOn(own.map, 32, 35));
 
   own.map.remove();
 
