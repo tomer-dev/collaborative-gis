@@ -1,4 +1,4 @@
-import { type AreaEvent, AreaSchema, parseWsMessage, ROOM, ROUTES } from '@cgis/shared';
+import { type AreaEvent, AreaSchema, parseWsMessage, ROOM, ROUTES, TIMEOUTS } from '@cgis/shared';
 import {
   createExecutionContext,
   evictDurableObject,
@@ -259,6 +259,32 @@ describe('fan-out from the area routes', () => {
       requestId: res.headers.get('x-request-id'),
       error: expect.stringContaining('room unavailable'),
     });
+    expect(broadcast).toHaveBeenCalledExactlyOnceWith(
+      { type: 'area:created', payload: { area } },
+      undefined,
+    );
+  });
+
+  it(`a bump that hangs: the committed write still answers 201 within TIMEOUTS.DO_PING_MS (${TIMEOUTS.DO_PING_MS} ms)`, async () => {
+    const broadcast = vi.fn<(event: AreaEvent, mapVersion?: number) => Promise<void>>(
+      async () => {},
+    );
+    const hung = withRoom(broadcast, () => new Promise<number>(() => {}));
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const ctx = createExecutionContext();
+    const started = Date.now();
+    const res = await areasClient(hung, freshUser(), {}, ctx).create(newSquare());
+    const elapsed = Date.now() - started;
+    await waitOnExecutionContext(ctx);
+
+    expect(res.status).toBe(201);
+    expect(elapsed).toBeLessThan(TIMEOUTS.DO_PING_MS * 2);
+    const area = AreaSchema.parse(await res.json());
+    expect(JSON.parse(String(logged.mock.calls[0]?.[0]))).toMatchObject({
+      msg: 'version bump failed',
+      error: expect.stringContaining(`version bump exceeded ${TIMEOUTS.DO_PING_MS} ms`),
+    });
+    // The broadcast, in waitUntil, bumps instead.
     expect(broadcast).toHaveBeenCalledExactlyOnceWith(
       { type: 'area:created', payload: { area } },
       undefined,
