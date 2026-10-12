@@ -1,4 +1,4 @@
-import { RATE_LIMIT } from '@cgis/shared';
+import { type AuthUser as User, RATE_LIMIT } from '@cgis/shared';
 import { env } from 'cloudflare:workers';
 import { Hono } from 'hono';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,8 +9,6 @@ const { DRAW_ACTIONS_PER_WINDOW: LIMIT, WINDOW_MS, ACTIONS } = RATE_LIMIT;
 // Far ahead of the real clock: workerd schedules alarms on real time, so an alarm armed at a
 // mocked instant in the past would fire mid-test (see rate-limiter.test.ts).
 const T0 = Date.UTC(2100, 0, 1);
-
-type User = { id: string; name: string };
 
 const freshUser = (): User => ({ id: `user-${crypto.randomUUID()}`, name: 'Test User' });
 
