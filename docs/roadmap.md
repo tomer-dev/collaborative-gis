@@ -1,8 +1,8 @@
 # Collaborative GIS — strategic roadmap
 
-**Linear:** project [Collaborative GIS (Snapland)](https://linear.app/tomer-sharoni-personal/project/collaborative-gis-snapland-c2d5d7aca277) (P-TOM-1, team TOM). Epics TOM-5…TOM-12; tickets TOM-13…TOM-73 (61). Ticket numbering below (0.1, 1.1, …) is the prefix of each Linear issue title.
+**Linear:** project [Collaborative GIS](https://linear.app/tomer-sharoni-personal/project/collaborative-gis-c2d5d7aca277) (P-TOM-1, team TOM). Epics TOM-5…TOM-12; tickets TOM-13…TOM-73 (61). Ticket numbering below (0.1, 1.1, …) is the prefix of each Linear issue title.
 
-Source: Snapland home assignment (Team Lead). Stack: React + Vite + TanStack Router/Query + Leaflet 1.9.4 (2.0 is alpha; Proj4Leaflet unmaintained); TypeScript Hono on Cloudflare Workers + Durable Objects (WebSocket Hibernation) ; Postgres/PostGIS on Neon via Drizzle + Hyperdrive; Better Auth; Cloudflare deploy (Worker + static assets). Research backing each choice: `docs/research-notes.md`.
+Source: the written product brief for a collaborative GIS tool. Stack: React + Vite + TanStack Router/Query + Leaflet 1.9.4 (2.0 is alpha; Proj4Leaflet unmaintained); TypeScript Hono on Cloudflare Workers + Durable Objects (WebSocket Hibernation) ; Postgres/PostGIS on Neon via Drizzle + Hyperdrive; Better Auth; Cloudflare deploy (Worker + static assets). Research backing each choice: `docs/research-notes.md`.
 
 ## Principles
 - Grouped by separation of concerns. Each epic is one lane with one owner-able skill.

@@ -3,7 +3,7 @@
 Chronological record of how this roadmap was produced, for the reviewer. Facts only.
 
 ## 2026-10-12 — Session 1: roadmap
-1. Read the assignment PDF (4 pages): core requirements, additional challenges, stack constraints, evaluation criteria, submission guidelines.
+1. Read the product brief PDF (4 pages): core requirements, additional challenges, stack constraints, evaluation criteria, submission guidelines.
 2. Checked repo state: empty git repository, no commits.
 3. Loaded skills: superpowers:brainstorming (process), context7-mcp (documentation lookup). Classified the work as architectural (greenfield).
 4. Technology research via Context7 and official sites: PostGIS, Leaflet, Proj4Leaflet, EPSG:2039, TanStack Router, TanStack Query, Better Auth, Drizzle ORM, Neon, Fastify (+websocket, rate-limit, swagger), Vercel (Vite, Fastify, Functions limits, WebSockets beta, Services, Container runtime). Findings in `docs/research-notes.md`.
@@ -15,7 +15,7 @@ Chronological record of how this roadmap was produced, for the reviewer. Facts o
 10. User redirected deployment from Vercel to Cloudflare because of the Vercel WebSocket duration cap. Researched Cloudflare Workers, Durable Objects (WebSocket Hibernation API, alarms, limits), Hyperdrive, static assets + Vite plugin, rate-limit binding, Cache API, Cron Triggers, Hono (Workers + Node), hono-openapi, Better Auth on Hono/Workers.
 11. Consequences applied to the roadmap: backend framework Fastify → Hono (runs on Workers and on Node for docker-compose parity); realtime moves into a `Room` Durable Object; rate limiting becomes an exact per-user Durable Object counter; caching uses the Workers Cache API; retention purge uses a Cron Trigger; E7 rewritten for Cloudflare. Vercel findings kept in the research notes for the ADR.
 12. 1Password verified: Neon API credential readable from vault `Dev` (item `tomercouch-neon`); referenced from ticket 0.3.
-13. Linear (personal workspace, team TOM) via the `linear-personal` MCP server: project P-TOM-1 "Collaborative GIS (Snapland)", 5 milestones (M0–M4), 10 labels (`lane:*`, `spike`, `design-doc`), 8 epics (TOM-5…TOM-12), 61 sub-issues (TOM-13…TOM-73) each with skill, scope, acceptance, milestone, priority and `blocked by` relations wired by identifier.
+13. Linear (personal workspace, team TOM) via the `linear-personal` MCP server: project P-TOM-1 "Collaborative GIS", 5 milestones (M0–M4), 10 labels (`lane:*`, `spike`, `design-doc`), 8 epics (TOM-5…TOM-12), 61 sub-issues (TOM-13…TOM-73) each with skill, scope, acceptance, milestone, priority and `blocked by` relations wired by identifier.
 14. Committed `docs/` and `.gitignore` as the first commit.
 15. User asked for the critical path and to continue the superpowers process. Ran `find-skills`: installed `postgis/postgis@postgis`, `timescale/pg-aiguide@design-postgis-tables`, `cloudflare/skills@durable-objects`, `cloudflare/skills@workers-best-practices`, `cloudflare/skills@wrangler` (all official sources). No credible Leaflet or Hono skill found.
 16. Added the critical-path section to `docs/roadmap.md` (longest chain vs highest-uncertainty item, day-1 parallel starts, risk register) and patched Linear epics E1/E4/E7 with the new skill references.
