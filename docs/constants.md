@@ -104,11 +104,14 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 
 ## AUTH
 
-`auth.ts`. Better Auth session settings (D24).
+`auth.ts`. Better Auth session settings (D24) and its sign-in rate limit.
 
 | Name | Value | Notes |
 |---|---|---|
 | `COOKIE_CACHE_MAX_AGE_S` | `300` | Better Auth's signed session cookie cache, in seconds (D24): within it a request is authenticated from the cookie without a database read, so a session revoked elsewhere stays usable for at most this long. |
+| `RATE_LIMIT_PATH` | `'/sign-in/*'` | Better Auth path pattern (relative to `ROUTES.AUTH`) the sign-in rate limit covers. On only under an https `BETTER_AUTH_URL` (a deployed Worker). |
+| `RATE_LIMIT_WINDOW_S` | `60` | Sign-in rate limit window, in seconds; over the limit Better Auth answers 429 `X-Retry-After`. |
+| `RATE_LIMIT_MAX` | `10` | Sign-in attempts per client IP per window. Counted in each Worker isolate's memory, so it slows one client; the zone's WAF rate rule (docs/deploy.md) is the global cap. |
 
 ## ROUTES
 
