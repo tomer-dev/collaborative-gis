@@ -11,7 +11,7 @@ Success: a reviewer can clone, run `docker compose up` or `wrangler dev`, open t
 ## 2. Architecture
 
 ```
-Browser (Vite SPA: React, TanStack Router/Query, Leaflet)
+Browser (Vite SPA: React, TanStack Router/Query, Leaflet 1.9.4)
    │ HTTPS /api/*            │ WSS /ws?map=<id>
    ▼                         ▼
 Cloudflare Worker (Hono) ────► Room Durable Object (one per map)
@@ -27,7 +27,7 @@ Cron Trigger ──► retention purge
 Static assets (Vite build) served by the same Worker
 ```
 
-One deployable unit: a single Worker with two Durable Object classes and static assets. Local parity: `wrangler dev` with a Hyperdrive `localConnectionString` to a docker PostGIS, plus a Node entry (`@hono/node-server` + `@hono/node-ws`) for the docker-compose bonus.
+One deployable unit: a single Worker with two Durable Object classes and static assets. Local parity: `wrangler dev` with a Hyperdrive `localConnectionString` to a docker PostGIS, plus a Node entry (`@hono/node-server` with `ws` in `noServer` mode) for the docker-compose bonus. The Hono CLI (`@hono/cli`) inspects and tests the app in-process (`hono routes`, `hono request`, `hono batch`) with local Cloudflare bindings injected.
 
 ## 3. Components and boundaries
 
@@ -39,7 +39,7 @@ One deployable unit: a single Worker with two Durable Object classes and static 
 | `apps/api` `auth.ts` | Better Auth instance (email+password, Drizzle adapter, trustedOrigins) | `auth.handler`, `auth.api.getSession` | db |
 | `Room` DO | WS accept, protocol handlers, presence, draft broadcast, fan-out, alarms | `fetch(upgrade)`, RPC `broadcast(event)` | shared, RateLimiter |
 | `RateLimiter` DO | exact sliding window 50/60 s per user | RPC `take(action) → {ok, retryAfter}` | — |
-| `apps/web` | routes, auth pages, map, draw tool, layer switch, data layer, WS hook, panel | browser | shared |
+| `apps/web` | routes, auth pages, map (Leaflet 1.9.4), draw tool as a Leaflet `Handler`, layer switch as a `Control`, data layer, WS hook, panel | browser | shared |
 | `scheduled` handler | retention purge | Cron Trigger | db |
 
 Rule: the Worker never holds state between requests; all coordination state lives in a Durable Object or in Postgres.
@@ -62,7 +62,7 @@ Rule: the Worker never holds state between requests; all coordination state live
 
 **Viewport fetch.** `GET /areas?bbox=w,s,e,n&zoom=z` → bbox quantised to a tile → Cache API lookup → miss: `geom && ST_MakeEnvelope(...)` with limit and optional simplification → cached with ETag. Mutations purge affected tile keys.
 
-**Layer switch.** Overlays are stored as WGS84 and re-added after the base layer change. If the spike selects option A, the map CRS is swapped to EPSG:2039 for the aerial layer and centre/zoom are converted; if B, a Worker route reprojects ITM tiles to 3857 so the map stays in Web Mercator.
+**Layer switch.** Overlays are stored as WGS84 and re-added after the base layer change, in dedicated panes (saved areas, drafts) above tiles. If the spike selects option A, the map CRS is swapped to a hand-rolled EPSG:2039 CRS built on `proj4` (Proj4Leaflet is unmaintained and has no Leaflet 2 path) with a `TileLayer` subclass overriding `getTileUrl` for govmap's `L/R/C` scheme, and centre/zoom are converted via `CRS.project/unproject`; if B, a Worker route reprojects ITM tiles to 3857 so the map stays in Web Mercator.
 
 **Degradation.** Client state machine: connecting → open → degraded → offline. Backoff with jitter; on reconnect resync via bounds query; while offline, poll every 10 s and keep drafts locally. Durable Object hibernation and alarms keep presence correct across idle periods.
 
@@ -81,6 +81,7 @@ Better Auth sessions in httpOnly secure cookies; `trustedOrigins` and CORS with 
 
 - Unit (Vitest): area calc vs reference polygons, polygon validation rules, RateLimiter window, conflict path, ITM↔WGS84 utilities.
 - Integration (`@cloudflare/vitest-pool-workers`): REST routes with an ephemeral PostGIS; Room DO protocol (join, draft, broadcast, rate-limit error, hibernation-safe presence).
+- API contract suite: `hono batch` JSONL (auth → create → bounds → conflict → delete) run in CI against `--runtime workerd`; `hono snapshot`/`hono diff` as a refactor guard.
 - E2E (Playwright): two browsers; draw, see ghost polygon, save, toggle layer, conflict dialog.
 - Benchmarks: bounds query on 10k polygons with/without GiST; k6 WS + REST load at 10/50/100 users.
 
@@ -88,7 +89,14 @@ Better Auth sessions in httpOnly secure cookies; `trustedOrigins` and CORS with 
 
 In: everything in the brief's sections 1–6, bonus Docker/tests/OpenAPI/benchmarks. Out (design notes only): multi-region sharding of rooms, Queues for audit batching, OpenTelemetry export, offline editing merge beyond rename.
 
-## 10. Open questions carried into tickets
+## 10. Decisions log
+
+- Leaflet **1.9.4**, not 2.0 alpha: 2.0 is ESM-only with breaking API changes and no plugin ecosystem yet; our custom CRS/handler code is written against stable APIs and ported later.
+- No Proj4Leaflet: unmaintained since 2017; a CRS object on `proj4` is ~50 lines.
+- Hono over Fastify: Workers are fetch runtimes; Hono runs on Node too; official agent skill + CLI.
+- Cloudflare over Vercel: Vercel WebSocket beta has a hard per-connection duration cap; Durable Objects give a native coordinator.
+
+## 11. Open questions carried into tickets
 
 1. govmap tile scheme and licence (TOM-45 spike, decision gate end of day 1 of M2).
 2. Better Auth adapter behaviour with a per-request `pg` client over Hyperdrive (validated in TOM-25 before TOM-26).

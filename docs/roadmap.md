@@ -2,7 +2,7 @@
 
 **Linear:** project [Collaborative GIS](https://linear.app/tomer-sharoni-personal/project/collaborative-gis-c2d5d7aca277) (P-TOM-1, team TOM). Epics TOM-5…TOM-12; tickets TOM-13…TOM-73 (61). Ticket numbering below (0.1, 1.1, …) is the prefix of each Linear issue title.
 
-Source: the product brief (Team Lead role). Stack: React + Vite + TanStack Router/Query + Leaflet; TypeScript Hono on Cloudflare Workers + Durable Objects (WebSocket Hibernation) ; Postgres/PostGIS on Neon via Drizzle + Hyperdrive; Better Auth; Cloudflare deploy (Worker + static assets). Research backing each choice: `docs/research-notes.md`.
+Source: the product brief (Team Lead role). Stack: React + Vite + TanStack Router/Query + Leaflet 1.9.4 (2.0 is alpha; Proj4Leaflet unmaintained); TypeScript Hono on Cloudflare Workers + Durable Objects (WebSocket Hibernation) ; Postgres/PostGIS on Neon via Drizzle + Hyperdrive; Better Auth; Cloudflare deploy (Worker + static assets). Research backing each choice: `docs/research-notes.md`.
 
 ## Principles
 - Grouped by separation of concerns. Each epic is one lane with one owner-able skill.
@@ -23,7 +23,7 @@ E0 ──┬── E1 (db) ──┐
 ### E0 Foundation & Contracts — M0 — skills: typescript-pro, devops-engineer
 | # | Ticket | Acceptance | Blocked by |
 |---|---|---|---|
-| 0.1 | Monorepo scaffold (pnpm workspaces: apps/web, apps/api (Hono Worker, `wrangler.jsonc`, `nodejs_compat`), packages/shared; tsconfig base; eslint/prettier) | `pnpm -r typecheck` passes; `wrangler dev` serves hello | — |
+| 0.1 | Monorepo scaffold (pnpm workspaces: apps/web, apps/api via `hono init -t cloudflare-workers` with `@hono/cli` + `AGENTS.md`, `wrangler.jsonc`, `nodejs_compat`; packages/shared; tsconfig base; eslint/prettier) | `pnpm -r typecheck` passes; `hono routes` lists the hello route; `wrangler dev` serves it | — |
 | 0.2 | Shared contracts package: Zod schemas for Area, AreaVersion, bounds query, API error shape, WS message envelope + event types | Types exported; schema tests for one valid and one invalid polygon | 0.1 |
 | 0.3 | Local DB: docker-compose with postgis/postgis image; `.env.example`; Neon project + `CREATE EXTENSION postgis` (direct connection); Hyperdrive config with `localConnectionString` for dev | `select postgis_version()` works locally (via Hyperdrive local) and on Neon | 0.1 |
 | 0.4 | CI: GitHub Actions lint + typecheck + test on PR; `wrangler deploy --dry-run` | Green on empty repo | 0.1 |
@@ -83,10 +83,10 @@ E0 ──┬── E1 (db) ──┐
 | 5.1 | Vite + React + TanStack Router (file routes) + TanStack Query scaffold; auth context in router; protected `/map` route | Redirect to `/login` when signed out | 0.2 |
 | 5.2 | Auth pages: register, login, logout using Better Auth client | Session persists on reload | 5.1, 2.1 |
 | 5.3 | Leaflet map with OSM base layer, attribution, Israel default view | Renders, pans, zooms | 5.1 |
-| 5.4 | **Spike**: govmap aerial tiles — decode cache/level/row/col scheme, define EPSG:2039 `L.Proj.CRS`, compare (A) CRS swap per base layer, (B) reprojecting tile proxy, (C) fallback 3857 imagery; check licence | Written recommendation + prototype branch; time-box 1 day | 5.3 |
+| 5.4 | **Spike**: govmap aerial tiles — decode cache/level/row/col scheme (`getTileUrl` override), define an EPSG:2039 CRS hand-rolled on `proj4` (Proj4Leaflet is unmaintained), compare (A) CRS swap per base layer, (B) reprojecting tile proxy, (C) fallback 3857 imagery; check licence | Written recommendation + prototype branch; time-box 1 day | 5.3 |
 | 5.5 | Satellite layer per spike outcome; coordinate transforms isolated in `lib/projection.ts` with unit tests (ITM↔WGS84 known points) | Tel Aviv control point within 1 m | 5.4 |
 | 5.6 | Layer switch: crossfade via opacity tween, preserve center/zoom equivalence across CRS, re-add overlays from WGS84 state, no flicker | Drawn polygon stays on the same ground features after toggle | 5.5 |
-| 5.7 | Hand-rolled polygon draw tool (no plugin): click to add vertex, drag handles, double-click/Enter to close, Esc to cancel, keyboard accessible, works on both base layers | Produces a valid closed ring | 5.3 |
+| 5.7 | Hand-rolled polygon draw tool as a Leaflet `Handler` (no plugin): click to add vertex, drag handles, double-click/Enter to close, Esc to cancel, Backspace undo, keyboard accessible, works on both base layers | Produces a valid closed ring | 5.3 |
 | 5.8 | Live area readout while drawing (client geodesic formula, e.g. Karney/spherical excess) and server-authoritative value after save | Client vs server differ < 0.5% | 5.7 |
 | 5.9 | Areas data layer: TanStack Query `['areas', bbox]`, debounced `moveend` refetch, render polygons, select to edit, optimistic save with rollback on 409 + conflict dialog | Conflict dialog shows server copy | 5.7, 3.3 |
 | 5.10 | WS client hook: connection state machine, presence list UI, remote ghost polygons with user colors, event → query cache patches | Two browsers see each other draw | 4.7, 5.9 |
@@ -97,9 +97,9 @@ E0 ──┬── E1 (db) ──┐
 | # | Ticket | Acceptance | Blocked by |
 |---|---|---|---|
 | 6.1 | Unit tests: area calc, polygon validation, rate limiter, conflict resolution, projection utils | Vitest green in CI | E1–E5 |
-| 6.2 | Integration tests: `@cloudflare/vitest-pool-workers` for Worker + DO (WS protocol tests), ephemeral PostGIS via compose | Green in CI | 6.1 |
+| 6.2 | Integration tests: `@cloudflare/vitest-pool-workers` for Worker + DO (WS protocol tests), ephemeral PostGIS via compose; `hono batch` JSONL contract suite run in CI (`--runtime workerd`) | Green in CI; `hono batch` reports `failed: 0` | 6.1 |
 | 6.3 | E2E: Playwright two-browser collaborative scenario | Passes locally | 5.10 |
-| 6.4 | Local parity: docker-compose (postgis) + `wrangler dev` with Hyperdrive `localConnectionString` + Dockerfile running the Hono app on Node (`@hono/node-server`, `@hono/node-ws`) for the bonus docker-compose requirement | `docker compose up` serves the app | E1–E5 |
+| 6.4 | Local parity: docker-compose (postgis) + `wrangler dev` with Hyperdrive `localConnectionString` + Dockerfile running the Hono app on Node (`@hono/node-server` with `ws` `noServer`; `@hono/node-ws` is deprecated) for the bonus docker-compose requirement | `docker compose up` serves the app | E1–E5 |
 | 6.5 | README: setup, architecture, decisions, performance, security, limitations, future work, testing approach; ADRs linked | Matches submission checklist | all |
 | 6.6 | Load test: k6 WS + REST scenario, results in `docs/benchmarks.md` | Numbers recorded | 6.4 |
 | 6.7 | Telemetry: Workers Logs + Workers Analytics Engine datapoints (ws connections, msgs/s, query latency); `/metrics` counters from the room DO; OpenTelemetry as design note | Endpoint returns counters | 2.7 |
@@ -155,7 +155,7 @@ Because 5.4 is both uncertain and early, it is scheduled **first in M2**, immedi
 4. **1.2 migrations through transaction pooling** — must use the Neon direct URL from CI, never Hyperdrive. Fails loudly if wrong; cheap to fix.
 
 ### Installed skills for execution
-`postgis`, `design-postgis-tables` (E1); `durable-objects`, `workers-best-practices` (E2.5, E4); `wrangler` (E0, E7); plus `better-auth-best-practices`, `react-expert`, `websocket-engineer`, `test-master`, `devops-engineer` already present.
+`hono` (E0, E2, E3); `postgis`, `design-postgis-tables` (E1); `durable-objects`, `workers-best-practices` (E2.5, E4); `wrangler` (E0, E7); plus `better-auth-best-practices`, `react-expert`, `websocket-engineer`, `test-master`, `devops-engineer` already present.
 
 ## Known risks (facts only, no critique)
 - govmap imagery licence and tile scheme are undocumented; spike 5.4 is on the critical path for section 4 of the brief.
