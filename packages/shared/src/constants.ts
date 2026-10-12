@@ -86,6 +86,8 @@ export const MAP = {
   HANDLE_BORDER_PX: 2,
   /** Leaflet path options for a sketch in progress (own draft now, remote ghosts in T14); design brief §4: 2 px, dashed 8/4, fill 12 %. */
   DRAFT_STYLE: { weight: 2, dashArray: '8 4', fillOpacity: 0.12 },
+  /** Area readouts switch from m² to km² at this many km². */
+  AREA_KM2_THRESHOLD: 1,
 } as const;
 
 /** Geodesy constants for client-side measurements. */
@@ -107,15 +109,7 @@ export const DRAW = {
   FINISH_LABEL: 'Finish',
   UNDO_LABEL: 'Undo',
   CANCEL_LABEL: 'Cancel',
-} as const;
-
-/** Live area readout: whole m² below `KM2_THRESHOLD` km², km² with `KM2_DECIMALS` decimals from there up. */
-export const AREA_FORMAT = {
-  LOCALE: 'en-US',
-  KM2_THRESHOLD: 1,
-  M2_DECIMALS: 0,
-  KM2_DECIMALS: 3,
-  M2_PER_KM2: 1_000_000,
+  /** Area unit suffixes (Intl.NumberFormat has no area units). */
   M2_UNIT: 'm²',
   KM2_UNIT: 'km²',
 } as const;

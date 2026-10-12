@@ -258,7 +258,7 @@ describe('Stat', () => {
   it('formats the value with its unit and shows an em dash without one', () => {
     const { rerender } = render(<Stat label="Area" value={12.3456} unit="km²" />);
     const output = screen.getByRole('status', { name: 'Area' });
-    expect(output.textContent).toBe(`${(12.35).toLocaleString()}km²`);
+    expect(output.textContent).toBe(`${(12.35).toLocaleString()} km²`);
     expect(output.getAttribute('aria-live')).toBe('off');
     rerender(<Stat label="Area" value={null} unit="km²" live />);
     expect(screen.getByRole('status', { name: 'Area' }).textContent).toBe('—No value');
@@ -273,6 +273,18 @@ describe('formatStatValue', () => {
     expect(formatStatValue(0.004213)).toBe(
       (0.00421).toLocaleString(undefined, { maximumSignificantDigits: 3 }),
     );
+  });
+
+  it('uses exactly `decimals` fraction digits when given', () => {
+    const fixed = (value: number, digits: number) =>
+      value.toLocaleString(undefined, {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits,
+      });
+    expect(formatStatValue(104.79836, { decimals: 3 })).toBe(fixed(104.798, 3));
+    expect(formatStatValue(12.5, { decimals: 3 })).toBe(fixed(12.5, 3));
+    expect(formatStatValue(523.4, { decimals: 0 })).toBe(fixed(523, 0));
+    expect(formatStatValue(262131.85, { decimals: 0 })).toBe(fixed(262132, 0));
   });
 });
 

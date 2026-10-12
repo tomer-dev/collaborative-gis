@@ -1,10 +1,10 @@
-import { AREA_FORMAT, DRAW } from '@cgis/shared';
+import { DRAW } from '@cgis/shared';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import * as L from 'leaflet';
 import { StrictMode, type ReactNode } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { invalidReason, PolygonDraw, type DrawEventMap } from '../lib/geo/draw-handler';
-import { ringAreaKm2, type LngLat } from '../lib/geo/geodesic';
+import { ringAreaKm2, ringAreaM2, type LngLat } from '../lib/geo/geodesic';
 import { DrawControl } from './DrawControl';
 
 let map: L.Map;
@@ -108,7 +108,7 @@ it('shows the live area in km² with 3 decimals and the vertex count on draw:cha
 
   fire('draw:change', { vertices: square });
   // The readout is ringAreaKm2's value, rounded for display.
-  expect(ringAreaKm2(square).toFixed(AREA_FORMAT.KM2_DECIMALS)).toBe('104.798');
+  expect(ringAreaKm2(square).toFixed(3)).toBe('104.798');
   expect(readout(DRAW.AREA_LABEL)).toBe('104.798 km²');
   expect(readout(DRAW.VERTICES_LABEL)).toBe('4 / 999');
 
@@ -122,7 +122,7 @@ it('shows an area under 1 km² in whole m²', () => {
 
   fire('draw:change', { vertices: triangle });
 
-  expect(Math.round(ringAreaKm2(triangle) * AREA_FORMAT.M2_PER_KM2)).toBe(262132);
+  expect(Math.round(ringAreaM2(triangle))).toBe(262132);
   expect(readout(DRAW.AREA_LABEL)).toBe('262,132 m²');
   expect(readout(DRAW.VERTICES_LABEL)).toBe('3 / 999');
 });
