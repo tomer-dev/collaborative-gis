@@ -281,6 +281,7 @@ describe('/register', () => {
     expect(screen.getByText(COPY.AUTH.PASSWORD_HINT)).toBeTruthy();
     expect(screen.getByLabelText(COPY.AUTH.NAME_LABEL, { exact: false })).toMatchObject({
       autocomplete: 'name',
+      maxLength: LIMITS.USER_NAME_MAX,
       required: true,
     });
   });
