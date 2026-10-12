@@ -1,6 +1,6 @@
 import { ROUTES } from '@cgis/shared/constants';
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
-import { AppFrame } from './-components/AppFrame';
+import { AppFrame, SessionMenu } from './-components/AppFrame';
 
 // Pathless layout: every route under routes/_authed/ needs a session and keeps its own URL.
 export const Route = createFileRoute('/_authed')({
@@ -16,20 +16,7 @@ function AuthedLayout() {
   const user = Route.useRouteContext({ select: (context) => context.user });
 
   return (
-    <AppFrame
-      headerEnd={
-        <div className="flex items-center gap-3 text-sm">
-          <span>{user.name}</span>
-          {/* No-op until T12 wires Better Auth's signOut. */}
-          <button
-            type="button"
-            className="rounded-md border border-line-control px-3 py-1 focus-visible:outline-2 focus-visible:outline-offset-2"
-          >
-            Sign out
-          </button>
-        </div>
-      }
-    >
+    <AppFrame headerEnd={<SessionMenu user={user} />}>
       <Outlet />
     </AppFrame>
   );
