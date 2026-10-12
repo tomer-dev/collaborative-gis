@@ -1,12 +1,4 @@
-import {
-  type AreaEvent,
-  AreaSchema,
-  parseWsMessage,
-  ROOM,
-  ROUTES,
-  type WsEvent,
-  type WsEventType,
-} from '@cgis/shared';
+import { type AreaEvent, AreaSchema, parseWsMessage, ROOM, ROUTES } from '@cgis/shared';
 import {
   createExecutionContext,
   evictDurableObject,
@@ -18,6 +10,7 @@ import type { Env } from '../../src/app';
 import { Room } from '../../src/do/room';
 import { areasClient, areasEnv, freshUser, randomSpot, squareAt } from '../areas/fixtures';
 import { appWithUser, type User } from '../helpers';
+import { socketClient } from './socket-client';
 
 // TOM-37: a committed area change reaches every socket in the Room, after the HTTP response.
 // Wire values (types, statuses, log fields) are spelled out: they are the contract T14 relies on.
@@ -40,20 +33,11 @@ afterEach(async () => {
   if ((await socketCount()) > 0) await evictDurableObject(room(), { webSockets: 'close' });
 });
 
-type Frame<T extends WsEventType> = Extract<WsEvent, { type: T }>;
-
-type Socket = {
-  /** Resolves once `count` frames of `type` have arrived, with the last of them. */
-  waitFor: <T extends WsEventType>(type: T, count?: number) => Promise<Frame<T>>;
-  /** Every frame received so far, in arrival order. */
-  frames: WsEvent[];
-};
-
 /**
  * Opens a socket through the Worker's real `GET /ws` (session user, browser Origin), sends `join`
  * and waits for the join reply. Every frame is parsed with the shared envelope schema.
  */
-async function joined(user: User): Promise<Socket> {
+async function joined(user: User) {
   const res = await appWithUser(user).request(
     ROUTES.WS,
     { headers: { Upgrade: 'websocket', Origin: env.CLIENT_ORIGIN } },
@@ -62,25 +46,7 @@ async function joined(user: User): Promise<Socket> {
   expect(res.status).toBe(101);
   const ws = res.webSocket;
   if (!ws) throw new Error('expected a webSocket on the 101 response');
-  const frames: WsEvent[] = [];
-  let wake = () => {};
-  ws.addEventListener('message', (event) => {
-    if (typeof event.data === 'string') frames.push(parseWsMessage(event.data));
-    wake();
-  });
-  ws.accept();
-  const socket: Socket = {
-    frames,
-    async waitFor<T extends WsEventType>(type: T, count = 1): Promise<Frame<T>> {
-      for (;;) {
-        const frame = frames.filter((f): f is Frame<T> => f.type === type)[count - 1];
-        if (frame) return frame;
-        await new Promise<void>((resolve) => {
-          wake = resolve;
-        });
-      }
-    },
-  };
+  const socket = socketClient(ws, parseWsMessage);
   ws.send(
     JSON.stringify({
       type: 'join',
