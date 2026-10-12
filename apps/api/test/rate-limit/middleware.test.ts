@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppEnv } from '../../src/app';
 import { rateLimit } from '../../src/middleware/rate-limit';
 
-const { DRAW_ACTIONS_PER_WINDOW: LIMIT, WINDOW_MS } = RATE_LIMIT;
+const { DRAW_ACTIONS_PER_WINDOW: LIMIT, WINDOW_MS, ACTIONS } = RATE_LIMIT;
 // Far ahead of the real clock: workerd schedules alarms on real time, so an alarm armed at a
 // mocked instant in the past would fire mid-test (see rate-limiter.test.ts).
 const T0 = Date.UTC(2100, 0, 1);
@@ -22,7 +22,7 @@ function appFor(user?: User) {
     if (user) c.set('user', user);
     await next();
   });
-  app.post('/areas', rateLimit('draw'), handler);
+  app.post('/areas', rateLimit(ACTIONS.MUTATE), handler);
   const post = () => app.request('http://x/areas', { method: 'POST' }, env);
   return { post, handler };
 }
@@ -73,7 +73,7 @@ describe('rateLimit middleware', () => {
   it('shares one budget with direct take() calls (the Room DO path)', async () => {
     const user = freshUser();
     const limiter = env.RATE_LIMITER.get(env.RATE_LIMITER.idFromName(user.id));
-    for (let i = 0; i < LIMIT; i++) await limiter.take('draft');
+    for (let i = 0; i < LIMIT; i++) await limiter.take(ACTIONS.DRAW);
 
     const { post, handler } = appFor(user);
     expect((await post()).status).toBe(429);
