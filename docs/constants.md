@@ -53,20 +53,46 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 
 ## AUDIT
 
-`db.ts`. `audit_log` vocabulary (D20): one row per user action. An area event's row carries `(entity_id, version)`, pointing at the `area_versions` row the action produced.
+`db.ts`. `audit_log` vocabulary (D20): one row per user action. An area event's row carries `(entity_id, version)`, pointing at the `area_versions` row the action produced. Area mutations write their row inside the mutation's transaction; auth events and rejected requests come from the audit middleware after the response, draw sessions from the Room.
+
+### AUDIT.ENTITIES
+
+`audit_log.entity`: what the row's `entity_id` names (NULL when the event has no such id).
 
 | Name | Value | Notes |
 |---|---|---|
-| `ENTITIES` | `{ AREA: 'area' }` |  |
+| `AREA` | `'area'` | An area; `entity_id` is its id. |
+| `USER` | `'user'` | An account; `entity_id` is the user id (NULL for a failed sign-in). |
+| `REQUEST` | `'request'` | A rejected HTTP request; no entity id (the row's `request_id` names the request). |
+| `DRAFT` | `'draft'` | A Room draft; no entity id (a draft is the user's, and gone once the session ends). |
 
 ### AUDIT.ACTIONS
 
+`audit_log.action`: every event the API records, one group.
+
 | Name | Value | Notes |
 |---|---|---|
-| `AREA_CREATE` | `'area.create'` |  |
-| `AREA_UPDATE` | `'area.update'` |  |
-| `AREA_DELETE` | `'area.delete'` |  |
+| `AREA_CREATE` | `'area.create'` | A new area; `(entity_id, version)` points at its version 1 row in `area_versions`. |
+| `AREA_UPDATE` | `'area.update'` | An area edit; the row's `version` is the version the edit produced. |
+| `AREA_DELETE` | `'area.delete'` | A soft delete; the row's `version` is the bumped version the delete recorded. |
 | `AREA_REVERT` | `'area.revert'` | `POST /api/areas/:id/revert/:version`; the row's `version` is the new version it wrote. |
+| `AUTH_SIGN_IN` | `'auth.sign_in'` | Better Auth accepted an email sign-in (2xx); the row's user is the one signed in. |
+| `AUTH_SIGN_UP` | `'auth.sign_up'` | An email sign-up created an account (2xx). |
+| `AUTH_SIGN_OUT` | `'auth.sign_out'` | A sign-out answered 2xx; the row's user is the one whose session ended. |
+| `AUTH_SIGN_IN_FAILED` | `'auth.sign_in_failed'` | An email sign-in answered anything but 2xx (wrong password, unknown email, bad body, rate limit); no user, and `details` keeps the status and Better Auth's error code. |
+| `REQUEST_REJECTED` | `'request.rejected'` | A response with one of `CAPTURE.REJECTED_CODES` under `/api`; `details.code` says which. |
+| `DRAW_SESSION` | `'draw.session'` | A completed Room draft: a `clear` that ended a draft of ≥ 1 vertex (`details.vertices`). |
+
+### AUDIT.CAPTURE
+
+Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
+
+| Name | Value | Notes |
+|---|---|---|
+| `SIGN_IN_PATH` | `` `${ROUTES.AUTH}/sign-in/email` `` | Better Auth's email sign-in: 2xx → `auth.sign_in`, any other status → `auth.sign_in_failed`. |
+| `SIGN_UP_PATH` | `` `${ROUTES.AUTH}/sign-up/email` `` | Better Auth's email sign-up: 2xx → `auth.sign_up`. |
+| `SIGN_OUT_PATH` | `` `${ROUTES.AUTH}/sign-out` `` | Better Auth's sign-out: 2xx → `auth.sign_out`. |
+| `REJECTED_CODES` | `[ERROR_CODES.UNPROCESSABLE, ERROR_CODES.RATE_LIMITED]` | Responses recorded as `request.rejected` anywhere under `/api`: validation (422) and rate limits (429). A failed sign-in is recorded once, as `auth.sign_in_failed`. |
 
 ## RETENTION
 
