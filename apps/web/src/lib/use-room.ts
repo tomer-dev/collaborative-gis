@@ -9,7 +9,6 @@ import {
   QUERY,
   ROOM,
   WS,
-  WS_MESSAGES,
 } from '@cgis/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import type * as L from 'leaflet';
@@ -277,10 +276,7 @@ export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
       connection.on('error', ({ payload }) => {
         if (payload.code === ERROR_CODES.RATE_LIMITED) {
           sender.pause(payload.retryAfter ?? DRAFT_INTERVAL_MS);
-        } else if (
-          payload.code === ERROR_CODES.BAD_REQUEST &&
-          payload.message === WS_MESSAGES.DRAFT_OP_MISFIT
-        ) {
+        } else if (payload.code === ERROR_CODES.DRAFT_OP_MISFIT) {
           sender.restart();
         }
       }),

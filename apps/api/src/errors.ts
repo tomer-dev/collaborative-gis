@@ -13,6 +13,8 @@ const STATUS_BY_CODE = {
   FORBIDDEN: 403,
   NOT_FOUND: 404,
   CONFLICT: 409,
+  // WebSocket only (an `error` frame); listed after CONFLICT, which keeps 409 in CODE_BY_STATUS.
+  DRAFT_OP_MISFIT: 409,
   PAYLOAD_TOO_LARGE: 413,
   UNPROCESSABLE: 422,
   UPGRADE_REQUIRED: 426,
@@ -54,8 +56,11 @@ export function apiErrorResponse(
   return Response.json(errorBody(code, message, details), { status: STATUS_BY_CODE[code] });
 }
 
+// A status shared by two codes maps to the one listed first (reversed: the first set wins).
 const CODE_BY_STATUS = new Map<number, string>(
-  Object.entries(STATUS_BY_CODE).map(([code, status]) => [status, code]),
+  Object.entries(STATUS_BY_CODE)
+    .reverse()
+    .map(([code, status]) => [status, code]),
 );
 
 /**
