@@ -1,6 +1,6 @@
 import { type ApiError, type ApiErrorCode, ERROR_MESSAGES } from '@cgis/shared';
 import type { Context } from 'hono';
-import type { HTTPException } from 'hono/http-exception';
+import { HTTPException } from 'hono/http-exception';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 
 /**
@@ -62,6 +62,14 @@ const CODE_BY_STATUS = new Map<number, string>(
     .reverse()
     .map(([code, status]) => [status, code]),
 );
+
+/**
+ * What a blown time budget throws (the request deadline, a stalled query): `app.onError` answers it
+ * as 504 `{ code: 'TIMEOUT', message: ERROR_MESSAGES.TIMEOUT }`, without logging it as a crash.
+ */
+export function timeoutException(cause?: unknown): HTTPException {
+  return new HTTPException(STATUS_BY_CODE.TIMEOUT, { message: ERROR_MESSAGES.TIMEOUT, cause });
+}
 
 /**
  * A thrown `HTTPException` keeps its status and message; its code comes from the table above, or

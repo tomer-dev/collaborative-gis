@@ -18,6 +18,8 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 | `USER_NAME_MAX` | `60` | Presence list and ghost labels stay short; attachments stay small. |
 | `USER_ID_MAX` | `128` | With both strings capped, a socket attachment cannot reach the runtime's 16 KiB limit. |
 | `BOUNDS_LIMIT` | `500` | Caps one viewport response. |
+| `BODY_MAX_BYTES` | `64 * 1024` | Request body cap on mutations (64 KiB): 413 `PAYLOAD_TOO_LARGE` before JSON parsing. A ring at POLYGON_MAX_VERTICES with full-precision coordinates and a maximal name is about 41 KB. |
+| `VERSION_MAX` | `2_147_483_647` | Largest `version` a PUT body may carry: Postgres `integer` max, the type of `areas.version` and `area_versions.version`. A larger value would fail the query (22003) as a 500, not a 422. |
 | `PASSWORD_MIN` | `8` | Better Auth's default `minPasswordLength`; the register form's `minlength`. |
 
 ## TIMEOUTS
@@ -59,7 +61,15 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 | Name | Value | Notes |
 |---|---|---|
 | `ENTITIES` | `{ AREA: 'area' }` |  |
-| `ACTIONS` | `{ AREA_CREATE: 'area.create', AREA_UPDATE: 'area.update', AREA_DELETE: 'area.delete' }` |  |
+
+### AUDIT.ACTIONS
+
+| Name | Value | Notes |
+|---|---|---|
+| `AREA_CREATE` | `'area.create'` |  |
+| `AREA_UPDATE` | `'area.update'` |  |
+| `AREA_DELETE` | `'area.delete'` |  |
+| `AREA_REVERT` | `'area.revert'` | `POST /api/areas/:id/revert/:version`; the row's `version` is the new version it wrote. |
 
 ## WS
 
@@ -102,7 +112,7 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 |---|---|---|
 | `DRAW_ACTIONS_PER_WINDOW` | `50` | D5: 50 drawing actions per user per window, one budget for REST and WS. |
 | `WINDOW_MS` | `60_000` | D5: exact sliding window over the last 60 s; the 429 `Retry-After` is at most this long. |
-| `ACTIONS` | `{ DRAW: 'draw', MUTATE: 'mutate' }` | The only labels `RateLimiter.take` accepts; every action spends the same budget. |
+| `ACTIONS` | `{ DRAW: 'draw' }` | The only labels `RateLimiter.take` accepts. REST mutations and WS draft actions both spend `DRAW`: one drawing-action budget (spec: `requireUser` then `take('draw')`). |
 
 ## AUTH
 
@@ -124,6 +134,8 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 | `AUTH` | `'/api/auth'` | Better Auth mount. |
 | `AREAS` | `'/api/areas'` | Area CRUD + bbox query. |
 | `AREA_BY_ID` | `'/:id'` | One area, relative to AREAS (`PUT`/`DELETE /api/areas/:id`). |
+| `AREA_VERSIONS` | `'/:id/versions'` | One area's saved versions, relative to AREAS (`GET /api/areas/:id/versions`). |
+| `AREA_REVERT` | `'/:id/revert/:version'` | Revert to a saved version, relative to AREAS (`POST /api/areas/:id/revert/:version`). |
 | `WS` | `'/ws'` | Room WebSocket upgrade. |
 | `OPENAPI` | `'/openapi.json'` | OpenAPI 3.1 document of the routes with `describeRoute` metadata. |
 | `APP` | `{ HOME: '/', LOGIN: '/login', REGISTER: '/register', MAP: '/map' }` | SPA routes: redirect/Link/navigate targets (file-route ids in createFileRoute stay literal). |
@@ -353,13 +365,14 @@ Saved areas on /map: the save dialog, the selected-area panel and the conflict d
 
 ## ERROR_REASONS
 
-`errors.ts`. `ApiError.message`s more specific than their code's default in ERROR_MESSAGES.
+`errors.ts`. `ApiError.message`s more specific than their code's default in ERROR_MESSAGES, and the `details.reason`s the API itself names.
 
 | Name | Value | Notes |
 |---|---|---|
 | `ORIGIN_NOT_ALLOWED` | `'origin not allowed'` | Cross-site WebSocket hijacking: Better Auth's `getSession` ignores Origin, so without this a foreign page could open a socket with the victim's cookie. |
 | `INVALID_GEOMETRY` | `'invalid geometry'` | 422: PostGIS `ST_IsValid` rejected a polygon Zod accepted; `details.reason` says why. |
 | `VERSION_CONFLICT` | `'version conflict'` | 409: the area's stored `version` is not the one the client edited; `details.current` is. |
+| `AREA_DELETED` | `'area deleted'` | 409 `details.reason` (the message is the code's default): a revert on a soft-deleted area, which stays deleted. |
 
 ## WS_MESSAGES
 

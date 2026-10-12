@@ -67,7 +67,10 @@ export const ERROR_MESSAGES = {
   DRAFT_OP_MISFIT: 'draft op does not fit the current draft',
 } as const satisfies Record<keyof typeof ERROR_CODES, string>;
 
-/** `ApiError.message`s more specific than their code's default in ERROR_MESSAGES. */
+/**
+ * `ApiError.message`s more specific than their code's default in ERROR_MESSAGES, and the
+ * `details.reason`s the API itself names.
+ */
 export const ERROR_REASONS = {
   /**
    * Cross-site WebSocket hijacking: Better Auth's `getSession` ignores Origin, so without this a
@@ -78,6 +81,11 @@ export const ERROR_REASONS = {
   INVALID_GEOMETRY: 'invalid geometry',
   /** 409: the area's stored `version` is not the one the client edited; `details.current` is. */
   VERSION_CONFLICT: 'version conflict',
+  /**
+   * 409 `details.reason` (the message is the code's default): a revert on a soft-deleted area,
+   * which stays deleted.
+   */
+  AREA_DELETED: 'area deleted',
 } as const;
 
 /**
