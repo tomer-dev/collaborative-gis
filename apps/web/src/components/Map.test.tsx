@@ -98,7 +98,12 @@ it('reports the initial bbox, then one debounced bbox per burst of moveend event
 
   vi.advanceTimersByTime(1);
   expect(onBoundsChange).toHaveBeenCalledTimes(2);
-  expect(onBoundsChange).toHaveBeenLastCalledWith([34.7, 31.9, 35.0, 32.2]);
+  expect(onBoundsChange).toHaveBeenLastCalledWith([
+    expect.closeTo(34.7, 9),
+    31.9,
+    expect.closeTo(35.0, 9),
+    32.2,
+  ]);
 });
 
 it('keeps one map across re-renders and calls the latest onBoundsChange', () => {
