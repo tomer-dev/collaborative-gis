@@ -9,6 +9,13 @@ import { apiOrigin, laneDatabaseUrl, REPO_ROOT, STACK, webOrigin } from './e2e/s
 const api = apiOrigin();
 const web = webOrigin();
 
+/**
+ * The specs that load govmap's tiles from its CDN (the internet): their own project, `aerial`,
+ * which CI leaves out (`CI` is set there), so a CDN outage cannot fail a pull request.
+ */
+const NEEDS_INTERNET = /layer-switch\.spec\.ts$/;
+const browser = devices['Desktop Chrome'];
+
 export default defineConfig({
   testDir: 'e2e',
   // Ignored by git, ESLint and Prettier; a failure leaves its trace here.
@@ -19,7 +26,10 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   reporter: 'list',
   use: { baseURL: web, trace: 'retain-on-failure' },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'chromium', testIgnore: NEEDS_INTERNET, use: browser },
+    ...(process.env.CI ? [] : [{ name: 'aerial', testMatch: NEEDS_INTERNET, use: browser }]),
+  ],
   // Never reused: the run owns its servers, so they use the e2e database and this run's origins.
   webServer: [
     {
