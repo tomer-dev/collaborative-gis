@@ -1,5 +1,5 @@
-import { cva, cx, type VariantProps } from 'class-variance-authority';
 import { forwardRef, type HTMLAttributes } from 'react';
+import { cx } from './cx';
 
 declare module 'react' {
   interface CSSProperties {
@@ -19,25 +19,20 @@ export function initials(name: string): string {
   return (firstChar + lastChar).toLocaleUpperCase();
 }
 
-export const avatarVariants = cva(
-  'inline-flex shrink-0 items-center justify-center rounded-full bg-(--presence)/tint font-semibold text-fg inset-ring-2 inset-ring-(--presence) select-none',
-  {
-    variants: {
-      size: {
-        sm: 'size-6 text-xs',
-        md: 'size-8 text-xs',
-        lg: 'size-10 text-sm',
-      },
-    },
-    defaultVariants: { size: 'md' },
-  },
-);
+export type AvatarSize = 'sm' | 'md' | 'lg';
 
-export interface AvatarProps
-  extends
-    Omit<HTMLAttributes<HTMLSpanElement>, 'children' | 'color'>,
-    VariantProps<typeof avatarVariants> {
+const base =
+  'inline-flex shrink-0 items-center justify-center rounded-full bg-(--presence)/tint font-semibold text-fg inset-ring-2 inset-ring-(--presence) select-none';
+
+const sizeClass: Record<AvatarSize, string> = {
+  sm: 'size-6 text-xs',
+  md: 'size-8 text-xs',
+  lg: 'size-10 text-sm',
+};
+
+export interface AvatarProps extends Omit<HTMLAttributes<HTMLSpanElement>, 'children' | 'color'> {
   name: string;
+  size?: AvatarSize;
   /** The user's presence colour as the server sends it (`PresenceUser.color`). */
   color: string;
   /** Hide from assistive tech when the name is already printed next to it. */
@@ -50,7 +45,7 @@ export interface AvatarProps
  * tokens. The text stays in the body colour, so contrast holds for every hue in both themes.
  */
 export const Avatar = forwardRef<HTMLSpanElement, AvatarProps>(function Avatar(
-  { name, color, size, decorative = false, className, style, ...rest },
+  { name, color, size = 'md', decorative = false, className, style, ...rest },
   ref,
 ) {
   return (
@@ -59,7 +54,7 @@ export const Avatar = forwardRef<HTMLSpanElement, AvatarProps>(function Avatar(
       role={decorative ? undefined : 'img'}
       aria-label={decorative ? undefined : name}
       aria-hidden={decorative || undefined}
-      className={cx(avatarVariants({ size }), className)}
+      className={cx(base, sizeClass[size], className)}
       style={{ ...style, '--presence': color }}
       {...rest}
     >

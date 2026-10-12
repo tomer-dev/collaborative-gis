@@ -1,20 +1,19 @@
-import { cva, cx, type VariantProps } from 'class-variance-authority';
 import { forwardRef, useId, type HTMLAttributes, type ReactNode } from 'react';
+import { cx } from './cx';
 
-export const panelVariants = cva('flex min-h-0 w-xs max-w-full flex-col bg-bg-raised text-fg', {
-  variants: {
-    variant: {
-      /** Full-height side panel docked to the right edge of the map. */
-      docked: 'h-full border-l border-line',
-      /** Card floating over the map. */
-      floating: 'rounded-lg border border-line shadow-raised',
-    },
-  },
-  defaultVariants: { variant: 'docked' },
-});
+export type PanelVariant = 'docked' | 'floating';
 
-export interface PanelProps
-  extends Omit<HTMLAttributes<HTMLElement>, 'title'>, VariantProps<typeof panelVariants> {
+const base = 'flex min-h-0 w-xs max-w-full flex-col bg-bg-raised text-fg';
+
+const variantClass: Record<PanelVariant, string> = {
+  /** Full-height side panel docked to the right edge of the map. */
+  docked: 'h-full border-l border-line',
+  /** Card floating over the map. */
+  floating: 'rounded-lg border border-line shadow-raised',
+};
+
+export interface PanelProps extends Omit<HTMLAttributes<HTMLElement>, 'title'> {
+  variant?: PanelVariant;
   /** Heading (h2) that also names the panel's landmark. */
   title: ReactNode;
   /** Header controls, e.g. a close button. */
@@ -26,7 +25,7 @@ export interface PanelProps
 
 /** Side panel shell: titled header, scrolling body, optional footer. */
 export const Panel = forwardRef<HTMLElement, PanelProps>(function Panel(
-  { title, actions, footer, as: Tag = 'aside', variant, className, children, ...rest },
+  { title, actions, footer, as: Tag = 'aside', variant = 'docked', className, children, ...rest },
   ref,
 ) {
   const titleId = useId();
@@ -34,7 +33,7 @@ export const Panel = forwardRef<HTMLElement, PanelProps>(function Panel(
     <Tag
       ref={ref}
       aria-labelledby={titleId}
-      className={cx(panelVariants({ variant }), className)}
+      className={cx(base, variantClass[variant], className)}
       {...rest}
     >
       <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-line px-4">
