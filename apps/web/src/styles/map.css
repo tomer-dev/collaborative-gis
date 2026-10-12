@@ -1,0 +1,85 @@
+/*
+ * Leaflet path classes built on the --map-* tokens (tokens.css). Leaflet writes
+ * presentation attributes (stroke="#3388ff", ...) on each path; CSS properties override them,
+ * so a layer only needs `className` (see src/ui/map-styles.ts for the path options).
+ */
+
+@layer components {
+  .map-area {
+    stroke: var(--map-area-stroke);
+    stroke-width: var(--map-area-stroke-width);
+    fill: var(--map-area-fill);
+    fill-opacity: var(--map-area-fill-opacity);
+  }
+
+  .map-area-selected {
+    stroke: var(--map-area-selected-stroke);
+    stroke-width: var(--map-area-selected-stroke-width);
+    fill: var(--map-area-fill);
+    fill-opacity: var(--map-area-selected-fill-opacity);
+  }
+
+  /*
+   * Draw tool (src/lib/geo/draw-handler.ts). The sketch path gets its width, dash and fill
+   * opacity from MAP.DRAFT_STYLE (path options); its colour is here.
+   */
+  .cgis-draw-sketch {
+    stroke: var(--map-draft-stroke);
+    fill: var(--map-draft-stroke);
+  }
+
+  /*
+   * Vertex handle: an empty L.divIcon of MAP.HANDLE_HIT_PX (Leaflet sizes, centres and absolutely
+   * positions it); the dot is drawn here, centred in that hit box. The first handle is filled
+   * ("click to close").
+   */
+  .cgis-draw-handle::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    box-sizing: border-box;
+    width: calc(2 * var(--map-handle-radius));
+    height: calc(2 * var(--map-handle-radius));
+    border-radius: 50%;
+    border: var(--map-handle-border) solid var(--map-handle-ring);
+    background: var(--map-handle-fill);
+  }
+
+  .cgis-draw-handle--first::before {
+    background: var(--map-handle-ring);
+  }
+
+  /* Another user's draft: Leaflet writes their presence colour (ghostPathOptions); this adds
+     the token width and fill alpha. */
+  .map-ghost {
+    stroke-width: var(--map-ghost-stroke-width);
+    fill-opacity: var(--map-ghost-fill-opacity);
+  }
+}
+
+/*
+ * Leaflet chrome on the tokens (its own CSS uses 10 px control margins and Helvetica). Unlayered
+ * and one class more specific than leaflet.css, which the map component imports after this file.
+ */
+html .leaflet-container {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+}
+
+.leaflet-container .leaflet-top .leaflet-control {
+  margin-top: var(--spacing-3);
+}
+
+.leaflet-container .leaflet-bottom .leaflet-control {
+  margin-bottom: var(--spacing-3);
+}
+
+.leaflet-container .leaflet-left .leaflet-control {
+  margin-left: var(--spacing-3);
+}
+
+.leaflet-container .leaflet-right .leaflet-control {
+  margin-right: var(--spacing-3);
+}
