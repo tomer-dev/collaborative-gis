@@ -16,11 +16,12 @@ import { describeRoute, resolver } from 'hono-openapi';
 import { z } from 'zod';
 import type { AppEnv } from '../app';
 import { apiError } from '../errors';
-import { requireUser } from '../middleware';
+import { requireUser, type SignedIn } from '../middleware';
 import { rateLimit } from '../middleware/rate-limit';
 import { type Actor, createArea, deleteArea, listAreas, updateArea } from '../services/areas';
 import { fanout } from '../services/fanout';
 import { IdParamSchema, validate } from '../validate';
+import { revert, versions } from './versions';
 
 // Every path under /api/areas needs a session (401 first, from the one `use` below; an unrouted
 // path answers 401, not 404, to an anonymous caller); mutations then spend the user's D5 budget
@@ -30,12 +31,13 @@ import { IdParamSchema, validate } from '../validate';
 
 const mutation = () => rateLimit(RATE_LIMIT.ACTIONS.MUTATE);
 
-/** The session user and the client hints the audit row records. */
-function actor(c: Context, userId: string): Actor {
+/** The session user, the client hints and the request id the audit row records. */
+function actor(c: Context<AppEnv & SignedIn>, userId: string): Actor {
   return {
     userId,
     ip: c.req.header(HEADERS.CF_CONNECTING_IP) ?? null,
     userAgent: c.req.header(HEADERS.USER_AGENT) ?? null,
+    requestId: c.get('requestId'),
   };
 }
 
@@ -173,4 +175,6 @@ export const areas = new Hono<AppEnv>()
       );
       return c.body(null, 204);
     },
-  );
+  )
+  .route(ROUTES.AREA_VERSIONS, versions)
+  .route(ROUTES.AREA_REVERT, revert);
