@@ -55,6 +55,8 @@ Spatial index, geodesic area, cache keys, benchmarks: tickets 1.3, 1.4, 1.7, 3.6
 
 Tickets 2.1–2.8, 7.5. In place since M0: no secrets in the repository, the local database is bound to loopback only, and 404, 500 and failed `/readyz` responses return fixed `ApiError` bodies that never echo internal errors.
 
+Session cookie cache (D24): Better Auth keeps a signed copy of the session in a second cookie for `AUTH.COOKIE_CACHE_MAX_AGE_S` (5 minutes), and a request carrying a valid copy is authenticated without reading the session row. Signing out on the same device clears both cookies at once; a session revoked elsewhere (another device, an admin) stays usable on a device that still holds the cookie for up to 5 minutes.
+
 ## Known limitations
 
 - The local database listens on port 5433 (not 5432, to avoid a local Postgres), bound to 127.0.0.1 only.

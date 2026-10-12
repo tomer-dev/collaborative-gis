@@ -1,4 +1,4 @@
-import type { Area } from '@cgis/shared';
+import type { Bbox, Area } from '@cgis/shared';
 import { createFileRoute } from '@tanstack/react-router';
 import type * as L from 'leaflet';
 import { useState } from 'react';
@@ -13,7 +13,6 @@ import { PresenceList } from '../../components/PresenceList';
 import { SaveDialog } from '../../components/SaveDialog';
 import { useAreasInBounds, type AreaEdit } from '../../lib/areas-query';
 import type { LngLat } from '../../lib/geo/geodesic';
-import type { Bbox } from '../../lib/map';
 import { useRoom } from '../../lib/use-room';
 
 // URL /map; the session guard lives on the parent _authed layout.

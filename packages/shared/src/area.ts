@@ -61,3 +61,9 @@ export const BoundsQuerySchema = z.object({
   ),
 });
 export type BoundsQuery = z.infer<typeof BoundsQuerySchema>;
+
+/**
+ * `[west, south, east, north]` in degrees: a parsed `?bbox=w,s,e,n` (`BoundsQuery['bbox']`), the
+ * map's viewport, and the bounds query's envelope.
+ */
+export type Bbox = readonly [west: number, south: number, east: number, north: number];

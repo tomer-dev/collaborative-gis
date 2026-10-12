@@ -1,11 +1,10 @@
+import { AUTH, type AuthUser } from '@cgis/shared';
+import type { Auth } from 'better-auth';
 import type { Handler } from 'hono';
 import type pg from 'pg';
 import type { AppEnv, Env } from './app';
 import { db, withClient } from './db';
 import * as schema from './db/auth-schema';
-
-/** The signed-in user as handlers see it (`c.get('user')`). */
-export type SessionUser = NonNullable<AppEnv['Variables']['user']>;
 
 /**
  * Better Auth bound to one request's `pg.Client` (from `withClient`). Built per request, never at
@@ -14,9 +13,13 @@ export type SessionUser = NonNullable<AppEnv['Variables']['user']>;
  *
  * Better Auth is imported on first use rather than with this module, so code that never
  * authenticates (Durable Objects, /healthz, and every workerd test isolate that loads the Worker)
- * does not evaluate it; it is about half of the Worker bundle.
+ * does not evaluate it; it is about half of the Worker bundle. Typed as the two members callers
+ * use: the inferred type names Better Auth internals, which the emitted declarations cannot.
  */
-export async function createAuth(env: Env, client: pg.Client) {
+export async function createAuth(
+  env: Env,
+  client: pg.Client,
+): Promise<Pick<Auth, 'handler' | 'api'>> {
   const [{ betterAuth }, { drizzleAdapter }] = await Promise.all([
     import('better-auth/minimal'),
     import('better-auth/adapters/drizzle'),
@@ -25,6 +28,9 @@ export async function createAuth(env: Env, client: pg.Client) {
     // `better-auth/minimal` leaves out Kysely, which only direct database connections need.
     database: drizzleAdapter(db(client), { provider: 'pg', schema }),
     emailAndPassword: { enabled: true },
+    // D24: a signed `session_data` cookie answers session checks for this long without a database
+    // read. Same-device sign-out clears it at once; a session revoked elsewhere lags up to maxAge.
+    session: { cookieCache: { enabled: true, maxAge: AUTH.COOKIE_CACHE_MAX_AGE_S } },
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
     // The SPA's origin; Better Auth also trusts its own baseURL.
@@ -44,14 +50,23 @@ export async function createAuth(env: Env, client: pg.Client) {
 export const authHandler: Handler<AppEnv> = (c) =>
   withClient(c.env, async (client) => (await createAuth(c.env, client)).handler(c.req.raw));
 
+/** One session check: the user (null without a session) and the cookies Better Auth set doing it. */
+export type SessionRead = { user: AuthUser | null; setCookie: string[] };
+
 /**
- * The user of the session in `headers` (only the Cookie header matters), or null. Without a
- * cookie there is no session to look up, so the database is not touched.
+ * The session in `headers` (only the Cookie header matters). Without Better Auth's session cookie
+ * (`getSessionCookie` reads its name, `__Secure-` prefix included) there is no session to look
+ * up, so the database is not touched: other cookies cost nothing. A valid cookie cache (D24)
+ * answers without reading the session row; when the row is read, Better Auth sets a fresh cache
+ * cookie, returned in `setCookie` for the response.
  */
-export async function getSessionUser(env: Env, headers: Headers): Promise<SessionUser | null> {
-  if (!headers.has('cookie')) return null;
+export async function readSession(env: Env, headers: Headers): Promise<SessionRead> {
+  const { getSessionCookie } = await import('better-auth/cookies');
+  if (!getSessionCookie(headers)) return { user: null, setCookie: [] };
   return withClient(env, async (client) => {
-    const session = await (await createAuth(env, client)).api.getSession({ headers });
-    return session ? { id: session.user.id, name: session.user.name } : null;
+    const auth = await createAuth(env, client);
+    const { headers: set, response } = await auth.api.getSession({ headers, returnHeaders: true });
+    const user = response ? { id: response.user.id, name: response.user.name } : null;
+    return { user, setCookie: set.getSetCookie() };
   });
 }

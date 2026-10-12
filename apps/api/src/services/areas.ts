@@ -1,4 +1,11 @@
-import { AUDIT, type Area, type AreaCreate, type AreaUpdate, type AreaVersion } from '@cgis/shared';
+import {
+  AUDIT,
+  type Area,
+  type AreaCreate,
+  type AreaUpdate,
+  type AreaVersion,
+  type Bbox,
+} from '@cgis/shared';
 import type pg from 'pg';
 import type { Env } from '../app';
 import { db, withClient } from '../db';
@@ -12,7 +19,6 @@ import {
   updateAreaIfVersion,
   writeAudit,
   type AuditRow,
-  type Bbox,
   type RevertResult,
 } from '../db/spatial';
 

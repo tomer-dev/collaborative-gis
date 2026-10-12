@@ -1,8 +1,8 @@
+import type { AuthUser } from '@cgis/shared';
 import { COPY } from '@cgis/shared/constants';
 import { useMutation } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { signOut } from '../../lib/auth';
-import type { SessionUser } from '../../lib/session';
 import { Button } from '../../ui';
 
 type AppFrameProps = {
@@ -29,7 +29,7 @@ export function AppFrame({ headerEnd, children }: AppFrameProps) {
  * refetches its session (now empty) and the _authed guard sends the visitor to /login; a
  * failed one leaves the session as it was and shows an alert.
  */
-export function SessionMenu({ user }: { user: SessionUser }) {
+export function SessionMenu({ user }: { user: AuthUser }) {
   const signOutMutation = useMutation({ mutationFn: signOut });
 
   return (

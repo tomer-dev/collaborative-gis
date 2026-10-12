@@ -1,7 +1,7 @@
 import { AUDIT } from '@cgis/shared';
 import { z } from 'zod';
 import type { Env } from '../app';
-import { redact } from '../middleware/logger';
+import { log, redact } from '../log';
 import { withClient } from './index';
 import { type AuditRow, writeAudit } from './spatial';
 
@@ -31,14 +31,11 @@ export async function recordAudit(env: Env, event: AuditEvent): Promise<void> {
       : null;
     await withClient(env, (client) => writeAudit(client, { ...event, details }));
   } catch (err) {
-    const entry = {
-      level: 'error',
-      msg: 'audit write failed',
+    log('error', 'audit write failed', {
       action: event.action,
       requestId: event.requestId ?? null,
       error: err instanceof Error ? err.message : String(err),
-    };
-    console.error(JSON.stringify(entry, redact));
+    });
   }
 }
 

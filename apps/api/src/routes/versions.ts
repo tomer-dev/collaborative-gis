@@ -12,7 +12,7 @@ import { type Context, Hono } from 'hono';
 import { describeRoute, resolver } from 'hono-openapi';
 import { z } from 'zod';
 import type { AppEnv } from '../app';
-import { apiError, notFoundError } from '../errors';
+import { apiError } from '../errors';
 import { requireUser, type SignedIn } from '../middleware';
 import { rateLimit } from '../middleware/rate-limit';
 import { type Actor, listAreaVersions, revertAreaToVersion } from '../services/areas';
@@ -71,7 +71,7 @@ export const versions = new Hono<AppEnv>().use(requireUser()).get(
   async (c) => {
     const { id } = c.req.valid('param');
     const versions = await listAreaVersions(c.env, id);
-    if (!versions) return notFoundError(c);
+    if (!versions) return apiError(c, ERROR_CODES.NOT_FOUND);
     return c.json({ versions }, 200);
   },
 );
@@ -102,14 +102,16 @@ export const revert = new Hono<AppEnv>().use(requireUser()).post(
     const result = await revertAreaToVersion(c.env, id, version, actor(c, c.get('user').id));
     switch (result.status) {
       case 'missing':
-        return notFoundError(c);
+        return apiError(c, ERROR_CODES.NOT_FOUND);
       case 'deleted':
         return apiError(c, ERROR_CODES.CONFLICT, ERROR_MESSAGES.CONFLICT, {
           reason: ERROR_REASONS.AREA_DELETED,
         });
       case 'reverted': {
         const { area } = result;
-        c.executionCtx.waitUntil(fanout(c.env, { type: 'area:updated', payload: { area } }));
+        c.executionCtx.waitUntil(
+          fanout(c.env, { type: 'area:updated', payload: { area } }, c.get('requestId')),
+        );
         return c.json(area, 201);
       }
     }

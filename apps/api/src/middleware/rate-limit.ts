@@ -1,7 +1,7 @@
-import { ERROR_MESSAGES, type RateLimitAction } from '@cgis/shared';
+import { ERROR_CODES, ERROR_MESSAGES, type RateLimitAction } from '@cgis/shared';
 import type { MiddlewareHandler } from 'hono';
 import type { AppEnv } from '../app';
-import { rateLimitedError, unauthorizedError } from '../errors';
+import { apiError } from '../errors';
 
 const MS_PER_SECOND = 1000;
 
@@ -17,14 +17,14 @@ const MS_PER_SECOND = 1000;
 export function rateLimit(action: RateLimitAction): MiddlewareHandler<AppEnv> {
   return async (c, next) => {
     const user = c.get('user');
-    if (!user) return unauthorizedError(c);
+    if (!user) return apiError(c, ERROR_CODES.UNAUTHORIZED);
 
     const limiter = c.env.RATE_LIMITER.get(c.env.RATE_LIMITER.idFromName(user.id));
     const result = await limiter.take(action);
     if (!result.ok) {
       const { retryAfterMs } = result;
       c.header('Retry-After', String(Math.ceil(retryAfterMs / MS_PER_SECOND)));
-      return rateLimitedError(c, ERROR_MESSAGES.RATE_LIMITED, { retryAfterMs });
+      return apiError(c, ERROR_CODES.RATE_LIMITED, ERROR_MESSAGES.RATE_LIMITED, { retryAfterMs });
     }
     await next();
   };

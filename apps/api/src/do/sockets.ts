@@ -1,4 +1,5 @@
 import { type ApiErrorCode, WS } from '@cgis/shared';
+import { log } from '../log';
 import type { RoomEvent } from './frames';
 import { attachmentOf, type PresenceAttachment } from './presence';
 
@@ -34,9 +35,7 @@ export function sockets(ctx: DurableObjectState): Socket[] {
       open.push({ ws, attachment });
       continue;
     }
-    console.error(
-      JSON.stringify({ level: 'error', msg: 'room socket without a valid attachment; closing' }),
-    );
+    log('error', 'room socket without a valid attachment; closing');
     ws.close(WS.CLOSE_INTERNAL_ERROR);
   }
   return open;
@@ -52,7 +51,7 @@ export function sendTo(ctx: DurableObjectState, ws: WebSocket, event: RoomEvent)
   try {
     ws.send(stamp(ctx.storage.sql, event));
   } catch (err) {
-    console.warn(JSON.stringify({ level: 'warn', msg: 'room send failed', error: String(err) }));
+    log('warn', 'room send failed', { error: String(err) });
   }
 }
 
@@ -65,9 +64,7 @@ export function sendAll(ctx: DurableObjectState, event: RoomEvent, exceptUserId?
       ws.send(frame);
     } catch (err) {
       // A socket closing mid-loop must not stop delivery to the others; its close handler cleans up.
-      console.warn(
-        JSON.stringify({ level: 'warn', msg: 'room broadcast send failed', error: String(err) }),
-      );
+      log('warn', 'room broadcast send failed', { error: String(err) });
     }
   }
 }
