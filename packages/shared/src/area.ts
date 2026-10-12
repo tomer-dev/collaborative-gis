@@ -1,9 +1,10 @@
 import { z } from 'zod';
+import { LIMITS } from './constants';
 import { PolygonSchema } from './geo';
 
 export const AreaSchema = z.object({
   id: z.uuid(),
-  name: z.string().trim().min(1).max(120),
+  name: z.string().trim().min(1).max(LIMITS.AREA_NAME_MAX),
   geometry: PolygonSchema,
   areaKm2: z.number().nonnegative(),
   version: z.number().int().positive(),

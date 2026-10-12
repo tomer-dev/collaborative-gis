@@ -1,15 +1,30 @@
+import { ROUTES } from '@cgis/shared';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
+import { authHandler } from './auth';
 import { httpExceptionError, internalError, notFoundError } from './errors';
+import { middleware } from './middleware';
+import { areas } from './routes/areas';
 import { health } from './routes/health';
+import { wsUpgrade } from './ws';
 
 // Generated from wrangler.jsonc by `pnpm types` (worker-configuration.d.ts); never hand-written.
 export type Env = CloudflareBindings;
 
-export function createApp(): Hono<{ Bindings: Env }> {
-  const app = new Hono<{ Bindings: Env }>();
+export type AppEnv = {
+  Bindings: Env;
+  Variables: { user?: { id: string; name: string }; requestId: string };
+};
 
+/** The one composition point: lanes fill the mounted modules, not this file. */
+export function createApp(): Hono<AppEnv> {
+  const app = new Hono<AppEnv>();
+
+  app.use('*', middleware());
   app.route('/', health);
+  app.all(`${ROUTES.AUTH}/*`, authHandler);
+  app.route(ROUTES.AREAS, areas);
+  app.get(ROUTES.WS, wsUpgrade);
 
   app.notFound((c) => notFoundError(c));
 
