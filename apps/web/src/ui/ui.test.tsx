@@ -35,6 +35,8 @@ describe('Button', () => {
     expect(button.getAttribute('type')).toBe('button');
     expect(button.className).toContain('w-10');
     expect(button.className).not.toContain('px-4');
+    // lucide icons are hidden from assistive tech; the button's name comes from aria-label.
+    expect(button.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('applies variant and size classes and stays inert when disabled', () => {
