@@ -1,12 +1,9 @@
-import type { Polygon } from '@cgis/shared';
+import { GEO, type Polygon } from '@cgis/shared';
 import { sql } from 'drizzle-orm';
 import { customType } from 'drizzle-orm/pg-core';
 
-/** WGS 84 longitude/latitude: the SRID of every stored geometry (and of GeoJSON). */
-export const SRID = 4326;
-
 /**
- * A `geometry(Polygon,4326)` column holding a GeoJSON `Polygon` ([lng, lat] positions).
+ * A `geometry(Polygon,GEO.SRID)` (4326) column holding a GeoJSON `Polygon` ([lng, lat] positions).
  *
  * drizzle-orm 0.45's built-in `geometry()` is point-only: whatever `type`/`srid` it is given, its SQL
  * type is `geometry(point)` and it writes `point(x y)`. So polygons use this custom type instead.
@@ -14,7 +11,7 @@ export const SRID = 4326;
  * that node-postgres returns for geometry columns.
  */
 export const polygon = customType<{ data: Polygon; driverData: string }>({
-  dataType: () => `geometry(Polygon,${SRID})`,
+  dataType: () => `geometry(Polygon,${GEO.SRID})`,
   toDriver: (value) => sql`ST_GeomFromGeoJSON(${JSON.stringify(value)})`,
   fromDriver: (value) => polygonFromEwkb(value),
 });
