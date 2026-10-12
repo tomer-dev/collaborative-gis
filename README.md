@@ -65,7 +65,7 @@ Coordinate order: all GeoJSON in this project is `[longitude, latitude]`; Leafle
 ## Deploy
 
 One Worker, `collaborative-gis` (`env.production` in `apps/api/wrangler.jsonc`), serves the built SPA as static assets and the API, the WebSocket and both Durable Objects on one origin; Neon is reached through Hyperdrive with query caching off.
-`.github/workflows/deploy.yml` deploys on every push to `main` and on demand: it migrates Neon over the direct URL, builds the web and runs `wrangler deploy --env production`. It is skipped until the repository has the `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` and `DATABASE_URL` secrets.
+`.github/workflows/deploy.yml` deploys each push to `main` once `ci` has passed on it, and on demand: it migrates Neon over the direct URL, builds the web and runs `wrangler deploy --env production`. It is skipped until the repository has the `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` and `DATABASE_URL` secrets.
 The one-time owner checklist (Hyperdrive caching, production origin, `BETTER_AUTH_SECRET`, first deploy), smoke checks and rollback: [`docs/deploy.md`](docs/deploy.md).
 
 ## Technical decisions and architecture
