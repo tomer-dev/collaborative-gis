@@ -12,12 +12,7 @@ export function createApp() {
 
   app.route('/', health);
 
-  app.notFound((c) =>
-    c.json<ApiError>(
-      { code: 'NOT_FOUND', message: `No route for ${c.req.method} ${c.req.path}` },
-      404,
-    ),
-  );
+  app.notFound((c) => c.json<ApiError>({ code: 'NOT_FOUND', message: 'Not found' }, 404));
 
   app.onError((err, c) => {
     console.error(JSON.stringify({ level: 'error', msg: err.message, path: c.req.path }));
