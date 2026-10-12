@@ -1,10 +1,13 @@
-import { ROOM, WS } from '@cgis/shared';
+import { RATE_LIMIT, ROOM, WS } from '@cgis/shared';
 import { evictDurableObject, runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
+import { type DraftOp, DraftStore } from '../../src/do/drafts';
+import { draftUpdate } from '../../src/do/handlers';
 import { withRoomUser } from '../../src/do/handoff';
 import { attachmentOf } from '../../src/do/presence';
+import type { RateLimiter, TakeResult } from '../../src/do/rate-limiter';
 import { Room } from '../../src/do/room';
 import { socketClient } from './socket-client';
 
@@ -31,6 +34,20 @@ type Client = {
   send: (type: string, payload: unknown, seq?: number) => void;
 };
 
+// Timing-dependent tests freeze the clock with vi.setSystemTime: it mocks Date for the whole
+// isolate, and the vitest plugin runs the Room in the test isolate, so the Room reads the same
+// clock. T0 is far ahead of the real clock: workerd schedules alarms on real time, so an alarm
+// armed at a mocked instant in the past would fire mid-test; these tests run alarms with
+// runDurableObjectAlarm (see rate-limit/rate-limiter.test.ts).
+const T0 = Date.UTC(2100, 0, 1);
+
+/**
+ * A user id no other test spends from. Every accepted `draft:update` spends from the user's
+ * RateLimiter, whose storage lasts for the whole file; a test that drafts on a mocked clock
+ * leaves actions dated T0 that the real clock never prunes.
+ */
+const drawer = () => `drawer-${crypto.randomUUID()}`;
+
 // Each test gets its own Room (a fresh name): no drafts, counters or alarms leak between tests.
 let stub: DurableObjectStub<Room>;
 let clients: Client[] = [];
@@ -41,6 +58,8 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
   if (clients.length === 0) return;
   // Eviction waits for in-flight requests; closing the sockets keeps them from outliving the test.
   await evictDurableObject(stub, { webSockets: 'close' });
@@ -181,19 +200,20 @@ describe('draft:update', () => {
     });
   });
 
-  it(`11 updates within 100 ms: the 11th gets error RATE_LIMITED on A only; B received ${WS.DRAFT_RATE_PER_SEC}`, async () => {
-    const a = await join('a');
+  it(`${WS.DRAFT_RATE_PER_SEC + 1} updates at one instant: the last gets error RATE_LIMITED on A only; B received ${WS.DRAFT_RATE_PER_SEC}`, async () => {
+    // Frozen clock: every frame arrives at T0, so the socket's bucket cannot refill mid-burst
+    // however long the Room (or a loaded machine) takes to handle them.
+    vi.setSystemTime(T0);
+    const a = await join(drawer());
     const b = await join('b');
-    const started = Date.now();
     for (let i = 0; i <= WS.DRAFT_RATE_PER_SEC; i++) a.send('draft:update', add(i));
     const error = await a.waitFor('error');
-    expect(Date.now() - started).toBeLessThan(100);
     expect(error.payload).toEqual({
       code: 'RATE_LIMITED',
       message: 'Too many requests',
-      retryAfter: expect.any(Number),
+      // One token's worth of time: 1 s / DRAFT_RATE_PER_SEC.
+      retryAfter: 1000 / WS.DRAFT_RATE_PER_SEC,
     });
-    expect(error.payload['retryAfter']).toBeGreaterThan(0);
     await barrier(a);
     await barrier(b);
     expect(b.of('draft:update')).toHaveLength(WS.DRAFT_RATE_PER_SEC);
@@ -214,13 +234,14 @@ describe('draft:update', () => {
     expect(a.of('error')).toEqual([]);
   });
 
-  it('answers an op that does not fit the draft with DRAFT_OP_MISFIT and relays nothing', async () => {
+  it('answers an op that does not fit the draft with DRAFT_OP_MISFIT (resync) and relays nothing', async () => {
     const a = await join('a');
     const b = await join('b');
     a.send('draft:update', add(3));
     expect((await a.waitFor('error')).payload).toEqual({
       code: 'DRAFT_OP_MISFIT',
       message: 'draft op does not fit the current draft',
+      resync: true,
     });
     await barrier(b);
     expect(b.of('draft:update')).toEqual([]);
@@ -414,14 +435,14 @@ describe('alarm', () => {
     expect(b.frames.slice(before).map((frame) => frame.type)).toEqual(['presence']);
   });
 
-  it('closes a socket silent for more than WS.PRESENCE_IDLE_MS and drops it from presence', async () => {
+  it('closes a socket silent for more than WS.SOCKET_IDLE_MS and drops it from presence', async () => {
     const a = await join('a');
     const b = await join('b');
     await runInDurableObject(stub, (_room, state) => {
       for (const ws of state.getWebSockets()) {
         const attachment = attachmentOf(ws);
         if (attachment?.userId === 'a') {
-          ws.serializeAttachment({ ...attachment, lastSeen: Date.now() - WS.PRESENCE_IDLE_MS - 1 });
+          ws.serializeAttachment({ ...attachment, lastSeen: Date.now() - WS.SOCKET_IDLE_MS - 1 });
         }
       }
     });
@@ -447,5 +468,181 @@ describe('alarm', () => {
     expect(await runDurableObjectAlarm(stub)).toBe(true);
     const alarm = await runInDurableObject(stub, (_room, state) => state.storage.getAlarm());
     expect(alarm).toBeNull();
+  });
+});
+
+describe('idle sweep under fake time: drafts expire at 60 s, sockets at WS.SOCKET_IDLE_MS', () => {
+  beforeEach(() => {
+    vi.setSystemTime(T0);
+  });
+
+  const SECOND = 1000;
+
+  it('a socket silent for 61 s (a hidden tab pinging once a minute) stays open and in presence; its draft is dropped', async () => {
+    const a = await join(drawer());
+    const b = await join('b');
+    a.send('draft:update', add(0));
+    await b.waitFor('draft:update');
+    vi.setSystemTime(T0 + WS.PRESENCE_IDLE_MS + SECOND);
+    expect(await runDurableObjectAlarm(stub)).toBe(true);
+    // D13: the draft went with the 60 s draft cutoff...
+    expect((await b.waitFor('draft:state', 2)).payload).toEqual({ drafts: [] });
+    // ...but the socket is still open and joined: its next frame gets a presence with both users
+    // (a's third: its join, b's join, this one).
+    a.send('presence:set', { state: 'viewing' });
+    // Sorted by name: 'B' before 'DRAWER-…'.
+    expect(users(await a.waitFor('presence', 3))).toEqual([
+      expect.objectContaining({ userId: 'b' }),
+      expect.objectContaining({ userId: a.userId }),
+    ]);
+  });
+
+  it('a socket silent for 91 s is closed with CLOSE_IDLE; one whose frame moved lastSeen stays; presence rebroadcast', async () => {
+    const a = await join('a');
+    const b = await join('b');
+    vi.setSystemTime(T0 + WS.SOCKET_IDLE_MS / 2);
+    await barrier(b); // every frame stamps lastSeen
+    const sweptAt = T0 + WS.SOCKET_IDLE_MS + SECOND;
+    vi.setSystemTime(sweptAt);
+    expect(await runDurableObjectAlarm(stub)).toBe(true);
+    expect((await a.closed).code).toBe(WS.CLOSE_IDLE);
+    // b: its join presence, its barrier's, then the sweep's.
+    expect(users(await b.waitFor('presence', 3))).toEqual([
+      expect.objectContaining({ userId: 'b' }),
+    ]);
+    // The same single alarm re-arms one interval on.
+    const alarm = await runInDurableObject(stub, (_room, state) => state.storage.getAlarm());
+    expect(alarm).toBe(sweptAt + WS.ALARM_INTERVAL_MS);
+  });
+});
+
+describe('draft:update spends the per-user draw budget (RateLimiter, D5)', () => {
+  const { DRAW_ACTIONS_PER_WINDOW: DRAW_LIMIT, WINDOW_MS, ACTIONS } = RATE_LIMIT;
+  /** One frame per this many ms keeps the per-socket bucket full: only the shared budget refuses. */
+  const DRAFT_GAP_MS = 1000 / WS.DRAFT_RATE_PER_SEC;
+
+  const limiterOf = (userId: string) => env.RATE_LIMITER.get(env.RATE_LIMITER.idFromName(userId));
+  const actionsOf = (userId: string) =>
+    runInDurableObject(
+      limiterOf(userId),
+      (_limiter: RateLimiter, state) =>
+        state.storage.sql.exec<{ n: number }>('SELECT COUNT(*) AS n FROM actions').one().n,
+    );
+  const draftRows = () =>
+    runInDurableObject(stub, (_room, state) =>
+      state.storage.sql
+        .exec<{ user_id: string; vertices: string }>('SELECT user_id, vertices FROM drafts')
+        .toArray(),
+    );
+
+  beforeEach(() => {
+    vi.setSystemTime(T0);
+  });
+
+  it(`the ${DRAW_LIMIT + 1}st draft:update in the window: error RATE_LIMITED with retryAfter (ms), not relayed or stored`, async () => {
+    const id = drawer();
+    const a = await join(id);
+    const b = await join('b');
+    for (let i = 0; i < DRAW_LIMIT; i++) {
+      vi.setSystemTime(T0 + i * DRAFT_GAP_MS);
+      a.send('draft:update', add(i));
+      await b.waitFor('draft:update', i + 1);
+    }
+    vi.setSystemTime(T0 + DRAW_LIMIT * DRAFT_GAP_MS);
+    a.send('draft:update', add(DRAW_LIMIT));
+    expect((await a.waitFor('error')).payload).toEqual({
+      code: 'RATE_LIMITED',
+      message: 'Too many requests',
+      // Until the first of the 50 leaves the 60 s window.
+      retryAfter: WINDOW_MS - DRAW_LIMIT * DRAFT_GAP_MS,
+    });
+    await barrier(a);
+    await barrier(b);
+    expect(b.of('draft:update')).toHaveLength(DRAW_LIMIT);
+    expect(a.of('error')).toHaveLength(1);
+    const [row] = await draftRows();
+    expect(JSON.parse(row?.vertices ?? '[]')).toHaveLength(DRAW_LIMIT);
+    expect(await actionsOf(id)).toBe(DRAW_LIMIT);
+  });
+
+  it('one budget with REST: spent by mutations, a draft:update is refused; after retryAfter it is relayed', async () => {
+    const id = drawer();
+    for (let i = 0; i < DRAW_LIMIT; i++) await limiterOf(id).take(ACTIONS.MUTATE);
+    const a = await join(id);
+    const b = await join('b');
+    a.send('draft:update', add(0));
+    const refused = await a.waitFor('error');
+    expect(refused.payload).toMatchObject({ code: 'RATE_LIMITED', retryAfter: WINDOW_MS });
+    vi.setSystemTime(T0 + Number(refused.payload['retryAfter']));
+    a.send('draft:update', add(0));
+    expect((await b.waitFor('draft:update')).payload).toEqual({ ...add(0), userId: id });
+  });
+
+  it('a frame dropped for its stale or repeated seq spends nothing', async () => {
+    const id = drawer();
+    const a = await join(id);
+    a.send('draft:update', add(0), 5);
+    a.send('draft:update', add(1), 5);
+    a.send('draft:update', add(1), 4);
+    await barrier(a);
+    expect(await actionsOf(id)).toBe(1);
+  });
+
+  // Driven through the handler with a failing `takeDrawAction`: in this harness a rejected
+  // DO-to-DO RPC is reported as an uncaught exception and the Room's eviction then hangs.
+  it('fails closed when the RateLimiter call fails: error INTERNAL to the sender, nothing relayed, one log line', async () => {
+    const id = drawer();
+    const a = await join(id);
+    const b = await join('b');
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const takeDrawAction = vi.fn<(userId: string) => Promise<TakeResult>>(async () => {
+      throw new Error('limiter down');
+    });
+    const op: DraftOp = { op: 'add', index: 0, vertex: vertex(0) };
+    await runInDurableObject(stub, async (_room, state) => {
+      const ws = state.getWebSockets().find((socket) => attachmentOf(socket)?.userId === id);
+      const attachment = ws && attachmentOf(ws);
+      if (!ws || !attachment) throw new Error('expected the drawer’s socket');
+      const room = { ctx: state, drafts: new DraftStore(state.storage.sql), takeDrawAction };
+      await draftUpdate(room, { ws, attachment }, 1, op, Date.now());
+    });
+    expect((await a.waitFor('error')).payload).toEqual({
+      code: 'INTERNAL',
+      message: 'Internal Server Error',
+    });
+    await barrier(b);
+    expect(b.of('draft:update')).toEqual([]);
+    expect(await draftRows()).toEqual([]);
+    expect(takeDrawAction).toHaveBeenCalledExactlyOnceWith(id);
+    expect(logged).toHaveBeenCalledOnce();
+    expect(JSON.parse(String(logged.mock.calls[0]?.[0]))).toEqual({
+      level: 'error',
+      msg: 'rate limiter call failed',
+      error: expect.stringContaining('limiter down'),
+    });
+  });
+});
+
+describe('frame order while a draft:update waits on the RateLimiter', () => {
+  it('a leave right behind a draft:update is handled after it: the draft is relayed, then dropped', async () => {
+    const a = await join(drawer());
+    const b = await join('b');
+    a.send('draft:update', add(0));
+    a.send('leave', {});
+    a.send('join', { mapId: ROOM.DEFAULT_ROOM_ID });
+    // The re-join is answered last of the three, so every frame they caused has been sent.
+    expect((await a.waitFor('draft:state', 2)).payload).toEqual({ drafts: [] });
+    await barrier(b);
+    expect(b.of('draft:update')).toHaveLength(1);
+    // b's join reply, then the leave dropping the draft that was already relayed. Had the leave
+    // overtaken the draft, there would be no second draft:state and the draft would outlive it.
+    expect(b.of('draft:state').map((frame) => frame.payload)).toEqual([
+      { drafts: [] },
+      { drafts: [] },
+    ]);
+    const rows = await runInDurableObject(stub, (_room, state) =>
+      state.storage.sql.exec('SELECT user_id FROM drafts').toArray(),
+    );
+    expect(rows).toEqual([]);
   });
 });

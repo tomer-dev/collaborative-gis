@@ -114,7 +114,11 @@ describe('attachUser() (TOM-26)', { timeout: TEST.SLOW_TIMEOUT_MS }, () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       const ready = await get(ROUTES.READYZ, { cookie }, offline());
       expect(ready.status).toBe(503);
-      expect(await ready.json()).toEqual({ code: 'NOT_READY', message: 'database unreachable' });
+      expect(await ready.json()).toEqual({
+        code: 'NOT_READY',
+        message: 'dependency unreachable',
+        details: { db: 'down', room: 'up' },
+      });
       expect((await get(ROUTES.HEALTHZ, { cookie }, offline())).status).toBe(200);
     },
   );

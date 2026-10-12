@@ -29,3 +29,13 @@ export const OPENAPI = {
   /** Document version; bump with breaking contract changes. */
   VERSION: '0.1.0',
 } as const;
+
+/** `GET /readyz` body values; the 503 `NOT_READY` carries the same `{ db, room }` in `details`. */
+export const READINESS = {
+  /** 200 `status`: the database and the Room both answered. */
+  READY: 'ready',
+  /** A dependency answered within its deadline. */
+  UP: 'up',
+  /** A dependency failed or missed its deadline. */
+  DOWN: 'down',
+} as const;
