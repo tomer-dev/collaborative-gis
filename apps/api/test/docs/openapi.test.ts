@@ -59,6 +59,12 @@ describe(`GET ${ROUTES.OPENAPI}`, () => {
     expect(result.valid).toBe(false);
   });
 
+  it('documents the health probes: /healthz 200, /readyz 200 and 503', async () => {
+    const doc = DocumentSchema.parse(await fetchDocument());
+    expect(Object.keys(doc.paths[ROUTES.HEALTHZ]?.get?.responses ?? {})).toEqual(['200']);
+    expect(Object.keys(doc.paths[ROUTES.READYZ]?.get?.responses ?? {})).toEqual(['200', '503']);
+  });
+
   it('documents every mounted area route with 401 and 422, and 429 on the rate-limited mutations', async () => {
     const doc = DocumentSchema.parse(await fetchDocument());
     const routes = mountedAreaRoutes();
