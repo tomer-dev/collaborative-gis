@@ -65,6 +65,12 @@ Import from `@cgis/shared` in app code (`@cgis/shared/constants` in Node-side co
 | `API_ORIGIN` | `'http://localhost:8787'` | `apps/web/vite.config.ts` proxy target, `apps/api/vitest.config.ts` test `BETTER_AUTH_URL`, `.dev.vars.example` | `wrangler dev` default port |
 | `WEB_ORIGIN` | `'http://localhost:5173'` | Mirrored by hand in `apps/api/wrangler.jsonc` `vars.CLIENT_ORIGIN` (JSON cannot import); `test/scaffold.test.ts` asserts they match | `vite` default port; CORS and Better Auth trusted origin |
 
+## HEADERS
+
+| Name | Value | Where used | Why |
+|---|---|---|---|
+| `ORIGIN` | `'origin'` | `apps/api/src/ws.ts` `wsGate()` (the `GET /ws` Origin allow-list) | Browsers always send Origin on a WebSocket upgrade; the gate compares it with `env.CLIENT_ORIGIN` |
+
 ## ROOM
 
 | Name | Value | Where used | Why |
@@ -93,8 +99,8 @@ Every `ApiError.code` the API sends; `ApiErrorCodeSchema = z.enum(ERROR_CODES)`.
 | Name | Value | Status | Where used | Why |
 |---|---|---|---|---|
 | `BAD_REQUEST` | `'BAD_REQUEST'` | 400 | `badRequestError`; planned T7 bad frame | Malformed request |
-| `UNAUTHORIZED` | `'UNAUTHORIZED'` | 401 | `unauthorizedError`: `apps/api/src/middleware/require-user.ts` `requireUser()` | No session |
-| `FORBIDDEN` | `'FORBIDDEN'` | 403 | `forbiddenError` | Reserved (D12: any signed-in user edits) |
+| `UNAUTHORIZED` | `'UNAUTHORIZED'` | 401 | `unauthorizedError`: `apps/api/src/middleware/require-user.ts` `requireUser()` (also first in `GET /ws`) | No session |
+| `FORBIDDEN` | `'FORBIDDEN'` | 403 | `forbiddenError`: `apps/api/src/ws.ts` `wsGate()` with `ERROR_REASONS.ORIGIN_NOT_ALLOWED` | Foreign or missing Origin on `GET /ws`; not for edit rights (D12: any signed-in user edits) |
 | `NOT_FOUND` | `'NOT_FOUND'` | 404 | `apps/api/src/app.ts` `notFound`; planned T15 | Unknown route or area |
 | `CONFLICT` | `'CONFLICT'` | 409 | `conflictError`; planned T15 stale `version` | Optimistic concurrency |
 | `UNPROCESSABLE` | `'UNPROCESSABLE'` | 422 | `unprocessableError`; planned T15 Zod and `ST_IsValid` failures | Validation |
@@ -125,3 +131,11 @@ Default `ApiError.message` per code, same keys as `ERROR_CODES` (`satisfies` + a
 | `INTERNAL` | `'Internal Server Error'` | `apps/api/src/app.ts` `onError` | 5xx bodies never leak `err.message` |
 | `NOT_IMPLEMENTED` | `'not implemented'` | T0 stubs `auth.ts`, `ws.ts` | 501 until the lane fills the stub |
 | `UPGRADE_REQUIRED` | `'websocket upgrade required'` | Planned: T6 | 426 body |
+
+## ERROR_REASONS
+
+`ApiError.message`s more specific than their code's default; `ERROR_MESSAGES` keeps exactly the `ERROR_CODES` keys, so route-specific text lives here.
+
+| Name | Value | Code | Where used | Why |
+|---|---|---|---|---|
+| `ORIGIN_NOT_ALLOWED` | `'origin not allowed'` | `FORBIDDEN` (403) | `apps/api/src/ws.ts` `wsGate()`: a `GET /ws` upgrade whose Origin is missing or is not `env.CLIENT_ORIGIN` | Cross-site WebSocket hijacking: Better Auth's `getSession` ignores Origin, so without this a foreign page could open a socket with the victim's cookie |
