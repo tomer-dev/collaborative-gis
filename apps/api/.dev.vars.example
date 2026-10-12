@@ -1,0 +1,3 @@
+# Local Worker secrets for `wrangler dev`: copy to .dev.vars (git-ignored), never commit real values.
+# None are required yet. Locally, HYPERDRIVE uses `localConnectionString` from wrangler.jsonc
+# (the docker-compose PostGIS); deployed, it uses the Hyperdrive config backed by Neon.

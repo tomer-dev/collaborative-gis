@@ -17,14 +17,14 @@ health.get('/readyz', async (c) => {
   }
 });
 
-// ponytail: HYPERDRIVE binding lands in Task 5; until then the probe fails closed.
 export async function checkDatabase(env: Env): Promise<void> {
-  if (!env.HYPERDRIVE) throw new Error('HYPERDRIVE binding is not configured');
   const { Client } = await import('pg');
   const client = new Client({ connectionString: env.HYPERDRIVE.connectionString });
+  // Errors reject connect()/query(); this absorbs workerd's post-end() 'socket closed' event.
+  client.on('error', () => {});
   try {
     await client.connect();
-    await client.query('select 1');
+    await client.query('select postgis_version()');
   } finally {
     await client.end();
   }

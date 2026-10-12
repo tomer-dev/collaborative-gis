@@ -1,19 +1,37 @@
 import { SELF } from 'cloudflare:test';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 describe('health', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('GET /healthz returns 200 ok', async () => {
     const res = await SELF.fetch('http://x/healthz');
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
   });
 
-  it('GET /readyz returns 503 ApiError when the database check throws', async () => {
-    // No HYPERDRIVE binding is configured in this task, so the probe must fail closed.
+  it('GET /readyz returns 200 with db up when PostGIS answers', async () => {
     const res = await SELF.fetch('http://x/readyz');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, db: 'up' });
+  });
+
+  it('GET /readyz returns 503 ApiError when the connection string is unreachable', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { createApp } = await import('../src/app');
+    const app = createApp();
+    const res = await app.request(
+      'http://x/readyz',
+      {},
+      {
+        HYPERDRIVE: { connectionString: 'postgresql://nobody:x@127.0.0.1:1/none' } as Hyperdrive,
+      },
+    );
     expect(res.status).toBe(503);
-    const body = await res.json();
-    expect(body).toEqual({ code: 'NOT_READY', message: 'database unreachable' });
+    expect(await res.json()).toEqual({ code: 'NOT_READY', message: 'database unreachable' });
+    expect(log).toHaveBeenCalledOnce();
   });
 
   it('unknown route returns 404 ApiError', async () => {
