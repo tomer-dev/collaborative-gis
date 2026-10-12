@@ -9,6 +9,7 @@ import {
   type ConnectionState,
   type OutgoingEvent,
   type RoomConnection,
+  type RoomConnectionOptions,
 } from './ws';
 
 const URL = 'ws://localhost/ws';
@@ -17,9 +18,14 @@ const { min, max } = WS.RECONNECT_BACKOFF_MS;
 let connection: RoomConnection;
 
 /** A connection on fake sockets with no jitter (`random` = 0: every delay is the full backoff). */
-function connect() {
+function connect(options: Pick<RoomConnectionOptions, 'shouldRetry'> = {}) {
   const fake = fakeSockets();
-  connection = createRoomConnection({ url: URL, createSocket: fake.factory, random: () => 0 });
+  connection = createRoomConnection({
+    url: URL,
+    createSocket: fake.factory,
+    random: () => 0,
+    ...options,
+  });
   const states: ConnectionState[] = [];
   connection.onState((state) => states.push(state));
   return { ...fake, states };
@@ -106,6 +112,26 @@ describe('state machine', () => {
 
     connection.reconnect();
     expect(fake.sockets).toHaveLength(2);
+    fake.latest().open();
+    expect(connection.state).toBe('open');
+  });
+
+  it('a close while shouldRetry() is false (the session ended): offline, no retry until reconnect()', () => {
+    let signedOut = false;
+    const fake = connect({ shouldRetry: () => !signedOut });
+    failConnects(fake, 1);
+    expect(fake.sockets).toHaveLength(2);
+
+    signedOut = true;
+    fake.latest().drop(1006);
+
+    expect(connection.state).toBe('offline');
+    vi.advanceTimersByTime(max * 4);
+    window.dispatchEvent(new Event('online'));
+    expect(fake.sockets).toHaveLength(2);
+
+    connection.reconnect();
+    expect(fake.sockets).toHaveLength(3);
     fake.latest().open();
     expect(connection.state).toBe('open');
   });
