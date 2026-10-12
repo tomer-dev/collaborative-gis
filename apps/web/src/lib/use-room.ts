@@ -260,9 +260,9 @@ function sessionEnded(queryClient: QueryClient): boolean {
  * `resync` (the Room lost what this client relies on). Presence and other users' drafts come back
  * as state, each `draft:state` replacing the ghosts; `area:*` events patch every cached
  * `[QUERY.AREAS_KEY, …]` list; each reopen invalidates those queries (area events are not
- * replayed; not on the first open of a healthy connection), and while offline they are
- * invalidated every `WS.OFFLINE_POLL_MS`. The map's draw events stream your draft and presence
- * state; the draft stays in memory across reconnects and is sent again after each join.
+ * replayed; not on the first open of a healthy connection), and while degraded or offline they
+ * are invalidated every `WS.OFFLINE_POLL_MS`. The map's draw events stream your draft and
+ * presence state; the draft stays in memory across reconnects and is sent again after each join.
  */
 export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
   const queryClient = useQueryClient();
@@ -399,11 +399,11 @@ export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
     };
   }, [queryClient, selfId, socketFactory]);
 
-  // Offline: no area events arrive, so the viewport lists are refetched on a timer instead. The
-  // poll stops once the API answers 401: polling cannot fix a session that ended (the app's
-  // query client sends the visitor to sign in).
+  // Degraded or offline: no area events arrive, so the viewport lists are refetched on a timer
+  // instead, from the first failed reconnects on. The poll stops once the API answers 401:
+  // polling cannot fix a session that ended (the app's query client sends the visitor to sign in).
   useEffect(() => {
-    if (state !== 'offline') return;
+    if (state !== 'degraded' && state !== 'offline') return;
     const timer = setInterval(() => {
       if (sessionEnded(queryClient)) clearInterval(timer);
       else void queryClient.invalidateQueries({ queryKey: [QUERY.AREAS_KEY] });

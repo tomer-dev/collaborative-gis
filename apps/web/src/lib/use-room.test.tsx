@@ -338,7 +338,8 @@ describe('useRoom', () => {
     }
     act(() => room.socket().drop(1006));
     expect(room.result.current.state).toBe('offline');
-    expect(invalidate).not.toHaveBeenCalled();
+    // The degraded stretch before it polled already (next test); count from here.
+    invalidate.mockClear();
 
     room.advance(WS.OFFLINE_POLL_MS);
     expect(invalidate).toHaveBeenCalledTimes(1);
@@ -350,6 +351,23 @@ describe('useRoom', () => {
     const afterOpen = invalidate.mock.calls.length;
     room.advance(WS.OFFLINE_POLL_MS * 3);
     expect(invalidate).toHaveBeenCalledTimes(afterOpen);
+  });
+
+  it('polls while degraded too: no events arrive between the first failed connect and offline', () => {
+    const room = renderRoom();
+    const invalidate = vi.spyOn(room.queryClient, 'invalidateQueries');
+    for (let failures = 1; failures < WS.CLIENT_DEGRADED_AFTER; failures++) {
+      act(() => room.socket().drop(1006));
+      room.advance(backoffDelay(failures, () => 0));
+    }
+    act(() => room.socket().drop(1006));
+    expect(room.result.current.state).toBe('degraded');
+    expect(invalidate).not.toHaveBeenCalled();
+
+    room.advance(WS.OFFLINE_POLL_MS);
+    expect(room.result.current.state).toBe('degraded');
+    expect(invalidate).toHaveBeenCalledTimes(1);
+    expect(invalidate).toHaveBeenLastCalledWith({ queryKey: [QUERY.AREAS_KEY] });
   });
 
   it('stops the offline poll once the areas API answers 401 (the session ended)', async () => {
