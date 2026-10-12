@@ -5,6 +5,8 @@
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
+  // Retention purge (src/scheduled.ts), daily: RETENTION.CRON in @cgis/shared; a test fails if they differ.
+  "triggers": { "crons": ["0 3 * * *"] },
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
