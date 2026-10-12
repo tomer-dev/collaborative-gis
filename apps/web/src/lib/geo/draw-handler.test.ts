@@ -22,11 +22,26 @@ afterEach(() => {
   container.remove();
 });
 
-const click = (lat: number, lng: number) => map.fire('click', { latlng: L.latLng(lat, lng) });
+/**
+ * A map click as Leaflet.Editable sees it: it listens to the map's mousedown + mouseup (left
+ * button, `which === 1`, under 9 px apart) and treats the pair as a drawing click.
+ */
+const click = (lat: number, lng: number) => {
+  const latlng = L.latLng(lat, lng);
+  const originalEvent = new MouseEvent('mousedown', { which: 1, clientX: 10, clientY: 10 });
+  map.fire('mousedown', { latlng, originalEvent });
+  map.fire('mouseup', { latlng, originalEvent });
+};
 const triangle = () => {
   click(32, 35);
   click(32, 35.05);
   click(32.05, 35.05);
+};
+const bowtie = () => {
+  click(32, 35);
+  click(32.05, 35.05);
+  click(32, 35.05);
+  click(32.05, 35);
 };
 const record = <K extends DrawEventType>(type: K) => {
   const events: DrawEvent<K>[] = [];
@@ -34,33 +49,32 @@ const record = <K extends DrawEventType>(type: K) => {
   return events;
 };
 const handles = () => container.querySelectorAll<HTMLElement>('.cgis-draw-handle');
+const sketchPaths = () => container.querySelectorAll('path.cgis-draw-sketch');
+const clickHandle = (handle: HTMLElement) =>
+  handle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
-describe('PolygonDraw', () => {
-  it('suspends double-click zoom and shows a crosshair while enabled, and restores both', () => {
+describe('PolygonDraw (Leaflet.Editable)', () => {
+  it('creates map.editTools once and styles through classes: handle hit box, sketch class and DRAFT_STYLE', () => {
     const draw = new PolygonDraw(map).enable();
-    expect(map.doubleClickZoom.enabled()).toBe(false);
-    expect(container.classList.contains('leaflet-crosshair')).toBe(true);
-
-    draw.disable();
-    expect(map.doubleClickZoom.enabled()).toBe(true);
-    expect(container.classList.contains('leaflet-crosshair')).toBe(false);
-  });
-
-  it('styles through CSS classes only: handle hit box from MAP.HANDLE_HIT_PX, first handle marked', () => {
-    new PolygonDraw(map).enable();
+    const tools = map.editTools;
+    expect(tools).toBeDefined();
     triangle();
-    const [first, second] = handles();
-    expect(first!.classList.contains('cgis-draw-handle--first')).toBe(true);
-    expect(second!.classList.contains('cgis-draw-handle--first')).toBe(false);
+    const [first] = handles();
+    expect(handles()).toHaveLength(3);
     expect(first!.style.width).toBe(`${MAP.HANDLE_HIT_PX}px`);
     expect(first!.style.height).toBe(`${MAP.HANDLE_HIT_PX}px`);
     expect(first!.innerHTML).toBe('');
-    const sketch = map.getPane('overlayPane')!.querySelector('path.cgis-draw-sketch');
-    expect(sketch).not.toBeNull();
-    expect(sketch!.getAttribute('stroke-width')).toBe(String(MAP.DRAFT_STYLE.weight));
+    expect(sketchPaths()).toHaveLength(1);
+    expect(sketchPaths()[0]!.getAttribute('stroke-width')).toBe(String(MAP.DRAFT_STYLE.weight));
+
+    draw.disable();
+    expect(handles()).toHaveLength(0);
+    expect(sketchPaths()).toHaveLength(0);
+    draw.enable();
+    expect(map.editTools).toBe(tools);
   });
 
-  it('adds a vertex per click and reports [lng, lat] vertices on draw:change', () => {
+  it('adds a vertex per click and reports [lng, lat] vertices on draw:vertex / draw:change', () => {
     const changes = record('draw:change');
     const added = record('draw:vertex');
     const draw = new PolygonDraw(map).enable();
@@ -74,7 +88,6 @@ describe('PolygonDraw', () => {
       [35.05, 32.05],
     ]);
     expect(draw.getVertices()).toEqual(changes[2]!.vertices);
-    expect(handles()).toHaveLength(3);
     expect(draw.getAreaKm2()).toBeCloseTo(ringAreaKm2(draw.getVertices()), 9);
     expect(draw.getAreaKm2()).toBeGreaterThan(0);
   });
@@ -83,7 +96,7 @@ describe('PolygonDraw', () => {
     const done = record('draw:done');
     const draw = new PolygonDraw(map).enable();
     triangle();
-    draw.finish();
+    expect(draw.finish()).toBe(true);
     expect(done).toHaveLength(1);
     const { ring } = done[0]!;
     expect(ring).toHaveLength(4);
@@ -91,30 +104,24 @@ describe('PolygonDraw', () => {
     expect(ringAreaKm2(ring)).toBeGreaterThan(0);
     expect(draw.enabled()).toBe(false);
     expect(handles()).toHaveLength(0);
+    expect(sketchPaths()).toHaveLength(0);
   });
 
-  it('double-click closes, on the map or on a handle', () => {
+  it('clicking the first or the last handle commits a valid sketch', () => {
     const done = record('draw:done');
     const draw = new PolygonDraw(map).enable();
     triangle();
-    map.fire('dblclick', { latlng: L.latLng(32.05, 35.05) });
+    clickHandle(handles()[0]!);
     expect(done).toHaveLength(1);
+    expect(draw.enabled()).toBe(false);
 
     draw.enable();
     triangle();
-    handles()[2]!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    clickHandle(handles()[2]!); // the second click of a double-click lands on the new handle
     expect(done).toHaveLength(2);
   });
 
-  it('clicking the first handle closes once there are 3 vertices', () => {
-    const done = record('draw:done');
-    new PolygonDraw(map).enable();
-    triangle();
-    handles()[0]!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    expect(done).toHaveLength(1);
-  });
-
-  it('undo() removes the last vertex', () => {
+  it('undo() pops the last vertex; with one vertex left it is a no-op (Leaflet.Editable pop())', () => {
     const changes = record('draw:change');
     const draw = new PolygonDraw(map).enable();
     triangle();
@@ -125,9 +132,12 @@ describe('PolygonDraw', () => {
     ]);
     expect(changes.at(-1)!.vertices).toHaveLength(2);
     expect(handles()).toHaveLength(2);
+    draw.undo();
+    draw.undo();
+    expect(draw.getVertices()).toHaveLength(1);
   });
 
-  it('cancel(): draw:cancel, layers removed, handler disabled', () => {
+  it('cancel(): draw:cancel, sketch and handles removed, handler disabled', () => {
     const cancels = record('draw:cancel');
     const done = record('draw:done');
     const draw = new PolygonDraw(map).enable();
@@ -138,43 +148,58 @@ describe('PolygonDraw', () => {
     expect(draw.enabled()).toBe(false);
     expect(draw.getVertices()).toEqual([]);
     expect(handles()).toHaveLength(0);
-    expect(map.getPane('overlayPane')!.querySelectorAll('path')).toHaveLength(0);
+    expect(sketchPaths()).toHaveLength(0);
   });
 
-  it('a bowtie does not close: draw:invalid with the self-intersection reason, drawing continues', () => {
+  it('a bowtie does not finish: draw:invalid with the self-intersection reason, drawing continues', () => {
     const invalid = record('draw:invalid');
     const done = record('draw:done');
     const draw = new PolygonDraw(map).enable();
-    click(32, 35);
-    click(32.05, 35.05);
-    click(32, 35.05);
-    click(32.05, 35);
-    draw.finish();
+    bowtie();
+    expect(draw.finish()).toBe(false);
     expect(done).toHaveLength(0);
-    expect(invalid).toHaveLength(1);
-    expect(invalid[0]!.reason).toBe(DRAW.SELF_INTERSECTION_REASON);
+    expect(invalid.map((e) => e.reason)).toEqual([DRAW.SELF_INTERSECTION_REASON]);
     expect(draw.enabled()).toBe(true);
     expect(draw.getVertices()).toHaveLength(4);
+    click(32.1, 35.1); // still drawing: the next click adds a vertex
+    expect(draw.getVertices()).toHaveLength(5);
   });
 
-  it('fewer than 3 vertices does not close: draw:invalid with the PolygonSchema reason', () => {
+  it('a bowtie committed by a handle click: draw:invalid, the sketch stays (editable, not done)', () => {
+    const invalid = record('draw:invalid');
+    const done = record('draw:done');
+    const draw = new PolygonDraw(map).enable();
+    bowtie();
+    clickHandle(handles()[0]!);
+    expect(invalid.map((e) => e.reason)).toEqual([DRAW.SELF_INTERSECTION_REASON]);
+    expect(done).toHaveLength(0);
+    expect(draw.enabled()).toBe(true);
+    expect(draw.getVertices()).toHaveLength(4);
+    expect(handles()).toHaveLength(4);
+  });
+
+  it('fewer than 3 vertices does not finish: draw:invalid with the PolygonSchema reason', () => {
     const invalid = record('draw:invalid');
     const draw = new PolygonDraw(map).enable();
     click(32, 35);
     click(32, 35.05);
-    draw.finish();
+    expect(draw.finish()).toBe(false);
     expect(invalid).toHaveLength(1);
     expect(invalid[0]!.reason).toMatch(/at least 3 unique vertices/);
   });
 
-  it('respects maxVertices (closed-ring positions, as PolygonSchema counts them)', () => {
+  it('refuses a click past the cap (maxVertices − 1 placed): draw:invalid, no vertex added', () => {
     const invalid = record('draw:invalid');
     const draw = new PolygonDraw(map, { maxVertices: 4 }).enable();
     triangle();
     click(32.05, 35);
     expect(draw.getVertices()).toHaveLength(3);
-    expect(invalid).toHaveLength(1);
-    expect(invalid[0]!.reason).toBe(DRAW.MAX_VERTICES_REASON);
+    expect(invalid.map((e) => e.reason)).toEqual([DRAW.MAX_VERTICES_REASON]);
+  });
+
+  it('defaults maxVertices to LIMITS.POLYGON_MAX_VERTICES', () => {
+    const draw = new PolygonDraw(map);
+    expect(draw.options.maxVertices).toBe(1000);
   });
 
   it('onDraw parses the payload: a malformed draw:change throws a ZodError from map.fire', () => {
@@ -188,12 +213,7 @@ describe('PolygonDraw', () => {
     expect(changes[0]!.type).toBe('draw:change');
   });
 
-  it('defaults maxVertices to LIMITS.POLYGON_MAX_VERTICES', () => {
-    const draw = new PolygonDraw(map);
-    expect(draw.options.maxVertices).toBe(1000);
-  });
-
-  it('dragging a handle moves its vertex and fires draw:change', () => {
+  it('dragging a handle moves its vertex and fires draw:change on dragend', () => {
     const changes = record('draw:change');
     const draw = new PolygonDraw(map).enable();
     triangle();
@@ -215,11 +235,11 @@ describe('PolygonDraw', () => {
     expect(changes.at(-1)!.vertices[1]).toEqual(after);
   });
 
-  it('uses the requested pane for the shape and the handles, creating it if missing', () => {
+  it('puts the sketch in the requested pane, creating it if missing', () => {
     new PolygonDraw(map, { pane: MAP.DRAFTS_PANE }).enable();
     triangle();
     const pane = map.getPane(MAP.DRAFTS_PANE)!;
     expect(pane).toBeDefined();
-    expect(pane.querySelectorAll('.cgis-draw-handle')).toHaveLength(3);
+    expect(pane.querySelectorAll('path.cgis-draw-sketch')).toHaveLength(1);
   });
 });
