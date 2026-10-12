@@ -133,6 +133,7 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 | Name | Value | Notes |
 |---|---|---|
 | `API_ORIGIN` | `'http://localhost:8787'` | `wrangler dev` default port: the Vite proxy target and the tests' `BETTER_AUTH_URL`. |
+| `WEB_ORIGIN` | `'http://localhost:5173'` | `vite` default port: the e2e run's SPA origin (apps/web/e2e/stack.ts) and its Worker's CLIENT_ORIGIN. |
 
 ## HEADERS
 
