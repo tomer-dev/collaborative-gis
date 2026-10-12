@@ -16,7 +16,7 @@ import { describeRoute, resolver } from 'hono-openapi';
 import { z } from 'zod';
 import type { AppEnv } from '../app';
 import { apiError, notFoundError } from '../errors';
-import { requireUser } from '../middleware';
+import { requireUser, type SignedIn } from '../middleware';
 import { rateLimit } from '../middleware/rate-limit';
 import { type Actor, createArea, deleteArea, listAreas, updateArea } from '../services/areas';
 import { fanout } from '../services/fanout';
@@ -31,12 +31,13 @@ import { revert, versions } from './versions';
 
 const mutation = () => rateLimit(RATE_LIMIT.ACTIONS.MUTATE);
 
-/** The session user and the client hints the audit row records. */
-function actor(c: Context, userId: string): Actor {
+/** The session user, the client hints and the request id the audit row records. */
+function actor(c: Context<AppEnv & SignedIn>, userId: string): Actor {
   return {
     userId,
     ip: c.req.header(HEADERS.CF_CONNECTING_IP) ?? null,
     userAgent: c.req.header(HEADERS.USER_AGENT) ?? null,
+    requestId: c.get('requestId'),
   };
 }
 

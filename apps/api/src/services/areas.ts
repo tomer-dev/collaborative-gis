@@ -19,8 +19,13 @@ import {
 // Area mutations and their audit rows (D20). Each mutation runs on one per-request client in one
 // transaction, so the area write and its `audit_log` row commit together or not at all.
 
-/** Who acted, for the audit row: the session user and the request's client hints. */
-export type Actor = { userId: string; ip: string | null; userAgent: string | null };
+/** Who acted, for the audit row: the session user, the request's client hints and its id. */
+export type Actor = {
+  userId: string;
+  ip: string | null;
+  userAgent: string | null;
+  requestId: string;
+};
 
 type AuditAction = (typeof AUDIT.ACTIONS)[keyof typeof AUDIT.ACTIONS];
 
@@ -114,8 +119,9 @@ export function revertAreaToVersion(
 }
 
 function auditRow(actor: Actor, action: AuditAction, entityId: string, version: number): AuditRow {
-  const { userId, ip, userAgent } = actor;
-  return { userId, action, entity: AUDIT.ENTITIES.AREA, entityId, version, ip, userAgent };
+  const { userId, ip, userAgent, requestId } = actor;
+  const entity = AUDIT.ENTITIES.AREA;
+  return { userId, action, entity, entityId, version, ip, userAgent, requestId };
 }
 
 /**
