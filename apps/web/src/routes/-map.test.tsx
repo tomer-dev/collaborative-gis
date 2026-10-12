@@ -154,3 +154,35 @@ it('connects the map to the room and lists who is there', async () => {
   const presence = screen.getByRole('region', { name: COPY.PRESENCE.TITLE });
   expect(within(presence).getByText('(you)')).toBeTruthy();
 });
+
+it("shows the user's own presence colour in the header once the room assigns it", async () => {
+  renderAppAt('/map', signedIn);
+  await screen.findByTestId('map-root');
+  const header = screen.getByRole('banner');
+  const avatar = () => header.querySelector('[style*="--presence"]');
+  expect(avatar()).toBeNull();
+
+  const socket = sockets.at(-1);
+  act(() => socket?.open());
+  act(() =>
+    socket?.receive({
+      type: 'presence',
+      seq: 1,
+      ts: 1,
+      payload: {
+        users: [
+          { userId: 'user_2', name: 'Grace', color: MAP.PRESENCE_COLORS[1], state: 'viewing' },
+          {
+            userId: 'user_1',
+            name: 'Ada Lovelace',
+            color: MAP.PRESENCE_COLORS[0],
+            state: 'viewing',
+          },
+        ],
+      },
+    }),
+  );
+
+  expect(avatar()?.getAttribute('style')).toContain(MAP.PRESENCE_COLORS[0]);
+  expect(avatar()?.textContent).toBe('AL');
+});
