@@ -97,3 +97,90 @@ CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgresql://cgis:cgis@
 ```
 
 `BETTER_AUTH_SECRET` comes from `apps/api/.dev.vars` (or the shell). `env.production` has no `localConnectionString`, hence the variable. Open http://localhost:8787: the same app, served by the Worker instead of Vite.
+
+## Production hardening
+
+### In the Worker (nothing to set up)
+
+`apps/api/src/auth.ts`, covered by `apps/api/test/auth/hardening.test.ts`. An https `BETTER_AUTH_URL` is what marks a deployed Worker: Better Auth's own production switch reads `NODE_ENV`, which a Worker does not set.
+
+- **Origins.** Better Auth trusts `CLIENT_ORIGIN` and its own `BETTER_AUTH_URL`, nothing else: a sign-in or sign-out sent with any other `Origin` is 403 and sets no cookie.
+- **Cookies** (https only). Every auth cookie is `__Secure-`-prefixed, `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/` and host-only (no `Domain`).
+- **Sign-in rate limit** (https only). Better Auth's built-in limiter, `AUTH.RATE_LIMIT_MAX` (10) attempts per client IP per `AUTH.RATE_LIMIT_WINDOW_S` (60 s) on `/api/auth/sign-in/*`, then 429 with `X-Retry-After`. Sign-up keeps Better Auth's default of 3 per 10 s and every other auth path 100 per 10 s. The client IP is `cf-connecting-ip`. Counts live in memory, so no table is needed, but each Worker isolate counts on its own: it slows one client down without being a global limit. The WAF rule below is the global limit.
+
+### WAF rate limiting rule on `/api/auth/*`
+
+WAF rules run on traffic to a zone (a domain on the Cloudflare account), and `*.workers.dev` is not one. The rule needs the Worker on a custom domain (owner checklist step 3: a `routes` entry with `custom_domain: true`). On workers.dev, only the in-Worker limit applies.
+
+The Free plan allows one rate limiting rule, counted per IP over 10 s, a 10 s block, and an expression on the URI path only. This rule fits within that. The SPA makes a few auth requests per page view (a session check on load and on focus, sign-in and then a session check), so 20 per 10 s per IP leaves room for that and for a few users behind one NAT. A scripted password guesser is held to 2 requests a second per data center, whichever isolate it reaches.
+
+Dashboard: the zone → Security → WAF → Rate limiting rules → Create rule.
+
+| Field | Value |
+|---|---|
+| Rule name | `auth rate limit` |
+| Expression (Edit expression) | `(starts_with(http.request.uri.path, "/api/auth/"))` |
+| With the same characteristics | IP |
+| When rate exceeds | 20 requests per 10 seconds |
+| Then take action | Block, for 10 seconds (Cloudflare answers 429) |
+
+The same rule over the API. Wrangler has no WAF command, so use the API directly. You need an API token with Zone WAF Edit on the zone, and the zone id from the zone's Overview page. `cf.colo.id` is mandatory in `characteristics`: Cloudflare counts per data center. This `PUT` replaces every rule in the zone's rate limiting phase; on a zone that already has other rate limiting rules, use the dashboard instead.
+
+```bash
+ZONE_ID=<zone id>
+curl -s "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/rulesets/phases/http_ratelimit/entrypoint" \
+  --request PUT --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  --json '{"rules":[{"description":"auth rate limit","expression":"(starts_with(http.request.uri.path, \"/api/auth/\"))","action":"block","ratelimit":{"characteristics":["cf.colo.id","ip.src"],"period":10,"requests_per_period":20,"mitigation_timeout":10}}]}'
+```
+
+### Health check on `/readyz`
+
+`/readyz` answers 200 only when every dependency answered within its deadline, and 503 `NOT_READY` otherwise. With the Room probe (PR #38) the body is `{"status":"ready","db":"up","room":"up"}`; before that PR merges it is `{"ok":true,"db":"up"}`, so match `"db":"up"` until then. Cloudflare Health Checks need a zone on the Pro plan or higher (the Free plan has none) and the custom domain above. On workers.dev, point any external uptime monitor at the same URL, expecting the same code and body.
+
+Dashboard: the zone → Traffic → Health Checks → Create (newer dashboards list it under Smart Shield).
+
+| Field | Value |
+|---|---|
+| Name | `readyz` |
+| Address | the custom domain's hostname |
+| Type, port | HTTPS, 443 |
+| Path, method | `/readyz`, GET |
+| Expected codes | `200` |
+| Response body | `"db":"up","room":"up"`: a case-insensitive substring of the first 10 KB |
+| Interval, retries, timeout | 60 s, 2, 5 s |
+
+Then Notifications → Add → Health Checks status notification for this check. Each probe runs one query on Neon. An interval shorter than Neon's autosuspend delay (5 minutes by default) keeps its compute running around the clock, so on Neon's free plan use a longer interval. Over the API (a token with Health Checks Edit):
+
+```bash
+HOST=<custom domain hostname>
+curl -s "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/healthchecks" \
+  --request POST --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  --json '{"name":"readyz","address":"'"$HOST"'","type":"HTTPS","interval":60,"retries":2,"timeout":5,"consecutive_fails":2,"http_config":{"method":"GET","path":"/readyz","port":443,"expected_codes":["200"],"expected_body":"\"db\":\"up\",\"room\":\"up\"","follow_redirects":false,"header":{"Host":["'"$HOST"'"]}}}'
+```
+
+### Logs
+
+Workers Logs (`observability.enabled`) keeps 7 days on Workers Paid (3 on Free) and includes 20 million log events a month, then $0.60 per million. If traffic grows past that, set `observability.head_sampling_rate` (0 to 1, default 1) in `wrangler.jsonc`. Anything that must be kept longer, such as incident evidence or audit questions, has to leave Cloudflare before then, either through Logpush or by querying `audit_log` in Neon, which keeps its own retention. Secrets never reach the logs (`LOG.REDACT_KEYS`). Live: `wrangler tail --env production`.
+
+### Rollback
+
+`wrangler rollback [<version-id>] --env production -m "<reason>"`. See [Rollback](#rollback) above: it swaps the Worker version only, never Neon, and cannot cross a Durable Object migration. After the first deploy, `wrangler deployments list --env production` shows the version ids to return to.
+
+### Checklist
+
+Run these against the deployed origin (`ORIGIN=https://…`, no trailing slash).
+
+- [ ] **Secrets set.** `wrangler secret list --env production` lists `BETTER_AUTH_SECRET`; `gh secret list` lists `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` and `DATABASE_URL`.
+- [ ] **Placeholder origin replaced.** `grep -c REPLACE-WITH- apps/api/wrangler.jsonc` prints `0` on `main`; `CLIENT_ORIGIN` and `BETTER_AUTH_URL` in `env.production` are the same https origin.
+- [ ] **Hyperdrive caching off.** `wrangler hyperdrive get ffdceaec4c3b4c70a324ebf9da6cb7a9` shows `"disabled": true` under `caching`.
+- [ ] **Cookies and origins.** A sign-in with `-H "Origin: $ORIGIN"` sets `__Secure-better-auth.session_token` with `Secure; HttpOnly; SameSite=Lax` and no `Domain`. The same request with `-H 'Origin: https://evil.example'` answers 403.
+  ```bash
+  curl -si "$ORIGIN/api/auth/sign-in/email" -H "Origin: $ORIGIN" -H 'content-type: application/json' \
+    -d '{"email":"<registered email>","password":"<password>"}' | grep -i '^set-cookie'
+  ```
+- [ ] **Health check green.** `curl -s "$ORIGIN/readyz"` is 200 with `db` and `room` `up`, and the Cloudflare Health Check (or the external monitor) reports healthy.
+- [ ] **WAF rule on** (custom domain). Burst past the threshold and expect some 429s from Cloudflare:
+  ```bash
+  for i in $(seq 25); do curl -s -o /dev/null -w '%{http_code}\n' "$ORIGIN/api/auth/get-session"; done | sort | uniq -c
+  ```
+- [ ] **Rollback ready.** `wrangler deployments list --env production` lists the live version, and the owner can run `wrangler rollback` (above).
