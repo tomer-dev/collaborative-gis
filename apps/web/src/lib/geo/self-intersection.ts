@@ -1,5 +1,5 @@
 import { kinks } from '@turf/kinks';
-import { closedRing, type LngLat } from './geodesic';
+import { closeRing, type LngLat } from './geodesic';
 
 const same = (a: LngLat, b: LngLat) => a[0] === b[0] && a[1] === b[1];
 
@@ -11,7 +11,7 @@ const same = (a: LngLat, b: LngLat) => a[0] === b[0] && a[1] === b[1];
  * zero-area fold-back passes here; the server's `ST_IsValid` rejects it with a reason.
  */
 export function hasSelfIntersection(ring: readonly LngLat[]): boolean {
-  const pts = closedRing(ring.filter((p, i) => i === 0 || !same(p, ring[i - 1]!)));
+  const pts = closeRing(ring.filter((p, i) => i === 0 || !same(p, ring[i - 1]!)));
   if (pts.length < 4) return false;
   return kinks({ type: 'Polygon', coordinates: [pts] }).features.length > 0;
 }

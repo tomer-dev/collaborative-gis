@@ -20,7 +20,7 @@
   }
 
   /*
-   * Draw tool (src/lib/geo/draw-handler.ts). The sketch path gets its width, dash and fill
+   * Draw tool (src/lib/geo/draw-tool.ts). The sketch path gets its width, dash and fill
    * opacity from MAP.DRAFT_STYLE (path options); its colour is here.
    */
   .cgis-draw-sketch {
