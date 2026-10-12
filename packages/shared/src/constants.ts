@@ -4,6 +4,8 @@
 export const LIMITS = {
   POLYGON_MAX_VERTICES: 1000,
   AREA_NAME_MAX: 120,
+  USER_NAME_MAX: 60,
+  USER_ID_MAX: 128,
   BOUNDS_LIMIT: 500,
   SIMPLIFY_ZOOM_BELOW: 12,
   SIMPLIFY_TOLERANCE: 0.0005,
@@ -35,7 +37,10 @@ export const WS = {
   ALARM_INTERVAL_MS: 30_000,
   BAD_FRAME_STRIKES: 10,
   CLOSE_POLICY_VIOLATION: 1008,
+  CLOSE_INTERNAL_ERROR: 1011,
   PING_INTERVAL_MS: 30_000,
+  AUTO_PING: 'ping',
+  AUTO_PONG: 'pong',
   RECONNECT_BACKOFF_MS: { min: 1000, max: 30_000 },
   OFFLINE_POLL_MS: 10_000,
 } as const;
@@ -55,6 +60,12 @@ export const TIMEOUTS = {
   DB_CONNECT_MS: 3000,
   DB_QUERY_MS: 3000,
   REQUEST_MS: 10_000,
+} as const;
+
+/** Structured logs: a value whose key contains one of REDACT_KEYS (any case, any depth) is replaced by REDACTED. */
+export const LOG = {
+  REDACT_KEYS: ['password', 'secret', 'cookie', 'authorization'],
+  REDACTED: '[redacted]',
 } as const;
 
 /** HTTP paths the Worker serves and the SPA calls. */
@@ -77,6 +88,8 @@ export const DEV = {
 /** The single shared map (D11). */
 export const ROOM = {
   DEFAULT_ROOM_ID: 'default',
+  USER_ID_HEADER: 'x-user-id',
+  USER_NAME_HEADER: 'x-user-name',
 } as const;
 
 /** Leaflet map defaults; DEFAULT_CENTER is Leaflet's [lat, lng] order. */
@@ -92,6 +105,16 @@ export const MAP = {
   DRAFTS_PANE: 'drafts',
   DRAFTS_PANE_Z: 460,
   MOVEEND_DEBOUNCE_MS: 250,
+  PRESENCE_COLORS: [
+    '#2a78d6',
+    '#eb6834',
+    '#1baf7a',
+    '#eda100',
+    '#e87ba4',
+    '#008300',
+    '#6250d6',
+    '#e34948',
+  ],
   HANDLE_RADIUS_PX: 6,
   HANDLE_HIT_PX: 24,
   HANDLE_BORDER_PX: 2,
