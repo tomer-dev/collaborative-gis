@@ -2,7 +2,7 @@ import { COPY, ERROR_CODES, ERROR_REASONS, type AreaList } from '@cgis/shared';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, expect, it, vi } from 'vitest';
 import { areasKey, type AreaEdit } from '../lib/areas-query';
-import type { Bbox } from '../lib/map';
+import type { Bbox } from '@cgis/shared';
 import {
   AREA_ID,
   jsonResponse,

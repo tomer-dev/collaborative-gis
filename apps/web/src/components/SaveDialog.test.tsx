@@ -4,7 +4,7 @@ import { afterEach, beforeAll, expect, it, vi } from 'vitest';
 import { formatArea } from '../lib/area-readout';
 import { areasKey } from '../lib/areas-query';
 import { ringAreaKm2 } from '../lib/geo/geodesic';
-import type { Bbox } from '../lib/map';
+import type { Bbox } from '@cgis/shared';
 import {
   AREA_ID,
   jsonResponse,
