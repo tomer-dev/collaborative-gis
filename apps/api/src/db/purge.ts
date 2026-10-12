@@ -12,7 +12,7 @@ export type PurgeCounts = { areas: number; versions: number };
 
 /**
  * Retention (D8): hard-deletes the areas soft-deleted before `now - days` together with their
- * `area_versions`, and writes one `audit_log` row (`RETENTION.AUDIT_ACTION`, no user, the counts in
+ * `area_versions`, and writes one `audit_log` row (`AUDIT.ACTIONS.RETENTION_PURGE`, no user, counts in
  * `details`), all in one transaction. Live areas and their versions are never touched; a second
  * run with the same `now` deletes nothing (the audit row is still written: one per run).
  */
@@ -42,7 +42,7 @@ export function purgeDeleted(
     if (!counts) throw new Error('purge count returned no row');
 
     await tx.insert(auditLog).values({
-      action: RETENTION.AUDIT_ACTION,
+      action: AUDIT.ACTIONS.RETENTION_PURGE,
       entity: AUDIT.ENTITIES.AREA,
       details: counts,
     });

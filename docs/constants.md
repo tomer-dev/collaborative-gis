@@ -101,6 +101,7 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 | `AUTH_SIGN_IN_FAILED` | `'auth.sign_in_failed'` | An email sign-in answered anything but 2xx (wrong password, unknown email, bad body, rate limit); no user, and `details` keeps the status and Better Auth's error code. |
 | `REQUEST_REJECTED` | `'request.rejected'` | A response with one of `CAPTURE.REJECTED_CODES` under `/api`; `details.code` says which. |
 | `DRAW_SESSION` | `'draw.session'` | A completed Room draft: a `clear` that ended a draft of ≥ 1 vertex (`details.vertices`). |
+| `RETENTION_PURGE` | `'retention.purge'` | One retention purge run (`RETENTION`): no user, the deleted counts in `details`. |
 
 ### AUDIT.CAPTURE
 
@@ -121,7 +122,6 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 |---|---|---|
 | `DAYS` | `7` | Days a soft-deleted area and its version history are kept before the purge removes them. |
 | `CRON` | `'0 3 * * *'` | When the purge runs (cron syntax, UTC): daily at 03:00. apps/api/wrangler.jsonc `triggers.crons` repeats it as a JSON literal; a test fails when the two differ. |
-| `AUDIT_ACTION` | `'retention.purge'` | `audit_log.action` of the one row each purge run writes: no user, the counts in `details`. |
 
 ## WS
 

@@ -82,6 +82,8 @@ export const AUDIT = {
     REQUEST_REJECTED: 'request.rejected',
     /** A completed Room draft: a `clear` that ended a draft of ≥ 1 vertex (`details.vertices`). */
     DRAW_SESSION: 'draw.session',
+    /** One retention purge run (`RETENTION`): no user, the deleted counts in `details`. */
+    RETENTION_PURGE: 'retention.purge',
   },
   /** Which responses the audit middleware records (apps/api/src/middleware/audit.ts). */
   CAPTURE: {
@@ -111,6 +113,4 @@ export const RETENTION = {
    * `triggers.crons` repeats it as a JSON literal; a test fails when the two differ.
    */
   CRON: '0 3 * * *',
-  /** `audit_log.action` of the one row each purge run writes: no user, the counts in `details`. */
-  AUDIT_ACTION: 'retention.purge',
 } as const;
