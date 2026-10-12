@@ -42,6 +42,8 @@ export const ROUTES = {
   AREAS: '/api/areas',
   WS: '/ws',
   OPENAPI: '/openapi.json',
+  /** SPA routes: redirect/Link/navigate targets (file-route ids in createFileRoute stay literal). */
+  APP: { HOME: '/', LOGIN: '/login', REGISTER: '/register', MAP: '/map' },
 } as const;
 
 /** Local dev origins: `wrangler dev` (API) and `vite` (SPA); wrangler.jsonc CLIENT_ORIGIN mirrors WEB_ORIGIN. */
