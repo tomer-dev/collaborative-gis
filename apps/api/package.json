@@ -6,13 +6,16 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy --minify",
-    "types": "wrangler types --env-interface CloudflareBindings",
+    "types": "wrangler types --env-interface CloudflareBindings --strict-vars=false",
     "typecheck": "pnpm types && tsc -p tsconfig.json",
     "test": "vitest run"
   },
   "dependencies": {
     "@cgis/shared": "workspace:*",
+    "better-auth": "^1.7.7",
+    "drizzle-orm": "^0.45.4",
     "hono": "^4.13.13",
+    "hono-openapi": "^1.3.5",
     "pg": "^8.23.1",
     "zod": "^4.6.5"
   },
@@ -21,6 +24,7 @@
     "@hono/cli": "1.0.0-rc.6",
     "@types/node": "^26.6.5",
     "@types/pg": "^8.23.1",
+    "drizzle-kit": "^0.31.11",
     "typescript": "^5.9.3",
     "vitest": "^5.0.3",
     "wrangler": "^4.149.0"
