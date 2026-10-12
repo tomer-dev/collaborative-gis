@@ -207,10 +207,39 @@ const moved = (a: Box, b: Box) =>
     Math.abs(a.bottom - b.bottom),
   );
 
+/**
+ * Half the side of the box around the fountain that starts empty: wider than the bounds cache's
+ * tile at z11, which the server snaps a viewport out to (`CACHE.TILE_QUANT_DEG`).
+ */
+const CLEAR_HALF_SIDE_DEG = 0.5;
+
+/**
+ * Deletes every area near the fountain (any signed-in user may, D12): the run's database is shared
+ * by the specs, and collaboration.spec.ts saves a polygon whose box reaches the fountain's tile.
+ */
+async function clearFountain(page: Page): Promise<void> {
+  const bbox = [
+    FOUNTAIN.lng - CLEAR_HALF_SIDE_DEG,
+    FOUNTAIN.lat - CLEAR_HALF_SIDE_DEG,
+    FOUNTAIN.lng + CLEAR_HALF_SIDE_DEG,
+    FOUNTAIN.lat + CLEAR_HALF_SIDE_DEG,
+  ].join(',');
+  const statuses = await page.evaluate(
+    async ({ url, bbox }) => {
+      const list: { areas: { id: string }[] } = await (await fetch(`${url}?bbox=${bbox}`)).json();
+      const deletes = list.areas.map((area) => fetch(`${url}/${area.id}`, { method: 'DELETE' }));
+      return (await Promise.all(deletes)).map((res) => res.status);
+    },
+    { url: ROUTES.AREAS, bbox },
+  );
+  for (const status of statuses) expect(status).toBe(204);
+}
+
 test('switching to aerial keeps the centre and the saved polygon in place', async ({ page }) => {
   await signUp(page);
 
   await test.step('a saved polygon on the fountain, viewed at OSM z11', async () => {
+    await clearFountain(page);
     const status = await page.evaluate(
       async ({ url, body }) =>
         (
