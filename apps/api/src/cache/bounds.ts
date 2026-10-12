@@ -21,6 +21,15 @@ import { log, requestFields } from '../log';
 export type Tile = { key: string; bbox: Bbox };
 
 /**
+ * `Room.getVersion()`: the version counter and the storage epoch it counts in. A Room that lost
+ * its storage counts from 0 again under a new epoch, so keys stamped `epoch.version` never repeat
+ * and no entry from before the loss is served.
+ */
+export type MapVersion = { epoch: string; version: number };
+
+const stamp = ({ epoch, version }: MapVersion) => `${epoch}.${version}`;
+
+/**
  * Snaps `[west, south, east, north]` outward to the `CACHE.TILE_QUANT_DEG` grid, clamped to the
  * WGS 84 range. `key` is the grid indices, so every viewport inside the same cells shares one
  * entry; the bounds query reads `bbox`, so that entry holds every area of the tile, not just the
@@ -45,12 +54,18 @@ export function tileOf([west, south, east, north]: Bbox): Tile {
   };
 }
 
-/** The synthetic Cache API key: `${ROUTES.AREAS}?tile=…&z=…&v=…` on the request's origin. */
-export function boundsKey(origin: string, tile: Tile, zoom: number | undefined, version: number) {
-  return new URL(
-    `${ROUTES.AREAS}?tile=${tile.key}&z=${zoom ?? ''}&v=${version}`,
-    origin,
-  ).toString();
+/**
+ * The synthetic Cache API key on the request's origin:
+ * `${ROUTES.AREAS}?tile=${tile}&z=${zoom}&v=${epoch}.${version}`.
+ */
+export function boundsKey(
+  origin: string,
+  tile: Tile,
+  zoom: number | undefined,
+  version: MapVersion,
+): string {
+  const query = `tile=${tile.key}&z=${zoom ?? ''}&v=${stamp(version)}`;
+  return new URL(`${ROUTES.AREAS}?${query}`, origin).toString();
 }
 
 /**
@@ -60,7 +75,7 @@ export function boundsKey(origin: string, tile: Tile, zoom: number | undefined, 
  * 1. The map version from the default Room (`getVersion()`, `TIMEOUTS.DO_PING_MS` deadline). If it
  *    fails or is late, the read goes to the database and nothing is stored (`BYPASS`), so bounds
  *    reads never fail with the Room.
- * 2. `If-None-Match` naming the ETag (a hash of version and tile) → 304, without a lookup.
+ * 2. `If-None-Match` naming the ETag (a hash of epoch, version and tile) → 304, without a lookup.
  * 3. A stored entry → that body (`HIT`).
  * 4. Else the handler queries; a 200 is stored with `Cache-Control: s-maxage=CACHE.BOUNDS_TTL_S`
  *    and the ETag, in `waitUntil` (`MISS`). The stored copy is rebuilt from the body with only
@@ -75,7 +90,7 @@ export function boundsCache(): MiddlewareHandler<AppEnv, string, { out: { query:
     const { bbox, zoom } = c.req.valid('query');
     const tile = tileOf(bbox);
 
-    let version: number;
+    let version: MapVersion;
     try {
       version = await mapVersion(c.env);
     } catch (err) {
@@ -95,14 +110,14 @@ export function boundsCache(): MiddlewareHandler<AppEnv, string, { out: { query:
       [CACHE.STATUS_HEADER]: CACHE.STATUS.HIT,
     };
     if (matchesAny(c.req.header('if-none-match'), etag)) {
-      logRead(c, CACHE.STATUS.HIT, tile, { version, notModified: true });
+      logRead(c, CACHE.STATUS.HIT, tile, { version: stamp(version), notModified: true });
       return c.body(null, 304, headers);
     }
 
     const key = boundsKey(c.req.url, tile, zoom, version);
     const stored = await workersCache().match(key);
     if (stored) {
-      logRead(c, CACHE.STATUS.HIT, tile, { version });
+      logRead(c, CACHE.STATUS.HIT, tile, { version: stamp(version) });
       const res = new Response(stored.body, stored);
       for (const [name, value] of Object.entries(headers)) res.headers.set(name, value);
       return res;
@@ -122,7 +137,7 @@ export function boundsCache(): MiddlewareHandler<AppEnv, string, { out: { query:
     }
     c.res.headers.set('cache-control', CACHE.CLIENT_CACHE_CONTROL);
     c.res.headers.set(CACHE.STATUS_HEADER, CACHE.STATUS.MISS);
-    logRead(c, CACHE.STATUS.MISS, tile, { version });
+    logRead(c, CACHE.STATUS.MISS, tile, { version: stamp(version) });
   };
 }
 
@@ -137,19 +152,19 @@ export function workersCache(): Cache {
 }
 
 /** The default Room's map version (D11: one map), or a rejection past `TIMEOUTS.DO_PING_MS`. */
-function mapVersion(env: Env): Promise<number> {
+function mapVersion(env: Env): Promise<MapVersion> {
   const room = env.ROOM.get(env.ROOM.idFromName(ROOM.DEFAULT_ROOM_ID));
   return withDeadline(room.getVersion(), TIMEOUTS.DO_PING_MS, 'room version');
 }
 
 /**
- * A strong ETag: SHA-256 of the map version and the tile, known before any lookup or query. One
- * version and tile hold one set of rows, except while a committed write waits for its fan-out to
+ * A strong ETag: SHA-256 of the map version (epoch and counter) and the tile, known before any
+ * lookup or query. One version and tile hold one set of rows, except while a committed write waits for its fan-out to
  * bump the version (`waitUntil`, after the response): a read in that gap can see the new rows
  * under the old version, and the bump retires that key.
  */
-async function etagOf(version: number, tile: Tile): Promise<string> {
-  const data = new TextEncoder().encode(`${version}:${tile.key}`);
+async function etagOf(version: MapVersion, tile: Tile): Promise<string> {
+  const data = new TextEncoder().encode(`${stamp(version)}:${tile.key}`);
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', data));
   return `"${Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join('')}"`;
 }

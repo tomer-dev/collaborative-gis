@@ -1,9 +1,14 @@
 import { CACHE, TIMEOUTS, type Area, type Bbox } from '@cgis/shared';
-import { createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
+import {
+  createExecutionContext,
+  evictDurableObject,
+  runInDurableObject,
+  waitOnExecutionContext,
+} from 'cloudflare:test';
 import { env as workerEnv } from 'cloudflare:workers';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createApp, type Env } from '../../src/app';
-import { boundsKey, tileOf, workersCache } from '../../src/cache/bounds';
+import { boundsKey, type MapVersion, tileOf, workersCache } from '../../src/cache/bounds';
 import * as db from '../../src/db';
 import { areasClient, areasEnv, freshUser, squareAt } from '../areas/fixtures';
 import { signUp, tokenCookie } from '../auth/session';
@@ -34,7 +39,7 @@ function ownRoom() {
 }
 
 /** `base` with a stand-in Room whose `getVersion` is `getVersion`. */
-const withVersion = (getVersion: () => Promise<number>) => ({
+const withVersion = (getVersion: () => Promise<MapVersion>) => ({
   ...base,
   ROOM: { idFromName: () => ({}), get: () => ({ getVersion }) },
 });
@@ -171,6 +176,27 @@ describe('GET /api/areas through the bounds cache', () => {
   });
 });
 
+describe('a Room that lost its storage', () => {
+  it('counts from 0 again under a new epoch: version 1 after the reset has another key and ETag', async () => {
+    const { env, room } = ownRoom();
+    const api = areasClient(env, freshUser());
+    const cell = randomCell();
+    expect(await room.bumpVersion()).toBe(1);
+    const before = await api.list(query(inCell(cell)));
+    expect(before.headers.get('x-cache')).toBe('MISS');
+    expect((await api.list(query(inCell(cell)))).headers.get('x-cache')).toBe('HIT');
+
+    // As test/room/degradation.test.ts loses state: storage gone, then a fresh instance.
+    await runInDurableObject(room, (_room, state) => state.storage.deleteAll());
+    await evictDurableObject(room);
+    expect(await room.bumpVersion()).toBe(1);
+    const after = await api.list(query(inCell(cell)));
+
+    expect(after.headers.get('x-cache')).toBe('MISS');
+    expect(after.headers.get('etag')).not.toBe(before.headers.get('etag'));
+  });
+});
+
 describe('ETag and If-None-Match', () => {
   it('the current ETag → 304 with no body and no database call; after a bump → 200', async () => {
     const { env, room } = ownRoom();
@@ -217,7 +243,7 @@ describe('the Room does not answer', () => {
       cell[1] * STEP,
     );
     const api = areasClient(
-      withVersion(() => new Promise<number>(() => {})),
+      withVersion(() => new Promise<MapVersion>(() => {})),
       freshUser(),
     );
     const withClient = vi.spyOn(db, 'withClient');
