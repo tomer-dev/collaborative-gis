@@ -1,4 +1,4 @@
-import { AUDIT } from '@cgis/shared';
+import type { AUDIT } from '@cgis/shared';
 import { z } from 'zod';
 import type { Env } from '../app';
 import { log, redact } from '../log';
@@ -6,7 +6,7 @@ import { withClient } from './index';
 import { type AuditRow, writeAudit } from './spatial';
 
 // Audit rows written outside a mutation transaction (D20): auth events and rejected requests (the
-// audit middleware) and Room draw sessions. Area mutations write theirs inside their own
+// audit middleware). Area mutations and draw sessions write theirs inside the mutation's own
 // transaction (services/areas.ts) and never come through here, so no event is written twice.
 
 type Values<T> = T[keyof T];
@@ -40,19 +40,4 @@ export async function recordAudit(env: Env, event: AuditEvent): Promise<void> {
       error: err instanceof Error ? err.message : String(err),
     });
   }
-}
-
-/**
- * The Room's `draw.session` row: `userId` ended a draft of `vertices` vertices. Written in the
- * background (`ctx.waitUntil`), so handling the frame never waits on the database.
- */
-export function auditDrawSession(
-  ctx: Pick<DurableObjectState, 'waitUntil'>,
-  env: Env,
-  userId: string,
-  vertices: number,
-): void {
-  const action = AUDIT.ACTIONS.DRAW_SESSION;
-  const entity = AUDIT.ENTITIES.DRAFT;
-  ctx.waitUntil(recordAudit(env, { userId, action, entity, details: { vertices } }));
 }

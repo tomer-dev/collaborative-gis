@@ -173,24 +173,36 @@ describe('auditRejections', () => {
     ]);
   });
 
-  it('a successful create still writes exactly one row: area.create, from the transaction', async () => {
+  it('a successful create writes no rejection row: only its transaction’s area.create and draw.session', async () => {
     const user = freshUser();
 
     const res = await createArea(user, { name: 'Audited', geometry: squareAt(randomSpot()) });
 
     expect(res.status).toBe(201);
     const { id } = await res.json<{ id: string }>();
+    const common = {
+      user_id: user.id,
+      ip: IP,
+      user_agent: USER_AGENT,
+      request_id: requestIdOf(res),
+    };
     expect(await auditRowsWhere(env, 'user_id = $1', [user.id])).toEqual([
       {
-        user_id: user.id,
+        ...common,
         action: 'area.create',
         entity: 'area',
         entity_id: id,
         version: 1,
-        ip: IP,
-        user_agent: USER_AGENT,
-        request_id: requestIdOf(res),
         details: null,
+      },
+      // A square: four vertices besides the closing one (test/audit/draw-session.test.ts).
+      {
+        ...common,
+        action: 'draw.session',
+        entity: 'draft',
+        entity_id: null,
+        version: null,
+        details: { vertices: 4 },
       },
     ]);
   });

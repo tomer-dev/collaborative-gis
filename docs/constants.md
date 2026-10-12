@@ -73,7 +73,7 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 
 ## AUDIT
 
-`db.ts`. `audit_log` vocabulary (D20): one row per user action. An area event's row carries `(entity_id, version)`, pointing at the `area_versions` row the action produced. Area mutations write their row inside the mutation's transaction; auth events and rejected requests come from the audit middleware after the response, draw sessions from the Room.
+`db.ts`. `audit_log` vocabulary (D20): one row per user action. An area event's row carries `(entity_id, version)`, pointing at the `area_versions` row the action produced. Area mutations (and a create's draw session) write their rows inside the mutation's transaction; auth events and rejected requests come from the audit middleware after the response.
 
 ### AUDIT.ENTITIES
 
@@ -84,7 +84,7 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 | `AREA` | `'area'` | An area; `entity_id` is its id. |
 | `USER` | `'user'` | An account; `entity_id` is the user id (NULL for a failed sign-in). |
 | `REQUEST` | `'request'` | A rejected HTTP request; no entity id (the row's `request_id` names the request). |
-| `DRAFT` | `'draft'` | A Room draft; no entity id (a draft is the user's, and gone once the session ends). |
+| `DRAFT` | `'draft'` | A draft drawn on the map; no entity id (its request's `area.create` row names the area). |
 
 ### AUDIT.ACTIONS
 
@@ -101,7 +101,7 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 | `AUTH_SIGN_OUT` | `'auth.sign_out'` | A sign-out answered 2xx; the row's user is the one whose session ended. |
 | `AUTH_SIGN_IN_FAILED` | `'auth.sign_in_failed'` | An email sign-in answered anything but 2xx (wrong password, unknown email, bad body, rate limit); no user, and `details` keeps the status and Better Auth's error code. |
 | `REQUEST_REJECTED` | `'request.rejected'` | A response with one of `CAPTURE.REJECTED_CODES` under `/api`; `details.code` says which. |
-| `DRAW_SESSION` | `'draw.session'` | A completed Room draft: a `clear` that ended a draft of ≥ 1 vertex (`details.vertices`). |
+| `DRAW_SESSION` | `'draw.session'` | A draft saved as an area: one per create, in its transaction, `details.vertices` the ring's vertex count. The Room writes none (its `clear` is also a resync or a cancel). |
 | `RETENTION_PURGE` | `'retention.purge'` | One retention purge run (`RETENTION`): no user, the deleted counts in `details`. |
 
 ### AUDIT.CAPTURE

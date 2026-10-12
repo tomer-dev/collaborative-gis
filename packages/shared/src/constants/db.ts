@@ -42,8 +42,8 @@ export const BENCH = {
 /**
  * `audit_log` vocabulary (D20): one row per user action. An area event's row carries
  * `(entity_id, version)`, pointing at the `area_versions` row the action produced. Area mutations
- * write their row inside the mutation's transaction; auth events and rejected requests come from
- * the audit middleware after the response, draw sessions from the Room.
+ * (and a create's draw session) write their rows inside the mutation's transaction; auth events
+ * and rejected requests come from the audit middleware after the response.
  */
 export const AUDIT = {
   /** `audit_log.entity`: what the row's `entity_id` names (NULL when the event has no such id). */
@@ -54,7 +54,7 @@ export const AUDIT = {
     USER: 'user',
     /** A rejected HTTP request; no entity id (the row's `request_id` names the request). */
     REQUEST: 'request',
-    /** A Room draft; no entity id (a draft is the user's, and gone once the session ends). */
+    /** A draft drawn on the map; no entity id (its request's `area.create` row names the area). */
     DRAFT: 'draft',
   },
   /** `audit_log.action`: every event the API records, one group. */
@@ -80,7 +80,10 @@ export const AUDIT = {
     AUTH_SIGN_IN_FAILED: 'auth.sign_in_failed',
     /** A response with one of `CAPTURE.REJECTED_CODES` under `/api`; `details.code` says which. */
     REQUEST_REJECTED: 'request.rejected',
-    /** A completed Room draft: a `clear` that ended a draft of ≥ 1 vertex (`details.vertices`). */
+    /**
+     * A draft saved as an area: one per create, in its transaction, `details.vertices` the ring's
+     * vertex count. The Room writes none (its `clear` is also a resync or a cancel).
+     */
     DRAW_SESSION: 'draw.session',
     /** One retention purge run (`RETENTION`): no user, the deleted counts in `details`. */
     RETENTION_PURGE: 'retention.purge',
