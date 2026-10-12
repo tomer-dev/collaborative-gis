@@ -2,6 +2,8 @@
 
 Two browser contexts on one map (`collaboration.spec.ts`), against the real Worker and SPA. `layer-switch.spec.ts` checks that switching to govmap's aerial layer keeps the centre, a saved polygon and a draft in place; it loads govmap's tiles, so it needs the internet.
 
+The two are separate Playwright projects: `chromium` (every spec but the layer switch) and `aerial` (the layer switch). CI (the `e2e` job in `.github/workflows/ci.yml`) runs `chromium` only, since `CI` is set there; locally `pnpm e2e` runs both, and `pnpm e2e --project chromium` skips the internet. `pnpm typecheck` covers these files (`tsc -p e2e` in the web package).
+
 ## Running
 
 1. Start the local PostGIS with `pnpm db:up`. The run creates, empties and migrates its own `cgis_e2e` lane database.
