@@ -55,6 +55,22 @@ async function seedArea(deletedAt: Date | null, versions: number): Promise<strin
   return row!.id;
 }
 
+/** `count` areas with one version each, all soft-deleted at `deletedAt`, in one statement. */
+async function seedDeleted(count: number, deletedAt: Date): Promise<void> {
+  await query(
+    `with batch as (
+       insert into areas (name, geom, area_km2, version, created_by, deleted_at)
+       select 'retention-batch', ST_GeomFromText('POLYGON((0 0,1 0,1 1,0 1,0 0))', 4326), 1, 1,
+              'retention-test', $2
+       from generate_series(1, $1)
+       returning *
+     )
+     insert into area_versions (area_id, version, name, geom, area_km2, changed_by)
+     select id, 1, name, geom, area_km2, created_by from batch`,
+    [count, deletedAt],
+  );
+}
+
 async function counts(id: string) {
   const [row] = await query<{ areas: number; versions: number }>(
     `select (select count(*)::int from areas where id = $1) as areas,
@@ -98,7 +114,7 @@ describe('purgeDeleted', () => {
     expect(await counts(twoDaysOld)).toEqual({ areas: 0, versions: 0 });
   });
 
-  it('writes one audit row per run, without a user, with the counts in details', async () => {
+  it('writes one audit row per batch (one for a small run), without a user, with the counts in details', async () => {
     await seedArea(daysBefore(RETENTION.DAYS + 1), 2);
 
     await purge();
@@ -123,6 +139,29 @@ describe('purgeDeleted', () => {
       },
     ]);
   });
+
+  it(`deletes a backlog in batches of RETENTION.BATCH (${RETENTION.BATCH}) per statement until one comes back short`, async () => {
+    // Two full batches and a short one (1,200 rows at the default batch of 500).
+    const backlog = 1200;
+    await seedDeleted(backlog, daysBefore(RETENTION.DAYS + 1));
+    const live = await seedArea(null, 1);
+
+    expect(await purge()).toEqual({ areas: backlog, versions: backlog });
+
+    expect(
+      await query(`select count(*)::int as n from areas where deleted_at is not null`),
+    ).toEqual([{ n: 0 }]);
+    expect(await counts(live)).toEqual({ areas: 1, versions: 1 });
+    // One transaction, and one audit row, per batch: no statement deleted more than a batch.
+    const rows = await query<{ details: { areas: number } }>(
+      'select details from audit_log order by id',
+    );
+    expect(rows.map((row) => row.details.areas)).toEqual([
+      RETENTION.BATCH,
+      RETENTION.BATCH,
+      backlog - 2 * RETENTION.BATCH,
+    ]);
+  }, 30_000);
 
   it('commits the deletes and the audit row together: a failing audit write deletes nothing', async () => {
     const expired = await seedArea(daysBefore(RETENTION.DAYS + 1), 2);

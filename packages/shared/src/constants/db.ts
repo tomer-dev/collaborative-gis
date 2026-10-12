@@ -85,7 +85,7 @@ export const AUDIT = {
      * vertex count. The Room writes none (its `clear` is also a resync or a cancel).
      */
     DRAW_SESSION: 'draw.session',
-    /** One retention purge run (`RETENTION`): no user, the deleted counts in `details`. */
+    /** One retention purge batch (`RETENTION`): no user, the deleted counts in `details`. */
     RETENTION_PURGE: 'retention.purge',
   },
   /** Which responses the audit middleware records (apps/api/src/middleware/audit.ts). */
@@ -116,4 +116,10 @@ export const RETENTION = {
    * `triggers.crons` repeats it as a JSON literal; a test fails when the two differ.
    */
   CRON: '0 3 * * *',
+  /**
+   * Most areas one purge statement deletes (with their versions), each batch its own transaction
+   * and audit row: a backlog shrinks run by run instead of one statement outgrowing the query
+   * timeout (`TIMEOUTS.DB_QUERY_MS`) every night.
+   */
+  BATCH: 500,
 } as const;
