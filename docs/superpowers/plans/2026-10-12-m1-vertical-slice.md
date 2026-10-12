@@ -24,6 +24,7 @@
 - Every commit message ends with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`. Git is invoked as `/usr/bin/git -C "<worktree>" <one subcommand>` per command.
 - Root checks must stay green in every lane: `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`, `pnpm --filter @cgis/web build`, wrangler dry-run. CI runs them on every PR.
 - Append one numbered line per task to `docs/process-log.md` **only in the integration task (T16)**; lanes do not touch it (merge conflicts).
+- **No hardcoded values (user ruling 2026-10-12):** limits, rates, timeouts, route paths, error codes/messages, default map view and pane names come from `packages/shared/src/constants.ts` (`LIMITS`, `WS`, `TIMEOUTS`, `ROUTES`, `ROOM`, `MAP`, `ERROR_CODES`, created in T0) and are mirrored in `docs/constants.md`. Lanes import them and extend both files for new values; a literal in app code is a review finding (test expectations exempt).
 
 ## Parallel execution rules
 
