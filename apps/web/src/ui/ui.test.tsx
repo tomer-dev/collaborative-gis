@@ -312,7 +312,7 @@ describe('map styles', () => {
     expect(areaPathOptions(true).className).toBe('map-area-selected');
     expect(draftPathOptions()).toEqual({
       pane: MAP.DRAFTS_PANE,
-      className: 'map-draft',
+      className: 'cgis-draw-sketch',
       ...MAP.DRAFT_STYLE,
     });
     expect(ghostPathOptions(2)).toEqual({

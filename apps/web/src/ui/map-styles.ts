@@ -5,7 +5,7 @@ import type { PathOptions } from 'leaflet';
 export const MAP_CLASS = {
   area: 'map-area',
   areaSelected: 'map-area-selected',
-  draft: 'map-draft',
+  draft: 'cgis-draw-sketch',
   ghost: 'map-ghost',
 } as const;
 

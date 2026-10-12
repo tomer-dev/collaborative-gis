@@ -21,12 +21,12 @@ const DRAFT = [
   [300, 130],
   [210, 120],
 ] as const;
-const { HANDLE_RADIUS_PX, HANDLE_HIT_PX, HANDLE_BORDER_PX, DRAFT_STYLE } = MAP;
+const { HANDLE_HIT_PX, DRAFT_STYLE } = MAP;
 
 /**
- * The map.css classes on plain SVG paths, as Leaflet renders them. The sketch and its vertex
- * handles take their numbers from MAP (as src/lib/geo/draw-handler.ts does) and their colours
- * from the accent and background tokens.
+ * The map.css classes on plain SVG paths, as Leaflet renders them. As in
+ * src/lib/geo/draw-handler.ts, the sketch takes its shape from MAP.DRAFT_STYLE and the vertex
+ * handles are empty MAP.HANDLE_HIT_PX boxes whose dot comes from .cgis-draw-handle in map.css.
  */
 function MapSample() {
   return (
@@ -47,17 +47,20 @@ function MapSample() {
           d={`M${DRAFT.map(([x, y]) => `${x} ${y}`).join(' L')} Z`}
         />
         {DRAFT.map(([x, y], index) => (
-          <circle
+          <foreignObject
             key={`${x}-${y}`}
-            cx={x}
-            cy={y}
-            r={HANDLE_RADIUS_PX - HANDLE_BORDER_PX / 2}
-            strokeWidth={HANDLE_BORDER_PX}
-            style={{
-              stroke: 'var(--color-accent)',
-              fill: index === 0 ? 'var(--color-accent)' : 'var(--color-bg)',
-            }}
-          />
+            x={x - HANDLE_HIT_PX / 2}
+            y={y - HANDLE_HIT_PX / 2}
+            width={HANDLE_HIT_PX}
+            height={HANDLE_HIT_PX}
+          >
+            <div
+              className={
+                index === 0 ? 'cgis-draw-handle cgis-draw-handle--first' : 'cgis-draw-handle'
+              }
+              style={{ position: 'relative', width: '100%', height: '100%' }}
+            />
+          </foreignObject>
         ))}
         {MAP.PRESENCE_COLORS.map((_, index) => {
           const x = 360 + (index % 4) * 68;
@@ -72,18 +75,16 @@ function MapSample() {
         })}
       </svg>
       <figcaption className="text-xs text-fg-muted">
-        Saved area · selected area · your draft (accent, dashed) with {2 * HANDLE_RADIUS_PX} px
-        vertex handles in a {HANDLE_HIT_PX} px hit area, the first filled (&ldquo;close here&rdquo;)
-        · ghosts in presence hues 1–8.
+        Saved area · selected area · your draft (accent, dashed) with vertex handles in a{' '}
+        {HANDLE_HIT_PX} px hit area, the first filled (&ldquo;close here&rdquo;) · ghosts in
+        presence hues.
       </figcaption>
     </figure>
   );
 }
 
 const drawTool = [
-  { name: 'HANDLE_RADIUS_PX', value: HANDLE_RADIUS_PX, use: 'Vertex dot radius' },
   { name: 'HANDLE_HIT_PX', value: HANDLE_HIT_PX, use: 'Vertex hit box (marker icon size)' },
-  { name: 'HANDLE_BORDER_PX', value: HANDLE_BORDER_PX, use: 'Vertex dot ring' },
   { name: 'DRAFT_STYLE.weight', value: DRAFT_STYLE.weight, use: 'Sketch stroke width' },
   { name: 'DRAFT_STYLE.dashArray', value: DRAFT_STYLE.dashArray, use: 'Sketch dash' },
   { name: 'DRAFT_STYLE.fillOpacity', value: DRAFT_STYLE.fillOpacity, use: 'Sketch fill' },
@@ -99,7 +100,7 @@ export const MapStyles: Story = {
   render: () => (
     <Page
       title="Map"
-      intro="Leaflet paths take a className from src/ui/map-styles.ts; map.css colours it from the --map-* tokens, and the draw tool's sizes come from MAP in @cgis/shared. The basemap is light imagery in both UI themes, so map styles do not switch with dark mode."
+      intro="Leaflet paths take a className from src/ui/map-styles.ts and map.css styles it from the --map-* tokens (the vertex handle dot too); the numbers Leaflet takes in JS (handle hit box, sketch width, dash and fill) come from MAP in @cgis/shared. The basemap is light imagery in both UI themes, so map styles do not switch with dark mode."
     >
       <MapSample />
       <TokenTable
