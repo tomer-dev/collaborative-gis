@@ -6,12 +6,14 @@ import {
   waitOnExecutionContext,
 } from 'cloudflare:test';
 import { env as workerEnv } from 'cloudflare:workers';
+import { Hono } from 'hono';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { createApp, type Env } from '../../src/app';
+import { type AppEnv, createApp, type Env } from '../../src/app';
 import { boundsKey, type MapVersion, tileOf, workersCache } from '../../src/cache/bounds';
 import * as db from '../../src/db';
 import { areasClient, areasEnv, freshUser, squareAt } from '../areas/fixtures';
 import { signUp, tokenCookie } from '../auth/session';
+import { appWithUser } from '../helpers';
 
 // D6: `GET /api/areas` is answered from the Workers Cache API under a key made of the quantised
 // tile and the Room's map version. Wire values (headers, statuses) are spelled out: they
@@ -349,6 +351,56 @@ describe('nothing about the reader is cached', () => {
     expect(entry?.headers.get('cache-control')).toBe(`s-maxage=${CACHE.BOUNDS_TTL_S}`);
     expect(entry?.headers.get('etag')).toBe(res.headers.get('etag'));
     expect(await entry?.text()).toBe(await res.text());
+  });
+
+  it('a HIT keeps the headers the chain set for this request: the refreshed session cookie, CORS, request id', async () => {
+    const { env } = ownRoom();
+    const { cookie } = await signUp(base);
+    const cell = randomCell();
+    const read = async () => {
+      const ctx = createExecutionContext();
+      // The token alone: attachUser's session read refreshes the cookie-cache cookie each time.
+      const res = await createApp().request(
+        `http://x/api/areas?${query(inCell(cell))}`,
+        { headers: { cookie: tokenCookie(cookie), origin: env.CLIENT_ORIGIN } },
+        env,
+        ctx,
+      );
+      await waitOnExecutionContext(ctx);
+      return res;
+    };
+    expect((await read()).headers.get('x-cache')).toBe('MISS');
+
+    const hit = await read();
+
+    expect(hit.headers.get('x-cache')).toBe('HIT');
+    expect(hit.headers.getSetCookie()).not.toEqual([]);
+    expect(hit.headers.get('access-control-allow-origin')).toBe(env.CLIENT_ORIGIN);
+    expect(hit.headers.get('x-request-id')).not.toBeNull();
+  });
+
+  it('a HIT keeps a header an earlier middleware put on the response before the cache ran', async () => {
+    const { env } = ownRoom();
+    const user = freshUser();
+    const cell = randomCell();
+    const app = new Hono<AppEnv>()
+      .use('*', async (c, next) => {
+        c.res.headers.set('x-chain', 'kept');
+        await next();
+      })
+      .route('/', appWithUser(user));
+    const read = async () => {
+      const ctx = createExecutionContext();
+      const res = await app.request(`/api/areas?${query(inCell(cell))}`, {}, env, ctx);
+      await waitOnExecutionContext(ctx);
+      return res;
+    };
+    expect((await read()).headers.get('x-cache')).toBe('MISS');
+
+    const hit = await read();
+
+    expect(hit.headers.get('x-cache')).toBe('HIT');
+    expect(hit.headers.get('x-chain')).toBe('kept');
   });
 });
 
