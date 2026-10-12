@@ -1,12 +1,15 @@
 import { env } from 'cloudflare:workers';
-import { beforeAll, describe, expect, it } from 'vitest';
-import type { Env } from '../../src/app';
-import { getSessionUser } from '../../src/auth';
+import pg from 'pg';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { ROUTES } from '@cgis/shared';
+import { createApp, type Env } from '../../src/app';
+import { readSession } from '../../src/auth';
 import { laneEnv } from './lane-db';
-import { authRequest, PASSWORD, SESSION_COOKIE, signUp, withCookies } from './session';
+import { authRequest, PASSWORD, SESSION_COOKIE, signUp, tokenCookie, withCookies } from './session';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const EVIL_ORIGIN = 'http://evil.example';
+const SESSION_DATA_COOKIE = 'better-auth.session_data';
 
 let authEnv: Env;
 beforeAll(async () => {
@@ -55,21 +58,21 @@ describe('Better Auth on Workers (TOM-25)', () => {
     expect(await without.json()).toBeNull();
   });
 
-  it('getSessionUser resolves { id, name } from the Cookie header alone, and null after sign-out', async () => {
+  it('readSession resolves { id, name } from the Cookie header alone, and null after sign-out', async () => {
     const { id, cookie } = await signUp(authEnv);
 
-    expect(await getSessionUser(authEnv, new Headers({ cookie }))).toEqual({
+    expect((await readSession(authEnv, new Headers({ cookie }))).user).toEqual({
       id,
       name: 'Ada Lovelace',
     });
-    expect(await getSessionUser(authEnv, new Headers())).toBeNull();
+    expect((await readSession(authEnv, new Headers())).user).toBeNull();
 
     const signOut = await call('/sign-out', { method: 'POST', body: {}, headers: { cookie } });
     expect(signOut.status).toBe(200);
     // The browser drops every auth cookie, and the session row is gone: the old token is refused.
     expect(withCookies(signOut, cookie)).toBe('');
-    const token = cookie.split('; ').find((pair) => pair.startsWith(`${SESSION_COOKIE}=`)) ?? '';
-    expect(await getSessionUser(authEnv, new Headers({ cookie: token }))).toBeNull();
+    const token = tokenCookie(cookie);
+    expect((await readSession(authEnv, new Headers({ cookie: token }))).user).toBeNull();
     expect(await (await call('/get-session', { headers: { cookie: token } })).json()).toBeNull();
   });
 
@@ -101,6 +104,44 @@ describe('Better Auth on Workers (TOM-25)', () => {
       headers: { origin: EVIL_ORIGIN, cookie },
     });
     expect(signOut.status).toBe(403);
-    expect(await getSessionUser(authEnv, new Headers({ cookie }))).not.toBeNull();
+    expect((await readSession(authEnv, new Headers({ cookie }))).user).not.toBeNull();
+  });
+});
+
+describe('session cookie cache (D24)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /** A signed-in API call (the areas list) with the Cookie header `cookie`. */
+  const listAreas = (cookie: string) =>
+    createApp().request(`${ROUTES.AREAS}?bbox=34,31,35,32`, { headers: { cookie } }, authEnv);
+
+  it('reads the session row once per cache window; a same-device sign-out ends it at once', async () => {
+    const { cookie } = await signUp(authEnv);
+    expect(cookie).toContain(`${SESSION_DATA_COOKIE}=`);
+    // A browser whose cache cookie has lapsed sends the session token alone.
+    let jar = tokenCookie(cookie);
+    const query = vi.spyOn(pg.Client.prototype, 'query');
+    const sessionReads = () =>
+      query.mock.calls.filter(([statement]) => /\bsession\b/.test(JSON.stringify(statement)))
+        .length;
+
+    const first = await listAreas(jar);
+    expect(first.status).toBe(200);
+    expect(sessionReads()).toBe(1);
+    // The read set a fresh cache cookie, which the next request carries.
+    jar = withCookies(first, jar);
+    expect(jar).toContain(`${SESSION_DATA_COOKIE}=`);
+
+    const second = await listAreas(jar);
+    expect(second.status).toBe(200);
+    expect(sessionReads()).toBe(1);
+
+    const signOut = await call('/sign-out', { method: 'POST', body: {}, headers: { cookie: jar } });
+    expect(signOut.status).toBe(200);
+    jar = withCookies(signOut, jar);
+    const after = await listAreas(jar);
+    expect(after.status).toBe(401);
   });
 });
