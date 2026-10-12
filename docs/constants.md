@@ -19,6 +19,7 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 | `USER_ID_MAX` | `128` | With both strings capped, a socket attachment cannot reach the runtime's 16 KiB limit. |
 | `BOUNDS_LIMIT` | `500` | Caps one viewport response. |
 | `BODY_MAX_BYTES` | `64 * 1024` | Request body cap on mutations (64 KiB): 413 `PAYLOAD_TOO_LARGE` before JSON parsing. A ring at POLYGON_MAX_VERTICES with full-precision coordinates and a maximal name is about 41 KB. |
+| `VERSION_MAX` | `2_147_483_647` | Largest `version` a PUT body may carry: Postgres `integer` max, the type of `areas.version` and `area_versions.version`. A larger value would fail the query (22003) as a 500, not a 422. |
 | `PASSWORD_MIN` | `8` | Better Auth's default `minPasswordLength`; the register form's `minlength`. |
 
 ## TIMEOUTS
