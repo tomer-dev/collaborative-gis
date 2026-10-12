@@ -10,7 +10,8 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "tsc -b .storybook && storybook build"
+    "build-storybook": "tsc -b .storybook && storybook build",
+    "e2e": "tsc -p e2e && playwright test"
   },
   "dependencies": {
     "@cgis/shared": "workspace:*",
@@ -32,6 +33,7 @@
   },
   "devDependencies": {
     "@cgis/api": "workspace:*",
+    "@playwright/test": "1.64.0",
     "@storybook/addon-a11y": "^10.6.1",
     "@storybook/addon-docs": "^10.6.1",
     "@storybook/addon-themes": "^10.6.1",
