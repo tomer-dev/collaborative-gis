@@ -1,6 +1,7 @@
 import { RATE_LIMIT, type RateLimitAction } from '@cgis/shared';
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../app';
+import { log } from '../log';
 
 const { DRAW_ACTIONS_PER_WINDOW: LIMIT, WINDOW_MS } = RATE_LIMIT;
 const KNOWN_ACTIONS: ReadonlySet<unknown> = new Set(Object.values(RATE_LIMIT.ACTIONS));
@@ -26,7 +27,7 @@ export class RateLimiter extends DurableObject<Env> {
     if (!KNOWN_ACTIONS.has(action)) {
       // Caller-controlled value: log its length, never the value itself.
       const length = typeof action === 'string' ? action.length : null;
-      console.warn(JSON.stringify({ level: 'warn', msg: 'unknown rate limit action', length }));
+      log('warn', 'unknown rate limit action', { length });
       throw new Error('unknown rate limit action');
     }
 
