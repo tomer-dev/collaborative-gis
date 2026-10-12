@@ -1,4 +1,5 @@
 import {
+  type Bbox,
   ApiErrorSchema,
   AreaListSchema,
   AreaSchema,
@@ -20,7 +21,6 @@ import {
 import { z } from 'zod';
 import { api, ApiRequestError, expectStatus, readBody } from './api-client';
 import { ringAreaKm2 } from './geo/geodesic';
-import type { Bbox } from './map';
 import { useSession } from './session';
 
 /**

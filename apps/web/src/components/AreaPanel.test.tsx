@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, expect, it, vi } from 'vitest';
 import { formatArea } from '../lib/area-readout';
 import { areasKey } from '../lib/areas-query';
-import type { Bbox } from '../lib/map';
+import type { Bbox } from '@cgis/shared';
 import {
   AREA_ID,
   emptyResponse,

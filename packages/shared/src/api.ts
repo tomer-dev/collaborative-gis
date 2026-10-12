@@ -11,3 +11,6 @@ export const ApiErrorSchema = z.object({
   details: z.unknown().optional(),
 });
 export type ApiError = z.infer<typeof ApiErrorSchema>;
+
+/** The signed-in user as both apps carry it: the session user, `c.get('user')`, the Room's user. */
+export type AuthUser = { id: string; name: string };
