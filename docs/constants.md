@@ -53,12 +53,12 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 |---|---|---|
 | `COUNT` | `50` | Default row count: enough for the planner to have statistics, fast to insert. |
 | `BATCH` | `500` | Rows per insert statement; each row binds 4 parameters (Postgres allows 65,535). |
-| `NAME_PREFIX` | `'seed-'` | Every seeded name starts with it; a rerun counts those rows and only tops up to the count. |
+| `NAME_PREFIX` | `'seed-'` | Every seeded name starts with it (`seed-1`, `seed-2`, …), numbered on from the count. |
 | `BBOX` | `[34.27, 29.49, 35.9, 33.34]` | Israel as [w, s, e, n] in degrees: the demo region (MAP.DEFAULT_CENTER sits inside it). |
 | `MIN_RADIUS_DEG` | `0.003` | Smallest polygon scale (centre to farthest vertex), in degrees: every polygon ≥ 0.2 km across. |
 | `MAX_RADIUS_DEG` | `0.013` | Largest distance from a polygon's centre to a vertex, in degrees: ≤ 3 km across. |
 | `VERTICES` | `{ min: 4, max: 12 }` | Small, varied rings. |
-| `USER_ID` | `'seed'` | Seeded rows are recognisable by `created_by`. |
+| `USER_ID` | `'seed'` | `created_by` of every seeded row: a rerun counts these rows and only tops up to the count. |
 
 ## BENCH
 

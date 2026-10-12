@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { seedAreas } from '../../src/db/seed';
 
 // Runs on its own database (seedDatabaseUrl, see global-setup.ts): the seed tops up by counting the
-// `SEED.NAME_PREFIX` rows, so a file seeding into cgis_db alongside would change what is counted.
+// seed user's rows, so a file seeding into cgis_db alongside would change what is counted.
 // The tests run in order and build on each other's rows.
 const client = new pg.Client({ connectionString: inject('seedDatabaseUrl') });
 beforeAll(() => client.connect());
@@ -101,5 +101,18 @@ describe('seedAreas', () => {
     expect(rows.map((r) => r.name)).toEqual(
       [1, 2, 3, 4, 5].map((k) => `${SEED.NAME_PREFIX}${ROWS + k}`).sort(),
     );
+  });
+
+  it('counts only the seed user’s areas: a user’s own "seed-…" area does not shift the top-up', async () => {
+    await client.query(
+      `insert into areas (name, geom, area_km2, created_by)
+       values ($1, ST_GeomFromText('POLYGON((0 0,1 0,1 1,0 1,0 0))', 4326), 1, 'someone')`,
+      [`${SEED.NAME_PREFIX}garden`],
+    );
+
+    const result = await seedAreas(client, { count: ROWS + 6 });
+
+    expect(result.existing).toBe(ROWS + 5);
+    expect(result.inserted).toHaveLength(1);
   });
 });

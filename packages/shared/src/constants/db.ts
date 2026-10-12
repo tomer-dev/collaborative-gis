@@ -10,7 +10,7 @@ export const SEED = {
   COUNT: 50,
   /** Rows per insert statement; each row binds 4 parameters (Postgres allows 65,535). */
   BATCH: 500,
-  /** Every seeded name starts with it; a rerun counts those rows and only tops up to the count. */
+  /** Every seeded name starts with it (`seed-1`, `seed-2`, …), numbered on from the count. */
   NAME_PREFIX: 'seed-',
   /** Israel as [w, s, e, n] in degrees: the demo region (MAP.DEFAULT_CENTER sits inside it). */
   BBOX: [34.27, 29.49, 35.9, 33.34],
@@ -20,7 +20,7 @@ export const SEED = {
   MAX_RADIUS_DEG: 0.013,
   /** Small, varied rings. */
   VERTICES: { min: 4, max: 12 },
-  /** Seeded rows are recognisable by `created_by`. */
+  /** `created_by` of every seeded row: a rerun counts these rows and only tops up to the count. */
   USER_ID: 'seed',
 } as const;
 
