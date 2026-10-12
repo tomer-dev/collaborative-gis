@@ -43,6 +43,7 @@ export const WS = {
   BAD_FRAME_STRIKES: 10,
   CLOSE_POLICY_VIOLATION: 1008,
   CLOSE_INTERNAL_ERROR: 1011,
+  CLOSE_IDLE: 1001,
   PING_INTERVAL_MS: 30_000,
   AUTO_PING: 'ping',
   AUTO_PONG: 'pong',
@@ -92,6 +93,11 @@ export const DEV = {
   WEB_ORIGIN: 'http://localhost:5173',
 } as const;
 
+/** Standard request headers the API reads by name (lower case, as `Headers` stores them). */
+export const HEADERS = {
+  ORIGIN: 'origin',
+} as const;
+
 /** The single shared map (D11). */
 export const ROOM = {
   DEFAULT_ROOM_ID: 'default',
@@ -124,8 +130,8 @@ export const MAP = {
   ],
   /** Vertex handle hit box (Leaflet icon size); the dot's radius, ring and colours are CSS (`.cgis-draw-handle`). */
   HANDLE_HIT_PX: 24,
-  /** Leaflet path options for a sketch in progress (own draft now, remote ghosts in T14). */
-  DRAFT_STYLE: { weight: 2, dashArray: '6 4', fillOpacity: 0.12 },
+  /** Leaflet path options for a sketch in progress (own draft now, remote ghosts in T14); design brief §4: 2 px, dashed 8/4, fill 12 %. */
+  DRAFT_STYLE: { weight: 2, dashArray: '8 4', fillOpacity: 0.12 },
 } as const;
 
 /** Polygon draw tool: the client-side `draw:invalid` reasons. */
@@ -167,3 +173,15 @@ export const ERROR_MESSAGES = {
   NOT_IMPLEMENTED: 'not implemented',
   UPGRADE_REQUIRED: 'websocket upgrade required',
 } as const satisfies Record<keyof typeof ERROR_CODES, string>;
+
+/** `ApiError.message`s more specific than their code's default in ERROR_MESSAGES. */
+export const ERROR_REASONS = {
+  ORIGIN_NOT_ALLOWED: 'origin not allowed',
+} as const;
+
+/** `error` frame messages the Room sends where ERROR_MESSAGES' per-code default says too little. */
+export const WS_MESSAGES = {
+  NOT_JSON: 'frames must be JSON text',
+  NOT_JOINED: 'send join first',
+  DRAFT_OP_MISFIT: 'draft op does not fit the current draft',
+} as const;
