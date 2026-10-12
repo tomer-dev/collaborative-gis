@@ -3,11 +3,10 @@ import { HTTPException } from 'hono/http-exception';
 import { httpExceptionError, internalError, notFoundError } from './errors';
 import { health } from './routes/health';
 
-export type Env = {
-  HYPERDRIVE: Hyperdrive;
-};
+// Generated from wrangler.jsonc by `pnpm types` (worker-configuration.d.ts); never hand-written.
+export type Env = CloudflareBindings;
 
-export function createApp() {
+export function createApp(): Hono<{ Bindings: Env }> {
   const app = new Hono<{ Bindings: Env }>();
 
   app.route('/', health);
