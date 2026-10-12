@@ -46,6 +46,24 @@ export default tseslint.config(
     },
   },
   {
+    // D23: the api reads through the Drizzle query builder. A tagged `sql` template that starts with
+    // SELECT is a hand-written read; `sql` stays for PostGIS fragments and the write CTEs in
+    // apps/api/src/db/spatial.ts, which start with WITH and so pass. Tests (apps/api/test) are
+    // outside `files`.
+    files: ['apps/api/src/**/*.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "TaggedTemplateExpression[tag.name='sql'] > TemplateLiteral.quasi > TemplateElement:first-child[value.raw=/^\\s*select\\b/i]",
+          message:
+            'Hand-written SELECT in sql``: use the Drizzle query builder, with sql only for PostGIS fragments (D23).',
+        },
+      ],
+    },
+  },
+  {
     // No type assertions in the SPA (`as const` stays allowed): parse at the boundary with the
     // shared Zod schemas, or narrow. The generated route tree is ignored above. The files listed
     // under `ignores` predate the rule and belong to other lanes (T9b ui, T10 map test).
