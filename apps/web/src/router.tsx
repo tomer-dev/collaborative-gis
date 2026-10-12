@@ -36,7 +36,7 @@ declare module '@tanstack/react-router' {
  * Renders the router once the session is known and feeds it in as router context, so
  * `beforeLoad` guards read it. When the user changes (sign-in, sign-out, expiry) the
  * router is invalidated, which re-runs the guards on the current route.
- * Must sit inside a QueryClientProvider.
+ * Sits inside the QueryClientProvider so route components can use queries.
  */
 export function AppRouterProvider({ router }: { router: AppRouter }) {
   const session = useSession();
