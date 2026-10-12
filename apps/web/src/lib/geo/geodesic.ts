@@ -4,8 +4,8 @@ import { area } from '@turf/area';
 /** A GeoJSON position, `[longitude, latitude]` in degrees (the shared `Position`). */
 export type LngLat = Position;
 
-/** The ring as a closed GeoJSON ring (first position repeated at the end if it is not already). */
-export function closedRing(ring: readonly LngLat[]): LngLat[] {
+/** The ring closed: first position repeated at the end unless it already is ([] stays []). */
+export function closeRing(ring: readonly LngLat[]): LngLat[] {
   const first = ring[0];
   const last = ring[ring.length - 1];
   if (!first || !last) return [];
@@ -18,7 +18,7 @@ export function closedRing(ring: readonly LngLat[]): LngLat[] {
  * rings, either orientation; fewer than 3 vertices gives 0.
  */
 export function ringAreaM2(ring: readonly LngLat[]): number {
-  return area({ type: 'Polygon', coordinates: [closedRing(ring)] });
+  return area({ type: 'Polygon', coordinates: [closeRing(ring)] });
 }
 
 /** `ringAreaM2` in km², the unit the UI and `area_km2` use. */
