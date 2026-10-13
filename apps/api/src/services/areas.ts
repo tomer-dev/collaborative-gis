@@ -1,5 +1,6 @@
 import {
   AUDIT,
+  TELEMETRY,
   type Area,
   type AreaCreate,
   type AreaUpdate,
@@ -21,6 +22,7 @@ import {
   type RevertResult,
 } from '../db/spatial';
 import { listVersions, selectAreasInBounds } from '../db/spatial-read';
+import { timedQuery } from '../metrics';
 
 // Area mutations and their audit rows (D20). Each mutation runs on one per-request client in one
 // transaction, so the area write and its `audit_log` row commit together or not at all.
@@ -48,7 +50,9 @@ export type DeleteOutcome = { status: 'deleted' } | { status: 'missing' };
 
 /** Live areas in the viewport, newest edits first; at most `LIMITS.BOUNDS_LIMIT` (the default). */
 export function listAreas(env: Env, bbox: Bbox): Promise<Area[]> {
-  return withClient(env, (client) => selectAreasInBounds(client, bbox));
+  return timedQuery(env, TELEMETRY.DB_OPS.LIST, () =>
+    withClient(env, (client) => selectAreasInBounds(client, bbox)),
+  );
 }
 
 /**
@@ -104,7 +108,9 @@ export function deleteArea(env: Env, id: string, actor: Actor): Promise<DeleteOu
 
 /** A live area's saved versions, newest first; `null` when the area is missing or soft-deleted. */
 export async function listAreaVersions(env: Env, id: string): Promise<AreaVersion[] | null> {
-  const versions = await withClient(env, (client) => listVersions(client, id));
+  const versions = await timedQuery(env, TELEMETRY.DB_OPS.VERSIONS, () =>
+    withClient(env, (client) => listVersions(client, id)),
+  );
   // A live area always has its version 1, so no rows means no live area.
   return versions.length > 0 ? versions : null;
 }
@@ -146,11 +152,13 @@ function auditRow(actor: Actor, action: AuditAction, entityId: string, version: 
  * client, so their statements run inside it, and any error rolls everything back and propagates.
  * READ COMMITTED (Postgres' default, spelled out) is what `updateAreaIfVersion` relies on: its
  * re-read after a lost race sees the winner's commit. Hyperdrive pools in transaction mode, so the
- * whole transaction stays on one server connection.
+ * whole transaction stays on one server connection. Its time is one `DB_QUERY` datapoint.
  */
 function inTransaction<T>(env: Env, fn: (client: pg.Client) => Promise<T>): Promise<T> {
-  return withClient(env, (client) =>
-    db(client).transaction(() => fn(client), { isolationLevel: 'read committed' }),
+  return timedQuery(env, TELEMETRY.DB_OPS.WRITE, () =>
+    withClient(env, (client) =>
+      db(client).transaction(() => fn(client), { isolationLevel: 'read committed' }),
+    ),
   );
 }
 

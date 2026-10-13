@@ -5,6 +5,7 @@ import {
   ERROR_CODES,
   ERROR_MESSAGES,
   RATE_LIMIT,
+  TELEMETRY,
   WS,
 } from '@cgis/shared';
 import { DurableObject } from 'cloudflare:workers';
@@ -12,6 +13,7 @@ import { z } from 'zod';
 import type { Env } from '../app';
 import { apiErrorResponse } from '../errors';
 import { log } from '../log';
+import { MessageBatch, type MetricEvent, writeMetric } from '../metrics';
 import { DraftStore } from './drafts';
 import { ensureEpoch } from './epoch';
 import { parseClientFrame, SWITCHING_PROTOCOLS } from './frames';
@@ -43,6 +45,10 @@ export class Room extends DurableObject<Env> {
   private readonly room: RoomCtx;
   /** Per user, the last queued frame (see `webSocketMessage`); removed once the queue is empty. */
   private readonly queues = new Map<string, Promise<void>>();
+  /** Client frames, written as one `ROOM_MESSAGES` datapoint per window (metrics.ts). */
+  private readonly messages = new MessageBatch((count) =>
+    this.metric(TELEMETRY.EVENTS.ROOM_MESSAGES, count),
+  );
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -125,6 +131,7 @@ export class Room extends DurableObject<Env> {
    * Room while a handler is still running.
    */
   override async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+    this.messages.add();
     const attachment = attachmentOf(ws);
     if (!attachment) {
       sockets(this.ctx); // closes and logs a socket that cannot be attributed to a user
@@ -194,6 +201,7 @@ export class Room extends DurableObject<Env> {
 
   /** The peer closed: the socket leaves the room (draft dropped if it was the user's last). */
   override async webSocketClose(ws: WebSocket): Promise<void> {
+    this.metric(TELEMETRY.EVENTS.WS_CLOSE, 1);
     // With compatibility_date ≥ 2026-04-07 (web_socket_auto_reply_to_close) the runtime has
     // already answered the close and `ws` is CLOSED, so it is no longer among `sockets()`.
     const attachment = attachmentOf(ws);
@@ -218,6 +226,11 @@ export class Room extends DurableObject<Env> {
     }
   }
 
+  /** One datapoint about this Room: `blob2` is its name (`ROOM.DEFAULT_ROOM_ID` in production). */
+  private metric(event: MetricEvent, value: number): void {
+    writeMetric(this.env, event, this.ctx.id.name ?? this.ctx.id.toString(), value);
+  }
+
   private async accept(user: AuthUser): Promise<Response> {
     const now = Date.now();
     // The first socket starts the sweep. Armed before accepting, so a storage failure here is a
@@ -230,6 +243,7 @@ export class Room extends DurableObject<Env> {
     // socket without an attachment. acceptWebSocket (not server.accept()) makes it hibernatable.
     server.serializeAttachment(attachment);
     this.ctx.acceptWebSocket(server);
+    this.metric(TELEMETRY.EVENTS.WS_OPEN, 1);
     return new Response(null, { status: SWITCHING_PROTOCOLS, webSocket: client });
   }
 }

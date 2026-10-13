@@ -511,3 +511,33 @@ Saved areas on /map: the save dialog, the area panel (the areas in view, the sel
 | `NOT_JSON` | `'frames must be JSON text'` | Says what the Room accepts; a schema failure sends Zod's issue text instead. |
 | `NOT_JOINED` | `'send join first'` | Drafts come only from users in presence. |
 | `ROOM_STATE_LOST` | `'room state lost; join again'` | `error CONFLICT` with `resync: true`: the socket joined state the Room has since lost (its storage went while the socket stayed attached); every frame but `join`/`leave` is dropped until it joins again. |
+
+## TELEMETRY
+
+`telemetry.ts`. Metrics (ticket 6.7): Analytics Engine datapoints. Every datapoint is `{ indexes: [event], blobs: [event, subject], doubles: [value] }`, so one SQL query over the dataset groups by `blob1` (the README's Observability paragraph).
+
+| Name | Value | Notes |
+|---|---|---|
+| `DATASET` | `'cgis_metrics'` | The Analytics Engine dataset the `METRICS` binding writes to (wrangler.jsonc, every env). |
+| `MESSAGES_FLUSH_MS` | `1000` | A Room batches its message count into one datapoint per this window (never one per draft frame): the first frame after a flush arms a timer, which writes the count when it fires. |
+
+### TELEMETRY.EVENTS
+
+`blob1` (and the index) of each datapoint; `blob2` and `double1` are named per event.
+
+| Name | Value | Notes |
+|---|---|---|
+| `WS_OPEN` | `'ws_open'` | A Room socket accepted. `blob2`: the room id; `double1`: 1. |
+| `WS_CLOSE` | `'ws_close'` | A Room socket closed or errored. `blob2`: the room id; `double1`: 1. |
+| `ROOM_MESSAGES` | `'room_messages'` | Client frames a Room received in one `MESSAGES_FLUSH_MS` window. `blob2`: the room id; `double1`: the count. |
+| `DB_QUERY` | `'db_query'` | One areas request's database time. `blob2`: a `DB_OPS` value; `double1`: milliseconds. |
+
+### TELEMETRY.DB_OPS
+
+`blob2` of a `DB_QUERY` datapoint: which areas path ran.
+
+| Name | Value | Notes |
+|---|---|---|
+| `LIST` | `'areas.list'` | `GET /api/areas` (the bounds read). |
+| `VERSIONS` | `'areas.versions'` | `GET /api/areas/:id/versions`. |
+| `WRITE` | `'areas.write'` | A create, update, delete or revert transaction. |
