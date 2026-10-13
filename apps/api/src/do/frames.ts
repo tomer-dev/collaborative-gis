@@ -1,6 +1,11 @@
-import { WS_MESSAGES, type WsClientEvent, WsClientEventSchema, type WsEvent } from '@cgis/shared';
+import {
+  type DraftOp,
+  WS_MESSAGES,
+  type WsClientEvent,
+  WsClientEventSchema,
+  type WsEvent,
+} from '@cgis/shared';
 import { z } from 'zod';
-import type { DraftOp } from './drafts';
 
 /** The status of a WebSocket upgrade response (RFC 6455). Close codes are the shared `WS.CLOSE_*`. */
 export const SWITCHING_PROTOCOLS = 101;

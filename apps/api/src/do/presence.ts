@@ -1,6 +1,6 @@
 import { type AuthUser, LIMITS, MAP, type PresenceUser, PresenceStateSchema } from '@cgis/shared';
 import { z } from 'zod';
-import { fullDraftBucket } from './drafts';
+import { freshDraftRate } from './drafts';
 
 /**
  * Per-socket state, kept with `ws.serializeAttachment()` so it survives hibernation. Presence is
@@ -19,9 +19,9 @@ export const PresenceAttachmentSchema = z.object({
   joined: z.boolean(),
   /** Bad frames so far; at `WS.BAD_FRAME_STRIKES` the socket is closed. */
   strikes: z.number().int().nonnegative(),
-  /** The `draft:update` token bucket (`WS.DRAFT_RATE_PER_SEC`), see drafts.ts. */
-  tokens: z.number().nonnegative(),
-  refilledAt: z.number().int().nonnegative(),
+  /** The `draft:update` rate window (`WS.DRAFT_RATE_PER_SEC` a second), see drafts.ts. */
+  windowStart: z.number().int().nonnegative(),
+  frames: z.number().int().nonnegative(),
   /** The `seq` of the last accepted `draft:update`; older or repeated frames are dropped. */
   lastSeq: z.number().int().nonnegative().nullable(),
   /**
@@ -34,8 +34,8 @@ export type PresenceAttachment = z.infer<typeof PresenceAttachmentSchema>;
 type PresenceColor = PresenceAttachment['color'];
 
 /**
- * The attachment a new socket starts with: `viewing`, not joined, no strikes, a full draft bucket,
- * no accepted `seq` and no epoch (its first `join` sets one).
+ * The attachment a new socket starts with: `viewing`, not joined, no strikes, an empty draft
+ * window, no accepted `seq` and no epoch (its first `join` sets one).
  */
 export async function newAttachment(user: AuthUser, now: number): Promise<PresenceAttachment> {
   return {
@@ -46,7 +46,7 @@ export async function newAttachment(user: AuthUser, now: number): Promise<Presen
     lastSeen: now,
     joined: false,
     strikes: 0,
-    ...fullDraftBucket(now),
+    ...freshDraftRate(now),
     lastSeq: null,
     epoch: null,
   };

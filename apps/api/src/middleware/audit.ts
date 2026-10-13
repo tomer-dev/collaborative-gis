@@ -109,7 +109,7 @@ async function sessionUserId(c: Context<AppEnv>): Promise<string | null> {
 }
 
 /** What every request-borne row carries: client IP and user agent (D20) and the request id. */
-function requestFacts(c: Context<AppEnv>) {
+export function requestFacts<E extends AppEnv>(c: Context<E>) {
   return {
     ip: c.req.header(HEADERS.CF_CONNECTING_IP) ?? null,
     userAgent: c.req.header(HEADERS.USER_AGENT) ?? null,

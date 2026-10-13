@@ -21,7 +21,6 @@ const ReasonDetailsSchema = z.object({ reason: z.string() });
 export class ApiRequestError extends Error {
   readonly status: number;
   readonly code: string;
-  readonly details: unknown;
   /** `details.reason`: why PostGIS rejected a polygon (422), when the server sent one. */
   readonly reason: string | undefined;
 
@@ -30,7 +29,6 @@ export class ApiRequestError extends Error {
     this.name = 'ApiRequestError';
     this.status = status;
     this.code = code;
-    this.details = details;
     this.reason = ReasonDetailsSchema.safeParse(details).data?.reason;
   }
 }

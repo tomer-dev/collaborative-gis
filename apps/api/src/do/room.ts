@@ -5,7 +5,6 @@ import {
   ERROR_CODES,
   ERROR_MESSAGES,
   RATE_LIMIT,
-  ROUTES,
   WS,
 } from '@cgis/shared';
 import { DurableObject } from 'cloudflare:workers';
@@ -28,7 +27,7 @@ import {
   strike,
   sweepIdle,
 } from './handlers';
-import { isWebSocketUpgrade, readRoomUser } from './handoff';
+import { readRoomUser } from './handoff';
 import { attachmentOf, newAttachment } from './presence';
 import { bump, createSeqCounter, sendAll, sendError, sockets } from './sockets';
 
@@ -60,28 +59,18 @@ export class Room extends DurableObject<Env> {
   }
 
   /**
-   * Inbound surface: exactly one thing, a `GET ROUTES.WS` WebSocket upgrade from `wsUpgrade`.
-   * Only this Worker holds the `ROOM` binding, so the user headers come from an authenticated
-   * session; they are still validated, and every other request gets a 4xx. Never throws.
-   * 404 NOT_FOUND: other method or path · 426 UPGRADE_REQUIRED: no `Upgrade: websocket` ·
-   * 400 BAD_REQUEST: missing or invalid user headers · 500 INTERNAL: logged, no socket kept.
+   * Inbound surface: the `GET ROUTES.WS` upgrade `wsUpgrade` hands over, after it checked the
+   * method, path and `Upgrade` header. Only this Worker holds the `ROOM` binding, so the user
+   * headers come from an authenticated session; they are still validated (400 BAD_REQUEST when
+   * missing or invalid). A throw (a failed attach) rejects the stub call, which the Worker's
+   * `app.onError` answers with a logged 500; no socket is kept.
    */
   override async fetch(request: Request): Promise<Response> {
-    try {
-      if (request.method !== 'GET' || new URL(request.url).pathname !== ROUTES.WS) {
-        return apiErrorResponse(ERROR_CODES.NOT_FOUND);
-      }
-      if (!isWebSocketUpgrade(request)) return apiErrorResponse(ERROR_CODES.UPGRADE_REQUIRED);
-      const user = readRoomUser(request);
-      if (!user.success) {
-        return apiErrorResponse(ERROR_CODES.BAD_REQUEST, undefined, user.error.issues);
-      }
-      return await this.accept(user.data);
-    } catch (err) {
-      const stack = err instanceof Error ? err.stack : String(err);
-      log('error', 'room fetch failed', { stack });
-      return apiErrorResponse(ERROR_CODES.INTERNAL);
+    const user = readRoomUser(request);
+    if (!user.success) {
+      return apiErrorResponse(ERROR_CODES.BAD_REQUEST, undefined, user.error.issues);
     }
+    return this.accept(user.data);
   }
 
   /**
@@ -142,7 +131,7 @@ export class Room extends DurableObject<Env> {
       return;
     }
     const { userId } = attachment;
-    // Taken on arrival, not when the frame's turn comes: the socket's draft bucket and lastSeen
+    // Taken on arrival, not when the frame's turn comes: the socket's draft window and lastSeen
     // measure what the client sent, not how long the limiter took to answer earlier frames.
     const receivedAt = Date.now();
     const run = (this.queues.get(userId) ?? Promise.resolve()).then(() =>

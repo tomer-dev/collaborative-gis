@@ -11,7 +11,6 @@ import { MAP_CLASS } from '../ui';
 import { AppRouterProvider, createAppRouter } from '../router';
 import {
   AREA_ID,
-  deferred,
   jsonResponse,
   makeArea,
   makeVersion,
@@ -249,7 +248,7 @@ it('reverts from the history: the panel shows the reverted area and the history 
 });
 
 it('leaves an area whose create is still pending out of the list (SaveDialog cancelled mid-save)', async () => {
-  const response = deferred<Response>();
+  const response = Promise.withResolvers<Response>();
   const { map } = await renderMap((request) =>
     request.method === 'POST' ? response.promise : conflictingServer(request),
   );

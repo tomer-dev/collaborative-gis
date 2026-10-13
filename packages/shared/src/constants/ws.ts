@@ -3,7 +3,7 @@ const PING_INTERVAL_MS = 30_000;
 /** Realtime room behaviour, server and client (D13). */
 export const WS = {
   /**
-   * D13: drafts ≤ 10 msg/s, enforced per socket (a token bucket in the Room). The burst guard on
+   * D13: drafts ≤ 10 msg/s, enforced per socket (a fixed one-second window in the Room). The burst guard on
    * draft frames, which spend no drawing actions: D5 charges a draft session once.
    */
   DRAFT_RATE_PER_SEC: 10,

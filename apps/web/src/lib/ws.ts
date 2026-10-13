@@ -16,18 +16,6 @@ import {
  */
 export type ConnectionState = 'connecting' | 'open' | 'degraded' | 'offline';
 
-/** The part of the browser `WebSocket` the connection uses, so tests can inject a fake. */
-export interface SocketLike {
-  onopen: ((event: Event) => void) | null;
-  onclose: ((event: CloseEvent) => void) | null;
-  onmessage: ((event: MessageEvent) => void) | null;
-  onerror: ((event: Event) => void) | null;
-  send(data: string): void;
-  close(): void;
-}
-
-export type SocketFactory = (url: string) => SocketLike;
-
 type Unstamped<E> = E extends unknown ? Omit<E, 'seq' | 'ts'> : never;
 /** A client frame before the connection stamps its `seq` and `ts`. */
 export type OutgoingEvent = Unstamped<WsClientEvent>;
@@ -59,10 +47,6 @@ export interface RoomConnection {
 
 export type RoomConnectionOptions = {
   url: string;
-  /** Default: the browser `WebSocket`. */
-  createSocket?: SocketFactory | undefined;
-  /** Default: `Math.random` (jitter). */
-  random?: (() => number) | undefined;
   /**
    * Asked each time a socket closes; false stops the retries until `reconnect()`, as a 1008 does.
    * A browser does not expose an upgrade's HTTP status, so a 401 (the session ended) reaches the
@@ -108,12 +92,10 @@ function isType<T extends WsEventType>(event: WsEvent, type: T): event is Incomi
  */
 export function createRoomConnection({
   url,
-  createSocket = (target) => new WebSocket(target),
-  random = Math.random,
   shouldRetry = () => true,
 }: RoomConnectionOptions): RoomConnection {
   let state: ConnectionState = 'connecting';
-  let socket: SocketLike | null = null;
+  let socket: WebSocket | null = null;
   let failures = 0;
   let halted = false;
   let disposed = false;
@@ -166,14 +148,14 @@ export function createRoomConnection({
     }
     failures += 1;
     setState(stateAfter(failures));
-    retryTimer = setTimeout(connect, backoffDelay(failures, random));
+    retryTimer = setTimeout(connect, backoffDelay(failures, Math.random));
   };
 
   function connect() {
     clearTimeout(retryTimer);
     detach();
     if (disposed) return;
-    const next = createSocket(url);
+    const next = new WebSocket(url);
     socket = next;
     next.onopen = () => {
       failures = 0;

@@ -11,25 +11,17 @@ const pad = (value: number, radix: number, digits: number) =>
  * sends no CORS headers, so a CORS request fails every tile. Use with `govmapCrs`.
  */
 export class GovmapTileLayer extends L.TileLayer {
-  /** The cache name in the tile path, one of `GOVMAP.CACHES`. */
-  readonly cache: string;
-
-  constructor(cache: string, options: L.TileLayerOptions) {
-    super('', options);
-    this.cache = cache;
-  }
-
   override getTileUrl({ x, y, z }: L.Coords): string {
     const level = pad(z, 10, GOVMAP.TILE_LEVEL_DIGITS);
     const row = pad(y, 16, GOVMAP.TILE_INDEX_HEX_DIGITS);
     const column = pad(x, 16, GOVMAP.TILE_INDEX_HEX_DIGITS);
-    return `${GOVMAP.TILE_HOST}/${this.cache}/L${level}/R${row}/C${column}.jpg`;
+    return `${GOVMAP.TILE_HOST}/${GOVMAP.CACHE}/L${level}/R${row}/C${column}.jpg`;
   }
 }
 
-/** The aerial base layer on the first of `GOVMAP.CACHES`, levels L00 to the deepest published. */
+/** The aerial base layer on `GOVMAP.CACHE`, levels L00 to the deepest published. */
 export function createGovmapLayer(): GovmapTileLayer {
-  return new GovmapTileLayer(GOVMAP.CACHES[0], {
+  return new GovmapTileLayer('', {
     attribution: GOVMAP.ATTRIBUTION,
     maxZoom: GOVMAP.RESOLUTIONS.length - 1,
   });

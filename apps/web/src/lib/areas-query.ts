@@ -59,23 +59,16 @@ export function useAreasInBounds(bbox: Bbox | null, zoom: number | null) {
   });
 }
 
-/** Every cached viewport that holds `area.id` gets `area` in its place (an update, "Load theirs"). */
+/**
+ * Every cached viewport that holds an older copy of `area.id` gets `area` in its place (an update,
+ * a revert, "Load theirs"); a copy already at `area.version` or newer (the WebSocket's
+ * `area:updated` for the same write, or a later one) stays.
+ */
 export function replaceArea(queryClient: QueryClient, area: Area): void {
+  const newer = (cached: Area) => cached.id === area.id && cached.version < area.version;
   queryClient.setQueriesData<AreaList>(
     ALL_AREAS,
-    changeAreas((areas) => areas.map((cached) => (cached.id === area.id ? area : cached))),
-  );
-}
-
-/**
- * `replaceArea`, deduped by version: a viewport whose copy is already at `area.version` or newer
- * (the WebSocket's `area:updated` for the same write, or a later one) keeps it.
- */
-export function replaceOlderArea(queryClient: QueryClient, area: Area): void {
-  queryClient.setQueriesData<AreaList>(ALL_AREAS, (list) =>
-    list?.areas.some((cached) => cached.id === area.id && cached.version < area.version)
-      ? { areas: list.areas.map((cached) => (cached.id === area.id ? area : cached)) }
-      : list,
+    changeAreas((areas) => areas.map((cached) => (newer(cached) ? area : cached))),
   );
 }
 
@@ -87,14 +80,9 @@ export function removeArea(queryClient: QueryClient, id: string): void {
   );
 }
 
-/**
- * `[QUERY.VERSIONS_KEY, id, version]`: the history of area `id` while it is at `version`. Without
- * `version` it matches the area's history at any version (invalidation).
- */
-export function versionsKey(id: string, version?: number) {
-  return version === undefined
-    ? ([QUERY.VERSIONS_KEY, id] as const)
-    : ([QUERY.VERSIONS_KEY, id, version] as const);
+/** `[QUERY.VERSIONS_KEY, id, version]`: the history of area `id` while it is at `version`. */
+export function versionsKey(id: string, version: number) {
+  return [QUERY.VERSIONS_KEY, id, version] as const;
 }
 
 /**

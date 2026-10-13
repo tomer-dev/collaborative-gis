@@ -71,22 +71,7 @@ function guardedApp(user?: User) {
 
 const oversized = () => JSON.stringify({ name: 'x'.repeat(65 * KIB), geometry: null });
 
-describe('mutationGuards(): session, then budget, then body size', () => {
-  it('answers 401 before 429: an anonymous request never reaches the limiter', async () => {
-    const limiter = refusingLimiter(1_500);
-    const { app, handler } = guardedApp();
-    const res = await app.request(
-      'http://x/m',
-      { method: 'POST', body: '{}' },
-      { ...workerEnv, RATE_LIMITER: limiter.binding },
-    );
-
-    expect(res.status).toBe(401);
-    expect(await res.json()).toEqual({ code: 'UNAUTHORIZED', message: 'sign in' });
-    expect(limiter.calls.take).toBe(0);
-    expect(handler).not.toHaveBeenCalled();
-  });
-
+describe('mutationGuards(): budget, then body size', () => {
   it('a signed-in request over budget is 429 with Retry-After in whole seconds, even with an oversized body', async () => {
     const limiter = refusingLimiter(1_500);
     const { app, handler } = guardedApp(freshUser());
