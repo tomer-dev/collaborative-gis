@@ -1,94 +1,37 @@
-import { ROOM, WS, type WsEvent, parseWsMessage } from '@cgis/shared';
+import { ROOM, WS, parseWsMessage } from '@cgis/shared';
 import { evictDurableObject, runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test';
-import { env } from 'cloudflare:workers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DraftStore } from '../../src/do/drafts';
-import { withRoomUser } from '../../src/do/handoff';
-import type { Room } from '../../src/do/room';
-import { socketClient } from './socket-client';
+import {
+  barrier,
+  closeRoom,
+  kill,
+  newRoom,
+  socketsParsedWith,
+  stub,
+  T0,
+  vertex,
+} from './protocol-harness';
 
 // Graceful degradation, server half (spec §5 "Degradation", §6): what a client sees when the Room
 // is killed or loses its state, and the `resync: true` errors that tell it to rebuild. Frames are
 // parsed with the shared schema, so a field the schema lacks (`resync`) would be stripped here.
 
-type User = { id: string; name: string };
-type Client = ReturnType<typeof socketClient<WsEvent>> & {
-  user: User;
-  ws: WebSocket;
-  send: (type: string, payload: unknown) => void;
-};
-
-// Frozen-clock tests: see protocol-harness.ts. T0 is far ahead of the real clock so that an alarm
-// armed at a mocked instant never fires on its own; the tests run alarms with runDurableObjectAlarm.
-const T0 = Date.UTC(2100, 0, 1);
 const SECOND = 1000;
 
-let stub: DurableObjectStub<Room>;
-let clients: Client[] = [];
+beforeEach(newRoom);
+afterEach(closeRoom);
 
-beforeEach(() => {
-  stub = env.ROOM.get(env.ROOM.idFromName(crypto.randomUUID()));
-  clients = [];
-});
-
-afterEach(async () => {
-  vi.useRealTimers();
-  vi.restoreAllMocks();
-  if (clients.length === 0) return;
-  await evictDurableObject(stub, { webSockets: 'close' });
-});
+const { join: joinAs } = socketsParsedWith(parseWsMessage);
+type Client = Awaited<ReturnType<typeof joinAs>>;
+type User = { id: string; name: string };
 
 /**
  * A user no other test spends from: every draft session spends from the user's RateLimiter (D5),
  * whose storage lasts for the whole file. Presence sorts by name.
  */
 const user = (name: string): User => ({ id: `${name}-${crypto.randomUUID()}`, name });
-
-async function connect(who: User): Promise<Client> {
-  const upgrade = new Request('http://room/ws', { headers: { Upgrade: 'websocket' } });
-  const res = await stub.fetch(withRoomUser(upgrade, who));
-  expect(res.status).toBe(101);
-  const ws = res.webSocket;
-  if (!ws) throw new Error('expected a webSocket on the 101 response');
-  let seq = 0;
-  const client: Client = {
-    ...socketClient(ws, parseWsMessage),
-    user: who,
-    ws,
-    send(type, payload) {
-      seq += 1;
-      ws.send(JSON.stringify({ type, seq, ts: Date.now(), payload }));
-    },
-  };
-  clients.push(client);
-  return client;
-}
-
-/** Connects and joins once; resolves with the join's draft:state reply in. */
-async function join(who: User): Promise<Client> {
-  const client = await connect(who);
-  client.send('join', { mapId: ROOM.DEFAULT_ROOM_ID });
-  await client.waitFor('draft:state');
-  return client;
-}
-
-/** A `presence:set` round trip: every frame the Room sent `client` before it has arrived. */
-async function barrier(client: Client): Promise<void> {
-  const seen = client.of('presence').length;
-  client.send('presence:set', { state: 'viewing' });
-  await client.waitFor('presence', seen + 1);
-}
-
-/**
- * Kills the Room the way a crash or a deploy does: the instance is dropped and every socket is
- * cut (the peers see 1006; the Room gets no close event). Storage stays.
- */
-async function kill(): Promise<void> {
-  const cut = clients.map((client) => client.closed);
-  await evictDurableObject(stub, { webSockets: 'close' });
-  await Promise.all(cut);
-  clients = [];
-}
+const join = (who: User) => joinAs(who.id, who.name);
 
 /** Drops all of the Room's storage while its sockets stay attached, then starts a fresh instance. */
 async function loseState(): Promise<void> {
@@ -96,7 +39,6 @@ async function loseState(): Promise<void> {
   await evictDurableObject(stub); // sockets hibernate: they outlive the state they joined
 }
 
-const vertex = (i: number): [number, number] => [34.8 + i / 100, 32];
 const add = (index: number, i = index) => ({ op: 'add', index, vertex: vertex(i) });
 const userIds = (client: Client, type: 'presence' | 'draft:state', n = 1) => {
   const frame = client.of(type)[n - 1];
@@ -182,7 +124,7 @@ describe('chaos: the Room is killed mid-draft', () => {
 
     const c = await join(user('C'));
     expect(c.of('draft:state')[0]?.payload.drafts).toEqual(surviving);
-    expect(userIds(c, 'presence')).toEqual([A.id, B.id, c.user.id]);
+    expect(userIds(c, 'presence')).toEqual([A.id, B.id, c.userId]);
   });
 
   it('killed with the sockets hibernated (a fresh instance, sockets still attached): drafting goes on, no resync', async () => {
