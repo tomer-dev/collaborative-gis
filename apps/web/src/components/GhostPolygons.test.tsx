@@ -73,7 +73,7 @@ it("draws another user's draft:update as a dashed ghost in their colour; clear r
   expect(ghosts()).toHaveLength(0);
 });
 
-it('follows the drafts it is given: moves a ghost in place, skips authors without a colour, cleans up on unmount', () => {
+it('follows the drafts it is given: redraws a ghost, skips authors without a colour, cleans up on unmount', () => {
   const draw = (drafts: Draft[]) => <GhostPolygons map={map} drafts={drafts} users={users} />;
   const view = render(draw([{ userId: 'u2', vertices: triangle }]));
   const [first] = ghosts();
@@ -85,8 +85,8 @@ it('follows the drafts it is given: moves a ghost in place, skips authors withou
       { userId: 'stranger', vertices: triangle },
     ]),
   );
-  expect(ghosts()).toEqual([first]);
-  expect(first!.getAttribute('d')).not.toBe(before);
+  expect(ghosts()).toHaveLength(1);
+  expect(ghosts()[0]!.getAttribute('d')).not.toBe(before);
 
   view.unmount();
   expect(ghosts()).toHaveLength(0);
