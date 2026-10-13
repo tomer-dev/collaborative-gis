@@ -210,14 +210,18 @@ it('opens the save dialog with the finished sketch on draw:done', async () => {
   expect(await screen.findByRole('dialog', { name: COPY.AREAS.SAVE_TITLE })).toBeTruthy();
 });
 
-it("lists the viewport's areas; picking one selects and highlights it like a click on its polygon", async () => {
-  await renderMap(conflictingServer);
+it("lists the viewport's areas; picking one flies to it, selects and highlights it like a click on its polygon", async () => {
+  const { map } = await renderMap(conflictingServer);
   await waitFor(() => expect(areaPaths()).toHaveLength(1));
+  const fitBounds = vi.spyOn(map, 'fitBounds');
 
   const list = await screen.findByRole('region', { name: COPY.AREAS.LIST_TITLE });
   fireEvent.click(within(list).getByRole('button', { name: /Orchard/ }));
 
   const panel = await screen.findByRole('region', { name: 'Orchard' });
+  expect(fitBounds).toHaveBeenCalledWith(L.latLngBounds(SQUARE.map(([lng, lat]) => [lat, lng])), {
+    padding: [MAP.FIT_PADDING_PX, MAP.FIT_PADDING_PX],
+  });
   expect(areaPaths()[0]?.classList.contains(MAP_CLASS.areaSelected)).toBe(true);
   fireEvent.click(within(panel).getByRole('button', { name: COPY.AREAS.CLOSE }));
   expect(await screen.findByRole('region', { name: COPY.AREAS.LIST_TITLE })).toBeTruthy();
