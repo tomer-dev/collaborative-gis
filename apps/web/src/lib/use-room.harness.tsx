@@ -5,9 +5,9 @@ import {
   type Area,
   type DraftOp,
   ERROR_CODES,
-  ERROR_MESSAGES,
   type Position,
   QUERY,
+  WS_MESSAGES,
   type WsClientEvent,
 } from '@cgis/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -114,8 +114,7 @@ export const errorFrame = (
   extra: { resync?: boolean; retryAfter?: number; frameSeq?: number | undefined } = {},
 ) => serverFrame({ type: 'error', payload: { code, message, ...extra } });
 
-/** A frame the Room could not apply to its copy of the draft: the client must resync. */
-export const misfit = errorFrame(ERROR_CODES.DRAFT_OP_MISFIT, ERROR_MESSAGES.DRAFT_OP_MISFIT, {
+export const stateLost = errorFrame(ERROR_CODES.CONFLICT, WS_MESSAGES.ROOM_STATE_LOST, {
   resync: true,
 });
 

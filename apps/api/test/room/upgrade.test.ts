@@ -147,6 +147,7 @@ describe('Room Durable Object', () => {
       windowStart: expect.any(Number),
       frames: 0,
       lastSeq: null,
+      epoch: null,
     });
     const { color, lastSeen } = PresenceAttachmentSchema.parse(attachment);
     expect(MAP.PRESENCE_COLORS).toContain(color);
