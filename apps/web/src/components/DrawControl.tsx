@@ -36,7 +36,8 @@ const VERTEX_CAP_UNIT = `/ ${LIMITS.POLYGON_MAX_PLACED_VERTICES}`;
 
 /**
  * Polygon draw control floating over the map's top-right corner: a "Draw polygon" toolbar
- * button, then, while drawing, the live area and vertex count with Finish / Undo / Cancel.
+ * button, then, while drawing, the live area and vertex count with Finish / Undo / Cancel
+ * (Escape cancels too).
  * Mount it next to the map container (not inside it), so its clicks never reach the map.
  */
 export function DrawControl({ map, onDone }: DrawControlProps) {
@@ -53,6 +54,7 @@ function MapDrawControl({ map, onDone }: DrawControlProps) {
   const [drawing, setDrawing] = useState(false);
   const [sketch, setSketch] = useState(EMPTY_SKETCH);
   const startButton = useRef<HTMLButtonElement>(null);
+  const cancelButton = useRef<HTMLButtonElement>(null);
   // Always the latest onDone, without resubscribing (which would disable the handler mid-sketch).
   const finished = useEffectEvent((ring: LngLat[]) => onDone(ring));
 
@@ -80,16 +82,33 @@ function MapDrawControl({ map, onDone }: DrawControlProps) {
     };
   }, [map, handler]);
 
+  // Escape while drawing takes the Cancel button's path, except where Escape already means
+  // something: in a dialog (it closes it) or a text field (the rename input), the sketch stays.
+  useEffect(() => {
+    if (!drawing) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (event.target instanceof Element && event.target.closest('dialog, input, textarea'))
+        return;
+      handler.cancel();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [drawing, handler]);
+
+  // The start button that had focus is gone: render the panel now and put focus on its Cancel.
   const start = () => {
     setSketch(EMPTY_SKETCH);
-    setDrawing(true);
+    flushSync(() => setDrawing(true));
     handler.enable();
+    cancelButton.current?.focus();
   };
 
   return (
     <div className="absolute top-3 right-3 z-controls">
       {drawing ? (
         <DrawingControls
+          cancelRef={cancelButton}
           sketch={sketch}
           onFinish={() => handler.finish()}
           onUndo={() => handler.undo()}
@@ -111,13 +130,14 @@ function IdleControls({ ref, onStart }: { ref: Ref<HTMLButtonElement>; onStart: 
 }
 
 type DrawingControlsProps = {
+  cancelRef: Ref<HTMLButtonElement>;
   sketch: Sketch;
   onFinish: () => void;
   onUndo: () => void;
   onCancel: () => void;
 };
 
-function DrawingControls({ sketch, onFinish, onUndo, onCancel }: DrawingControlsProps) {
+function DrawingControls({ cancelRef, sketch, onFinish, onUndo, onCancel }: DrawingControlsProps) {
   const { vertices, invalidReason } = sketch;
   return (
     <Panel
@@ -135,7 +155,7 @@ function DrawingControls({ sketch, onFinish, onUndo, onCancel }: DrawingControls
           >
             {DRAW.UNDO_LABEL}
           </Button>
-          <Button variant="secondary" size="sm" onClick={onCancel}>
+          <Button ref={cancelRef} variant="secondary" size="sm" onClick={onCancel}>
             {DRAW.CANCEL_LABEL}
           </Button>
           <Button size="sm" onClick={onFinish}>

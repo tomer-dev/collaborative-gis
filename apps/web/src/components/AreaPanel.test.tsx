@@ -2,6 +2,7 @@ import {
   COPY,
   ERROR_CODES,
   ERROR_REASONS,
+  RATE_LIMIT,
   type Area,
   type AreaList,
   type Bbox,
@@ -49,6 +50,12 @@ const berlin = makeArea(OTHER_ID, {
   },
 });
 const NO_PENDING: ReadonlySet<string> = new Set();
+/** The viewport query has answered. */
+const LOADED: AreaPanelProps['list'] = {
+  isPending: false,
+  isLoadingError: false,
+  refetch: () => {},
+};
 
 const isVersionsGet = ({ method, path }: StubRequest) =>
   method === 'GET' && path.endsWith('/versions');
@@ -72,6 +79,7 @@ function renderPanel(handler: StubHandler, props: Partial<AreaPanelProps> = {}) 
   const view = render(
     <AreaPanel
       areas={[orchard]}
+      list={LOADED}
       bbox={ISRAEL}
       pendingIds={NO_PENDING}
       selectedId={AREA_ID}
@@ -87,6 +95,12 @@ function renderPanel(handler: StubHandler, props: Partial<AreaPanelProps> = {}) 
 const selectedPanel = (name = 'Orchard') => screen.getByRole('region', { name });
 const listPanel = () => screen.getByRole('region', { name: COPY.AREAS.LIST_TITLE });
 
+/** Delete, then Yes in the inline confirm. */
+function confirmDelete(panel: HTMLElement) {
+  fireEvent.click(within(panel).getByRole('button', { name: COPY.AREAS.DELETE }));
+  fireEvent.click(within(panel).getByRole('button', { name: COPY.AREAS.DELETE_YES }));
+}
+
 function rename(panel: HTMLElement, name: string) {
   fireEvent.change(within(panel).getByRole('textbox'), { target: { value: name } });
   fireEvent.click(within(panel).getByRole('button', { name: COPY.AREAS.RENAME_SUBMIT }));
@@ -98,7 +112,7 @@ it('lists only the areas in the viewport with name and area', () => {
   );
   renderPanel(() => jsonResponse(500, {}), { areas: [berlin, ...inView], selectedId: null });
 
-  const rows = within(listPanel()).getAllByRole('button');
+  const rows = within(listPanel()).getAllByRole('listitem');
   expect(rows).toHaveLength(2);
   expect(rows[0]?.textContent).toContain('Field 1');
   expect(rows[0]?.textContent).toContain(formatArea(1));
@@ -109,7 +123,30 @@ it('says when no saved area is in view', () => {
   renderPanel(() => jsonResponse(500, {}), { areas: [berlin], selectedId: null });
 
   expect(within(listPanel()).getByText(COPY.AREAS.LIST_EMPTY)).toBeTruthy();
-  expect(within(listPanel()).queryByRole('button')).toBeNull();
+  expect(within(listPanel()).queryByRole('listitem')).toBeNull();
+});
+
+it('tells a loading list and a failed one from an empty view; Retry loads it again', () => {
+  const refetch = vi.fn();
+  renderPanel(() => jsonResponse(500, {}), {
+    areas: [],
+    selectedId: null,
+    list: { ...LOADED, isPending: true },
+  });
+  expect(within(listPanel()).getByText(COPY.AREAS.LIST_LOADING)).toBeTruthy();
+  expect(within(listPanel()).queryByText(COPY.AREAS.LIST_EMPTY)).toBeNull();
+  cleanup();
+
+  renderPanel(() => jsonResponse(500, {}), {
+    areas: [],
+    selectedId: null,
+    list: { ...LOADED, isLoadingError: true, refetch },
+  });
+  const alert = within(listPanel()).getByRole('alert');
+  expect(alert.textContent).toContain(COPY.AREAS.LIST_ERROR_TITLE);
+  expect(within(listPanel()).queryByText(COPY.AREAS.LIST_EMPTY)).toBeNull();
+  fireEvent.click(within(alert).getByRole('button', { name: COPY.AREAS.LIST_RETRY }));
+  expect(refetch).toHaveBeenCalledTimes(1);
 });
 
 it('selects a listed area through onSelect; the selected area replaces the list', () => {
@@ -125,6 +162,7 @@ it('selects a listed area through onSelect; the selected area replaces the list'
   rerender(
     <AreaPanel
       areas={[orchard, vineyard]}
+      list={LOADED}
       bbox={ISRAEL}
       pendingIds={NO_PENDING}
       selectedId={vineyard.id}
@@ -147,7 +185,7 @@ it('never lists or opens an area whose create is still pending', async () => {
   });
 
   expect(screen.queryByRole('region', { name: 'Unsaved' })).toBeNull();
-  const rows = within(listPanel()).getAllByRole('button');
+  const rows = within(listPanel()).getAllByRole('listitem');
   expect(rows.map((row) => row.textContent)).toEqual([expect.stringContaining('Orchard')]);
   await Promise.resolve();
   expect(requests).toEqual([]);
@@ -193,9 +231,33 @@ it('hands a 409 to the parent instead of showing it', async () => {
   expect(screen.queryByRole('alert')).toBeNull();
 });
 
-it('deletes the area and reports it; a failed delete shows an alert', async () => {
+it('asks before deleting: No keeps the area, sends nothing and puts focus back on Delete', () => {
+  const { requests } = renderPanel(() => emptyResponse(204));
+  const panel = selectedPanel();
+
+  fireEvent.click(within(panel).getByRole('button', { name: COPY.AREAS.DELETE }));
+  expect(within(panel).getByRole('group', { name: COPY.AREAS.DELETE_CONFIRM })).toBeTruthy();
+  fireEvent.click(within(panel).getByRole('button', { name: COPY.AREAS.DELETE_NO }));
+
+  expect(writes(requests)).toEqual([]);
+  expect(document.activeElement).toBe(
+    within(panel).getByRole('button', { name: COPY.AREAS.DELETE }),
+  );
+});
+
+it('sends nothing for a rename that keeps the name (no new version)', async () => {
+  const { requests } = renderPanel(() => jsonResponse(500, {}));
+
+  rename(selectedPanel(), '  Orchard ');
+  // A macrotask: a request the rename started would have reached the stub by now.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  expect(writes(requests)).toEqual([]);
+});
+
+it('deletes the area after the confirm and reports it; a failed delete shows an alert', async () => {
   const ok = renderPanel(() => emptyResponse(204));
-  fireEvent.click(within(selectedPanel()).getByRole('button', { name: COPY.AREAS.DELETE }));
+  confirmDelete(selectedPanel());
   await waitFor(() => expect(ok.onDeleted).toHaveBeenCalledTimes(1));
   expect(writes(ok.requests)[0]).toMatchObject({
     method: 'DELETE',
@@ -205,13 +267,33 @@ it('deletes the area and reports it; a failed delete shows an alert', async () =
   cleanup();
 
   const failing = renderPanel(() =>
-    jsonResponse(429, { code: ERROR_CODES.RATE_LIMITED, message: 'Slow' }),
+    jsonResponse(429, {
+      code: ERROR_CODES.RATE_LIMITED,
+      message: 'Too many requests',
+      details: { retryAfterMs: 12_300 },
+    }),
   );
-  fireEvent.click(within(selectedPanel()).getByRole('button', { name: COPY.AREAS.DELETE }));
+  confirmDelete(selectedPanel());
   const alert = await screen.findByRole('alert');
   expect(alert.textContent).toContain(COPY.AREAS.DELETE_ERROR_TITLE);
-  expect(alert.textContent).toContain('Slow');
+  // The 429 says how long to wait (rounded up to whole seconds), not the raw message.
+  expect(alert.textContent).toContain('Try again in 13 s.');
   expect(failing.onDeleted).not.toHaveBeenCalled();
+  // Yes handed focus to Delete, which is back once the call failed.
+  expect(document.activeElement).toBe(
+    within(selectedPanel()).getByRole('button', { name: COPY.AREAS.DELETE }),
+  );
+});
+
+it('states the whole rate-limit window when a 429 carries no wait', async () => {
+  renderPanel(() =>
+    jsonResponse(429, { code: ERROR_CODES.RATE_LIMITED, message: 'Too many requests' }),
+  );
+
+  rename(selectedPanel(), 'Grove');
+
+  const alert = await screen.findByRole('alert');
+  expect(alert.textContent).toContain(COPY.AREAS.RATE_LIMITED(RATE_LIMIT.WINDOW_MS));
 });
 
 it('asks for a name instead of sending one made of spaces; Close closes', () => {
@@ -226,8 +308,29 @@ it('asks for a name instead of sending one made of spaces; Close closes', () => 
   expect(onClose).toHaveBeenCalledTimes(1);
 });
 
+it('keeps the list unfolded across a pick and a Close (the fold is for phone width)', () => {
+  const props = {
+    areas: [orchard],
+    list: LOADED,
+    bbox: ISRAEL,
+    pendingIds: NO_PENDING,
+    onSelect: vi.fn(),
+    onClose: vi.fn(),
+    onConflict: vi.fn(),
+    onDeleted: vi.fn(),
+  };
+  const { rerender } = renderPanel(() => jsonResponse(500, {}), { selectedId: null });
+  fireEvent.click(within(listPanel()).getByRole('button', { name: COPY.AREAS.LIST_SHOW }));
+
+  rerender(<AreaPanel {...props} selectedId={AREA_ID} />);
+  rerender(<AreaPanel {...props} selectedId={null} />);
+
+  expect(within(listPanel()).getByRole('button', { name: COPY.AREAS.LIST_HIDE })).toBeTruthy();
+});
+
 it("refills the name field when the area's name changes (a revert, another user's rename)", () => {
   const props = {
+    list: LOADED,
     bbox: ISRAEL,
     pendingIds: NO_PENDING,
     selectedId: AREA_ID,

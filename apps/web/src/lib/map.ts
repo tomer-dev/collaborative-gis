@@ -1,5 +1,10 @@
-import type { Bbox } from '@cgis/shared';
-import type L from 'leaflet';
+import type { Area, Bbox } from '@cgis/shared';
+import L from 'leaflet';
+
+const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
+
+/** The OS asks for less motion: the map's zoom and fade animations and the layer crossfade are off. */
+export const prefersReducedMotion = (): boolean => window.matchMedia(REDUCED_MOTION).matches;
 
 /**
  * The map's visible bounds as a `Bbox` the API accepts. `map.getBounds()` is unbounded: on a
@@ -19,4 +24,9 @@ export function boundsToBbox(map: L.Map): Bbox {
     Math.min(maxLng, bounds.getEast()),
     bounds.getNorth(),
   ];
+}
+
+/** An area's bounding box in Leaflet's `[lat, lng]` order (GeoJSON rings are `[lng, lat]`). */
+export function areaBounds(area: Area): L.LatLngBounds {
+  return L.latLngBounds(area.geometry.coordinates[0].map(([lng, lat]) => L.latLng(lat, lng)));
 }

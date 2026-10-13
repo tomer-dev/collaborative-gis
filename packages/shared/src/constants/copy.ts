@@ -83,6 +83,10 @@ export const COPY = {
     RENAME_PENDING: 'Renaming…',
     RENAME_ERROR_TITLE: 'Could not rename the area',
     DELETE: 'Delete',
+    /** Delete asks once, inline: this question, then Yes (deletes) or No (back to Delete). */
+    DELETE_CONFIRM: 'Delete?',
+    DELETE_YES: 'Yes',
+    DELETE_NO: 'No',
     DELETE_PENDING: 'Deleting…',
     DELETE_ERROR_TITLE: 'Could not delete the area',
     CONFLICT_TITLE: 'Someone else changed this area',
@@ -94,9 +98,25 @@ export const COPY = {
     OVERWRITE_ERROR_TITLE: 'Could not overwrite the area',
     /** A failure without an API error body (network error, proxy page). */
     ERROR_GENERIC: 'Something went wrong. Try again.',
+    /**
+     * A 429 from the per-user budget (`RATE_LIMIT`): `waitMs` is the response's
+     * `details.retryAfterMs` (else the whole window), stated in whole seconds, rounded up.
+     */
+    RATE_LIMITED: (waitMs: number) =>
+      `Too many changes in a short time. Try again in ${Math.max(1, Math.ceil(waitMs / MS_PER_SECOND))} s.`,
     /** The area panel: its title, also the name of the list of the areas in the viewport. */
     LIST_TITLE: 'Areas in view',
+    /** While the viewport's first answer is on its way (not "no areas"). */
+    LIST_LOADING: 'Loading areas…',
+    /** The viewport's first load failed: the list cannot say whether there are areas. */
+    LIST_ERROR_TITLE: 'Could not load the areas',
+    /** Loads the viewport's areas again. */
+    LIST_RETRY: 'Retry',
     LIST_EMPTY: 'No saved areas in view.',
+    /** Phone width only: the area panel's header button that unfolds the list (it starts folded). */
+    LIST_SHOW: 'Show the list',
+    /** The same button once the list is unfolded. */
+    LIST_HIDE: 'Hide the list',
     HISTORY_TITLE: 'History',
     HISTORY_LOADING: 'Loading history…',
     HISTORY_ERROR_TITLE: 'Could not load the history',

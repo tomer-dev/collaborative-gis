@@ -109,6 +109,8 @@ it('starts idle with the draw button; clicking it enables the handler and shows 
   expect(handler().enabled()).toBe(true);
   expect(screen.queryByRole('button', { name: DRAW.START_LABEL })).toBeNull();
   expect(panel()).toBeTruthy();
+  // The start button is gone: focus moves to the panel's Cancel, not to the page.
+  expect(document.activeElement).toBe(button(DRAW.CANCEL_LABEL));
   for (const name of [DRAW.FINISH_LABEL, DRAW.UNDO_LABEL, DRAW.CANCEL_LABEL]) {
     expect(button(name)).toBeTruthy();
   }
@@ -210,6 +212,29 @@ it('discards the sketch from Cancel', () => {
   act(() => clickOn(map, 32, 35));
 
   fireEvent.click(button(DRAW.CANCEL_LABEL));
+
+  expect(handler().enabled()).toBe(false);
+  expect(handler().getVertices()).toEqual([]);
+  expect(onDone).not.toHaveBeenCalled();
+  expect(document.activeElement).toBe(button(DRAW.START_LABEL));
+});
+
+it('discards the sketch on Escape, as Cancel does, unless a text field or a dialog has it', () => {
+  const { handler, onDone } = renderOnMap();
+  startDrawing();
+  act(() => clickOn(map, 32, 35));
+
+  // The rename field's (or a dialog's) Escape is theirs: the sketch stays.
+  const field = document.createElement('input');
+  const dialog = document.createElement('dialog');
+  document.body.append(field, dialog);
+  fireEvent.keyDown(field, { key: 'Escape' });
+  fireEvent.keyDown(dialog, { key: 'Escape' });
+  expect(handler().enabled()).toBe(true);
+  field.remove();
+  dialog.remove();
+
+  fireEvent.keyDown(document, { key: 'Escape' });
 
   expect(handler().enabled()).toBe(false);
   expect(handler().getVertices()).toEqual([]);

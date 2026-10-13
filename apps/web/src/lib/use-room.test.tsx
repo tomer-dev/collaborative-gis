@@ -159,6 +159,48 @@ describe('useRoom', () => {
     expect(invalidate).toHaveBeenLastCalledWith({ queryKey: [QUERY.AREAS_KEY] });
   });
 
+  /** Drops every connect until offline; with Math.random at 0 the next wait outlasts a poll. */
+  function dropUntilOffline(room: ReturnType<typeof renderRoom>) {
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    for (let failures = 1; failures <= WS.CLIENT_OFFLINE_AFTER; failures++) {
+      act(() => room.socket().drop(1006));
+      if (failures < WS.CLIENT_OFFLINE_AFTER) room.advance(backoffDelay(failures, () => 0));
+    }
+    expect(backoffDelay(WS.CLIENT_OFFLINE_AFTER, () => 0)).toBeGreaterThan(WS.OFFLINE_POLL_MS);
+    return room.socket();
+  }
+  const nextPoll = () => act(async () => void vi.advanceTimersByTime(WS.OFFLINE_POLL_MS));
+
+  it('connects at once when a poll gets an answer again, then leaves the socket to its backoff', async () => {
+    const room = renderRoom();
+    const dropped = dropUntilOffline(room);
+
+    await nextPoll();
+    const retried = room.socket();
+    expect(retried).not.toBe(dropped);
+
+    // The API keeps answering while the Room refuses: no retry per poll, the backoff decides.
+    act(() => retried.drop(1006));
+    await nextPoll();
+    expect(room.socket()).toBe(retried);
+  });
+
+  it('keeps the backoff while the polls fail: a failed poll says the network is still down', async () => {
+    const room = renderRoom();
+    const viewport = new QueryObserver(room.queryClient, {
+      queryKey: areasKey,
+      queryFn: () => Promise.reject(new Error('offline')),
+      retry: false,
+    });
+    const unsubscribe = viewport.subscribe(() => {});
+    const dropped = dropUntilOffline(room);
+
+    await nextPoll();
+
+    expect(room.socket()).toBe(dropped);
+    unsubscribe();
+  });
+
   it('resyncs on the first open when the connection degraded before it', () => {
     const room = renderRoom();
     const invalidate = vi.spyOn(room.queryClient, 'invalidateQueries');
@@ -208,7 +250,10 @@ describe('useRoom', () => {
     room.advance(WS.OFFLINE_POLL_MS);
     expect(room.result.current.state).toBe('degraded');
     expect(invalidate).toHaveBeenCalledTimes(1);
-    expect(invalidate).toHaveBeenLastCalledWith({ queryKey: [QUERY.AREAS_KEY] });
+    expect(invalidate).toHaveBeenLastCalledWith(
+      { queryKey: [QUERY.AREAS_KEY] },
+      { throwOnError: true },
+    );
   });
 
   it('stops the offline poll once the areas API answers 401 (the session ended)', async () => {
