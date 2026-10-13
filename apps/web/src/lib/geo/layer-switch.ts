@@ -1,6 +1,7 @@
 import { GOVMAP, MAP } from '@cgis/shared';
 // Default import, as in govmap-crs.ts: the Leaflet object plugins attach to.
 import L from 'leaflet';
+import { prefersReducedMotion } from '../map';
 import { createOsmLayer } from './osm-layer';
 
 declare module 'leaflet' {
@@ -15,8 +16,6 @@ export type BaseLayerId = 'osm' | 'aerial';
 
 /** Class of the still copy of the old base layer that the new one fades in over. */
 export const SNAPSHOT_CLASS = 'cgis-base-snapshot';
-
-const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
 
 type BaseLayer = { crs: L.CRS; layer: L.GridLayer };
 
@@ -98,7 +97,7 @@ export async function switchBaseLayer(
   const { tilePane } = map.getPanes();
   // An unfinished copy from the previous switch goes first.
   for (const stale of tilePane.querySelectorAll(`.${SNAPSHOT_CLASS}`)) stale.remove();
-  const snapshot = window.matchMedia(REDUCED_MOTION).matches ? null : snapshotOf(map, old);
+  const snapshot = prefersReducedMotion() ? null : snapshotOf(map, old);
 
   for (const layer of old) layer.remove();
   map.options.crs = next.crs;

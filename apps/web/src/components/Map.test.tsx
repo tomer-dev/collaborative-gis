@@ -69,6 +69,21 @@ it('creates the map at the default view with the OSM layer and both overlay pane
   expect(screen.getByRole('region', { name: 'Map' })).toBe(map.getContainer());
 });
 
+it('animates zoom and tile fades only when the OS allows motion', () => {
+  expect(renderMap().map.options).toMatchObject({ zoomAnimation: true, fadeAnimation: true });
+  cleanup();
+
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    media: query,
+    matches: query === '(prefers-reduced-motion: reduce)',
+  }));
+  expect(renderMap().map.options).toMatchObject({
+    zoomAnimation: false,
+    fadeAnimation: false,
+    markerZoomAnimation: false,
+  });
+});
+
 it('invalidates the map size when its container resizes', () => {
   const { map } = renderMap();
   const invalidateSize = vi.spyOn(map, 'invalidateSize');

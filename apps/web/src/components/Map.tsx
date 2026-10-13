@@ -4,7 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef } from 'react';
 import { createOsmLayer } from '../lib/geo/osm-layer';
-import { boundsToBbox } from '../lib/map';
+import { boundsToBbox, prefersReducedMotion } from '../lib/map';
 
 export type MapViewProps = {
   /**
@@ -34,7 +34,15 @@ export function MapView({ onReady, onBoundsChange }: MapViewProps) {
     const container = containerRef.current;
     if (!container) return;
 
-    const map = L.map(container, { center: [...MAP.DEFAULT_CENTER], zoom: MAP.DEFAULT_ZOOM });
+    // Under prefers-reduced-motion, zooms and tiles change in place instead of animating.
+    const animate = !prefersReducedMotion();
+    const map = L.map(container, {
+      center: [...MAP.DEFAULT_CENTER],
+      zoom: MAP.DEFAULT_ZOOM,
+      zoomAnimation: animate,
+      fadeAnimation: animate,
+      markerZoomAnimation: animate,
+    });
     createOsmLayer().addTo(map);
     // Created up front so overlays can always be added by pane name, whatever the base layer.
     map.createPane(MAP.AREAS_PANE).style.zIndex = String(MAP.AREAS_PANE_Z);
