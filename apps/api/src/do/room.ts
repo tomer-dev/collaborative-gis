@@ -1,5 +1,6 @@
 import {
   type AreaEvent,
+  type AuthUser,
   AreaEventSchema,
   ERROR_CODES,
   PresenceStateSchema,
@@ -10,6 +11,7 @@ import { DurableObject } from 'cloudflare:workers';
 import { z } from 'zod';
 import type { Env } from '../app';
 import { apiErrorResponse } from '../errors';
+import { log } from '../log';
 import { DraftStore, fullDraftBucket } from './drafts';
 import { parseClientFrame, SWITCHING_PROTOCOLS } from './frames';
 import {
@@ -22,7 +24,7 @@ import {
   strike,
   sweepIdle,
 } from './handlers';
-import { isWebSocketUpgrade, readRoomUser, type RoomUser } from './handoff';
+import { isWebSocketUpgrade, readRoomUser } from './handoff';
 import { attachmentOf, type PresenceAttachment, presenceColor } from './presence';
 import { bump, createSeqCounter, sendAll, sockets } from './sockets';
 
@@ -65,7 +67,7 @@ export class Room extends DurableObject<Env> {
       return await this.accept(user.data);
     } catch (err) {
       const stack = err instanceof Error ? err.stack : String(err);
-      console.error(JSON.stringify({ level: 'error', msg: 'room fetch failed', stack }));
+      log('error', 'room fetch failed', { stack });
       return apiErrorResponse(ERROR_CODES.INTERNAL);
     }
   }
@@ -80,13 +82,9 @@ export class Room extends DurableObject<Env> {
   async broadcast(event: AreaEvent): Promise<void> {
     const parsed = AreaEventSchema.safeParse(event);
     if (!parsed.success) {
-      console.error(
-        JSON.stringify({
-          level: 'error',
-          msg: 'room broadcast rejected an invalid event',
-          issues: z.prettifyError(parsed.error),
-        }),
-      );
+      log('error', 'room broadcast rejected an invalid event', {
+        issues: z.prettifyError(parsed.error),
+      });
       return;
     }
     sendAll(this.ctx, { ...parsed.data, mapVersion: bump(this.ctx.storage.sql, 'mapVersion') });
@@ -150,7 +148,7 @@ export class Room extends DurableObject<Env> {
     if (sweepIdle(this.room, now)) await this.ctx.storage.setAlarm(now + WS.ALARM_INTERVAL_MS);
   }
 
-  private async accept(user: RoomUser): Promise<Response> {
+  private async accept(user: AuthUser): Promise<Response> {
     const now = Date.now();
     // One alarm per object: the first socket starts the sweep and alarm() re-arms it. Armed before
     // accepting, so a storage failure here is a 500 that leaves no socket behind.

@@ -178,6 +178,30 @@ describe('ping', () => {
   });
 });
 
+describe('visibility', () => {
+  const setVisibility = (value: DocumentVisibilityState) => {
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue(value);
+    document.dispatchEvent(new Event('visibilitychange'));
+  };
+
+  it(`sends one ${WS.AUTO_PING} when the tab is shown again while open, none when hidden or closed`, () => {
+    const fake = connect();
+    const socket = fake.latest();
+    setVisibility('visible');
+    expect(socket.pings()).toBe(0);
+
+    socket.open();
+    setVisibility('hidden');
+    expect(socket.pings()).toBe(0);
+    setVisibility('visible');
+    expect(socket.pings()).toBe(1);
+
+    connection.close();
+    setVisibility('visible');
+    expect(socket.pings()).toBe(1);
+  });
+});
+
 describe('send', () => {
   const join: OutgoingEvent = { type: 'join', payload: { mapId: ROOM.DEFAULT_ROOM_ID } };
   const drawing: OutgoingEvent = { type: 'presence:set', payload: { state: 'drawing' } };

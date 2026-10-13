@@ -1,9 +1,8 @@
-import { COPY, LIMITS, type Area } from '@cgis/shared';
+import { type Bbox, COPY, LIMITS, type Area } from '@cgis/shared';
 import { useEffect, useEffectEvent, useState, type FormEvent } from 'react';
 import { areaDiffers, areaReadout, formatArea } from '../lib/area-readout';
 import { areaErrorMessage, formAreaName, useCreateArea } from '../lib/areas-query';
 import { ringAreaKm2, type LngLat } from '../lib/geo/geodesic';
-import type { Bbox } from '../lib/map';
 import { Banner, Button, Dialog, Field, Input, Stat } from '../ui';
 
 export type SaveDialogProps = {

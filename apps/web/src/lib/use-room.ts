@@ -9,11 +9,11 @@ import {
   QUERY,
   ROOM,
   WS,
-  WS_MESSAGES,
 } from '@cgis/shared';
-import { useQueryClient } from '@tanstack/react-query';
+import { type QueryFilters, useQueryClient } from '@tanstack/react-query';
 import type * as L from 'leaflet';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { isUnauthorized } from './api-client';
 import { onDraw } from './geo';
 import {
   createRoomConnection,
@@ -219,8 +219,8 @@ export type Room = {
 /**
  * The map room: one WebSocket to the Room, joined on every open. Presence and other users'
  * drafts come back as state; `area:*` events patch every cached `[QUERY.AREAS_KEY, …]` list;
- * each (re)open invalidates those queries (the resync), and while offline they are invalidated
- * every `WS.OFFLINE_POLL_MS`. The map's draw events stream your draft and presence state.
+ * each reopen invalidates those queries (the resync; not the first open of a healthy connection),
+ * and while offline they are invalidated every `WS.OFFLINE_POLL_MS`. The map's draw events stream your draft and presence state.
  */
 export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
   const queryClient = useQueryClient();
@@ -244,12 +244,27 @@ export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
     connectionRef.current = connection;
     senderRef.current = sender;
     const areasKey = { queryKey: [QUERY.AREAS_KEY] };
-    const patch = (event: AreaWsEvent) =>
+    // On-screen viewports whose first GET has not answered yet: no list to patch.
+    const unfetched: QueryFilters = {
+      ...areasKey,
+      type: 'active',
+      predicate: (query) => query.state.data === undefined,
+    };
+    const patch = (event: AreaWsEvent) => {
       queryClient.setQueriesData<AreaList>(areasKey, (list) => patchAreas(list, event));
+      // That GET may have read the database before this change, and a refetch would only join it,
+      // so it is cancelled and sent again.
+      void queryClient.cancelQueries(unfetched).then(() => queryClient.refetchQueries(unfetched));
+    };
+    // The viewport lists are refetched on an open only once events may have been missed: after an
+    // earlier open, or after the connection degraded. The first open of a healthy connection skips
+    // it, so loading the map costs one GET, not two (the list was fetched moments before).
+    let resyncOnOpen = false;
 
     const unsubscribe = [
       connection.onState((next) => {
         setState(next);
+        if (next === 'degraded' || next === 'offline') resyncOnOpen = true;
         if (next === 'open') return;
         // Nothing live arrives while closed: drop what would go stale; the next join resends it.
         setUsers([]);
@@ -261,7 +276,8 @@ export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
           connection.send({ type: 'presence:set', payload: { state: presenceRef.current } });
         }
         connection.send({ type: 'join', payload: { mapId: ROOM.DEFAULT_ROOM_ID } });
-        void queryClient.invalidateQueries(areasKey);
+        if (resyncOnOpen) void queryClient.invalidateQueries(areasKey);
+        resyncOnOpen = true;
         sender.restart();
       }),
       connection.on('presence', ({ payload }) => setUsers(payload.users)),
@@ -277,10 +293,7 @@ export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
       connection.on('error', ({ payload }) => {
         if (payload.code === ERROR_CODES.RATE_LIMITED) {
           sender.pause(payload.retryAfter ?? DRAFT_INTERVAL_MS);
-        } else if (
-          payload.code === ERROR_CODES.BAD_REQUEST &&
-          payload.message === WS_MESSAGES.DRAFT_OP_MISFIT
-        ) {
+        } else if (payload.code === ERROR_CODES.DRAFT_OP_MISFIT) {
           sender.restart();
         }
       }),
@@ -298,13 +311,20 @@ export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
     };
   }, [queryClient, selfId, socketFactory]);
 
-  // Offline: no area events arrive, so the viewport lists are refetched on a timer instead.
+  // Offline: no area events arrive, so the viewport lists are refetched on a timer instead. The
+  // poll stops once the API answers 401: polling cannot fix a session that ended (the app's
+  // query client sends the visitor to sign in).
   useEffect(() => {
     if (state !== 'offline') return;
-    const timer = setInterval(
-      () => void queryClient.invalidateQueries({ queryKey: [QUERY.AREAS_KEY] }),
-      WS.OFFLINE_POLL_MS,
-    );
+    const areas = { queryKey: [QUERY.AREAS_KEY] };
+    const timer = setInterval(() => {
+      const signedOut = queryClient
+        .getQueryCache()
+        .findAll(areas)
+        .some((query) => isUnauthorized(query.state.error));
+      if (signedOut) clearInterval(timer);
+      else void queryClient.invalidateQueries(areas);
+    }, WS.OFFLINE_POLL_MS);
     return () => clearInterval(timer);
   }, [state, queryClient]);
 

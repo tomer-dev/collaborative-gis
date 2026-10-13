@@ -1,5 +1,5 @@
 import type { PresenceUser } from '@cgis/shared';
-import { forwardRef, type HTMLAttributes, type Ref } from 'react';
+import type { HTMLAttributes } from 'react';
 import { cx } from './cx';
 import { Avatar } from './Avatar';
 import { IconPencil } from './icons';
@@ -20,29 +20,21 @@ export interface PresenceListProps extends Omit<HTMLAttributes<HTMLElement>, 'ch
 }
 
 /** Who is on the map, each with their server-assigned presence colour. */
-export const PresenceList = forwardRef<HTMLElement, PresenceListProps>(function PresenceList(
-  {
-    users,
-    selfId,
-    variant = 'list',
-    label = 'People on this map',
-    max = 4,
-    emptyText = 'Nobody else is here yet.',
-    className,
-    ...rest
-  },
-  ref,
-) {
+export function PresenceList({
+  users,
+  selfId,
+  variant = 'list',
+  label = 'People on this map',
+  max = 4,
+  emptyText = 'Nobody else is here yet.',
+  className,
+  ...rest
+}: PresenceListProps) {
   if (variant === 'stack') {
     const shown = users.slice(0, max);
     const hidden = users.length - shown.length;
     return (
-      <ul
-        ref={ref as Ref<HTMLUListElement>}
-        aria-label={label}
-        className={cx('flex items-center -space-x-2', className)}
-        {...rest}
-      >
+      <ul aria-label={label} className={cx('flex items-center -space-x-2', className)} {...rest}>
         {shown.map((user) => (
           <li key={user.userId} className="flex rounded-full ring-2 ring-bg-raised">
             <Avatar
@@ -68,23 +60,14 @@ export const PresenceList = forwardRef<HTMLElement, PresenceListProps>(function 
 
   if (users.length === 0) {
     return (
-      <p
-        ref={ref as Ref<HTMLParagraphElement>}
-        className={cx('text-sm text-fg-muted', className)}
-        {...rest}
-      >
+      <p className={cx('text-sm text-fg-muted', className)} {...rest}>
         {emptyText}
       </p>
     );
   }
 
   return (
-    <ul
-      ref={ref as Ref<HTMLUListElement>}
-      aria-label={label}
-      className={cx('flex flex-col', className)}
-      {...rest}
-    >
+    <ul aria-label={label} className={cx('flex flex-col', className)} {...rest}>
       {users.map((user) => (
         <li key={user.userId} className="flex h-10 items-center gap-3">
           <Avatar name={user.name} color={user.color} decorative />
@@ -102,4 +85,4 @@ export const PresenceList = forwardRef<HTMLElement, PresenceListProps>(function 
       ))}
     </ul>
   );
-});
+}

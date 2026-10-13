@@ -3,7 +3,7 @@ import { formatStatValue } from '../ui';
 
 const M2_PER_KM2 = 1e6;
 
-/** An area as `Stat` props, `DrawControl`'s rule: whole m² below `MAP.AREA_KM2_THRESHOLD`, else km² to 3 decimals. */
+/** An area as `Stat` props, the one readout rule (DrawControl, SaveDialog, AreaPanel): whole m² below `MAP.AREA_KM2_THRESHOLD`, else km² to 3 decimals. */
 export type AreaReadout = { value: number; unit: string; decimals: number };
 
 export function areaReadout(km2: number): AreaReadout {
