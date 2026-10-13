@@ -10,8 +10,25 @@ import {
   useUpdateArea,
   type AreaEdit,
 } from '../lib/areas-mutations';
-import { Banner, Button, Field, IconClose, Input, Panel, Stat } from '../ui';
+import {
+  Banner,
+  Button,
+  Field,
+  IconChevronDown,
+  IconChevronUp,
+  IconClose,
+  Input,
+  Panel,
+  Stat,
+} from '../ui';
 import { AreaHistory } from './AreaHistory';
+
+/**
+ * Both cards stop at `max-h-panel` and scroll their body. In the map's corner column, when the
+ * column runs out of height, they give up height four times as readily as the presence list
+ * below, so its short list of people stays readable.
+ */
+const PANEL_SIZE = 'max-h-panel shrink-4';
 
 type SelectedAreaProps = {
   onClose: () => void;
@@ -69,10 +86,30 @@ function inView(areas: readonly Area[], bbox: Bbox | null): Area[] {
 
 type AreasInViewPanelProps = { areas: readonly Area[]; onSelect: (area: Area) => void };
 
-/** The areas in view with their size; the panel body scrolls (the server caps a viewport's areas). */
+/**
+ * The areas in view with their size; the panel body scrolls (the server caps a viewport's areas).
+ * On a phone (below `sm`) the list starts folded behind a header button, so the map stays free.
+ */
 function AreasInViewPanel({ areas, onSelect }: AreasInViewPanelProps) {
+  const [unfolded, setUnfolded] = useState(false);
   return (
-    <Panel as="section" variant="floating" title={COPY.AREAS.LIST_TITLE} className="max-h-panel">
+    <Panel
+      as="section"
+      variant="floating"
+      title={COPY.AREAS.LIST_TITLE}
+      className={PANEL_SIZE}
+      bodyClassName={unfolded ? undefined : 'max-sm:hidden'}
+      actions={
+        <Button
+          variant="ghost"
+          size="sm"
+          className="sm:hidden"
+          icon={unfolded ? IconChevronDown : IconChevronUp}
+          aria-label={unfolded ? COPY.AREAS.LIST_HIDE : COPY.AREAS.LIST_SHOW}
+          onClick={() => setUnfolded(!unfolded)}
+        />
+      }
+    >
       <AreaList areas={areas} onSelect={onSelect} />
     </Panel>
   );
@@ -130,7 +167,7 @@ function SelectedAreaPanel({ area, onClose, onConflict, onDeleted }: SelectedAre
       as="section"
       variant="floating"
       title={area.name}
-      className="max-h-panel"
+      className={PANEL_SIZE}
       actions={
         <Button
           variant="ghost"

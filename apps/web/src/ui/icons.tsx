@@ -9,6 +9,8 @@ export type IconComponent = ComponentType<{ className?: string }>;
 
 export {
   CircleCheck as IconCheckCircle,
+  ChevronDown as IconChevronDown,
+  ChevronUp as IconChevronUp,
   X as IconClose,
   CircleX as IconError,
   Info as IconInfo,

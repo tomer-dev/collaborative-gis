@@ -21,11 +21,23 @@ export interface PanelProps extends Omit<HTMLAttributes<HTMLElement>, 'title'> {
   footer?: ReactNode;
   /** `aside` (complementary landmark, default) or `section` (region). */
   as?: 'aside' | 'section';
+  /** Extra classes for the scrolling body, e.g. `max-sm:hidden` to fold it on a phone. */
+  bodyClassName?: string;
 }
 
 /** Side panel shell: titled header, scrolling body, optional footer. */
 export const Panel = forwardRef<HTMLElement, PanelProps>(function Panel(
-  { title, actions, footer, as: Tag = 'aside', variant = 'docked', className, children, ...rest },
+  {
+    title,
+    actions,
+    footer,
+    as: Tag = 'aside',
+    variant = 'docked',
+    className,
+    bodyClassName,
+    children,
+    ...rest
+  },
   ref,
 ) {
   const titleId = useId();
@@ -42,7 +54,7 @@ export const Panel = forwardRef<HTMLElement, PanelProps>(function Panel(
         </h2>
         {actions ? <div className="flex shrink-0 items-center gap-1">{actions}</div> : null}
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">{children}</div>
+      <div className={cx('min-h-0 flex-1 overflow-y-auto p-4', bodyClassName)}>{children}</div>
       {footer ? <footer className="shrink-0 border-t border-line p-4">{footer}</footer> : null}
     </Tag>
   );

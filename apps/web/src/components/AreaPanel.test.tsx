@@ -98,7 +98,7 @@ it('lists only the areas in the viewport with name and area', () => {
   );
   renderPanel(() => jsonResponse(500, {}), { areas: [berlin, ...inView], selectedId: null });
 
-  const rows = within(listPanel()).getAllByRole('button');
+  const rows = within(listPanel()).getAllByRole('listitem');
   expect(rows).toHaveLength(2);
   expect(rows[0]?.textContent).toContain('Field 1');
   expect(rows[0]?.textContent).toContain(formatArea(1));
@@ -109,7 +109,7 @@ it('says when no saved area is in view', () => {
   renderPanel(() => jsonResponse(500, {}), { areas: [berlin], selectedId: null });
 
   expect(within(listPanel()).getByText(COPY.AREAS.LIST_EMPTY)).toBeTruthy();
-  expect(within(listPanel()).queryByRole('button')).toBeNull();
+  expect(within(listPanel()).queryByRole('listitem')).toBeNull();
 });
 
 it('selects a listed area through onSelect; the selected area replaces the list', () => {
@@ -147,7 +147,7 @@ it('never lists or opens an area whose create is still pending', async () => {
   });
 
   expect(screen.queryByRole('region', { name: 'Unsaved' })).toBeNull();
-  const rows = within(listPanel()).getAllByRole('button');
+  const rows = within(listPanel()).getAllByRole('listitem');
   expect(rows.map((row) => row.textContent)).toEqual([expect.stringContaining('Orchard')]);
   await Promise.resolve();
   expect(requests).toEqual([]);
