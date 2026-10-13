@@ -7,6 +7,7 @@ import {
   type VersionsResponse,
 } from '@cgis/shared';
 import type { UseQueryResult } from '@tanstack/react-query';
+import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
 import { useId } from 'react';
 import { ApiRequestError } from '../lib/api-client';
 import { formatArea } from '../lib/area-readout';
@@ -19,33 +20,8 @@ import {
 } from '../lib/areas-query';
 import { Banner, Button } from '../ui';
 
-const MS_PER_SECOND = 1000;
-const SECONDS_PER_MINUTE = 60;
-const SECONDS_PER_HOUR = 60 * SECONDS_PER_MINUTE;
-const SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
-
-/** `Intl.RelativeTimeFormat` units, largest first, with their length in seconds (calendar-free). */
-const RELATIVE_UNITS = [
-  ['year', 365 * SECONDS_PER_DAY],
-  ['month', 30 * SECONDS_PER_DAY],
-  ['week', 7 * SECONDS_PER_DAY],
-  ['day', SECONDS_PER_DAY],
-  ['hour', SECONDS_PER_HOUR],
-  ['minute', SECONDS_PER_MINUTE],
-] as const satisfies readonly (readonly [Intl.RelativeTimeFormatUnit, number])[];
-
-const relativeFormat = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+/** The tooltip: the exact date and time in the user's locale. */
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-
-/** `iso` from now in the user's locale, in the largest unit it spans ("5 minutes ago", "yesterday"). */
-function timeAgo(iso: string): string {
-  const seconds = (Date.parse(iso) - Date.now()) / MS_PER_SECOND;
-  const [unit, size] = RELATIVE_UNITS.find(([, length]) => Math.abs(seconds) >= length) ?? [
-    'second',
-    1,
-  ];
-  return relativeFormat.format(Math.round(seconds / size), unit);
-}
 
 /** A failed revert's own copy by API code: 409 = the area is deleted, 404 = it or the version is gone. */
 const REVERT_MESSAGES: Partial<Record<string, string>> = {
@@ -172,7 +148,7 @@ function VersionRow({ version, isCurrent, reverting, onRevert }: VersionRowProps
       <p className="flex flex-wrap gap-x-2 text-xs text-fg-muted">
         <span>{COPY.AREAS.VERSION_BY(version.changedBy.slice(0, LIMITS.USER_ID_PREFIX))}</span>
         <time dateTime={version.changedAt} title={dateFormat.format(Date.parse(version.changedAt))}>
-          {timeAgo(version.changedAt)}
+          {formatDistanceToNow(version.changedAt, { addSuffix: true })}
         </time>
       </p>
       {isCurrent ? (
