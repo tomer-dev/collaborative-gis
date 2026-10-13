@@ -131,7 +131,7 @@ curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" https://api.cloudflare.
 
 Expected: `collaborative-gis-api-production` has `migration_tag` `v2` (read on 2026-10-13, script modified 2026-10-13T16:28Z). Cloudflare also refuses an upload whose migrations disagree with the namespace's history.
 
-To add the next migration, append one entry and never edit or reorder the existing ones. For example, `{ "tag": "v3", "new_sqlite_classes": ["NewClass"] }`, or `renamed_classes` / `deleted_classes`. Bind the class in both `durable_objects` blocks (top level and `env.production`), since bindings are not inherited. Run `pnpm --filter @cgis/api types && pnpm --filter @cgis/web build && pnpm -F @cgis/api exec wrangler deploy --dry-run --env production` (on a clean checkout the first two build `../web/dist`, the `assets.directory`, which must exist), then merge; the deploy job applies the migration. A dry run does not contact Cloudflare, so it checks the config shape, not the migration against the live namespace; the API check above does that. A `deleted_classes` migration destroys that class's stored data.
+To add the next migration, append one entry and never edit or reorder the existing ones. For example, `{ "tag": "v3", "new_sqlite_classes": ["NewClass"] }`, or `renamed_classes` / `deleted_classes`. Bind the class in both `durable_objects` blocks (top level and `env.production`), since bindings are not inherited. Run `pnpm --filter @cgis/api types && pnpm --filter @cgis/web build && pnpm -F @cgis/api exec wrangler deploy --dry-run --env production` (on a clean checkout, `pnpm --filter @cgis/api types` generates the binding types and `pnpm --filter @cgis/web build` creates `../web/dist`, the `assets.directory`, which must exist), then merge; the deploy job applies the migration. A dry run does not contact Cloudflare, so it checks the config shape, not the migration against the live namespace; the API check above does that. A `deleted_classes` migration destroys that class's stored data.
 
 ### Workers Logs
 
@@ -156,7 +156,7 @@ To repeat the check:
 
 ### Cross-region
 
-All realtime traffic goes through one Room, reached as `ROOM.idFromName(ROOM.DEFAULT_ROOM_ID)`: every caller resolves the Room by `ROOM.DEFAULT_ROOM_ID`. It lives near the location of its first request. Clients elsewhere reach it over Cloudflare's network (ADR-0004). The config sets no `placement` (Smart Placement is off), and the code passes no `locationHint`. None of this was tested across regions. A single machine can only confirm these settings.
+All realtime traffic goes through one Room, reached as `env.ROOM.idFromName(ROOM.DEFAULT_ROOM_ID)`; every caller resolves it that way. It lives near the location of its first request. Clients elsewhere reach it over Cloudflare's network (ADR-0004). The config sets no `placement` (Smart Placement is off), and the code passes no `locationHint`. None of this was tested across regions. A single machine can only confirm these settings.
 
 ## Production hardening
 
