@@ -265,12 +265,17 @@ it('deletes the area after the confirm and reports it; a failed delete shows an 
   cleanup();
 
   const failing = renderPanel(() =>
-    jsonResponse(429, { code: ERROR_CODES.RATE_LIMITED, message: 'Slow' }),
+    jsonResponse(429, {
+      code: ERROR_CODES.RATE_LIMITED,
+      message: 'Too many requests',
+      details: { retryAfterMs: 12_300 },
+    }),
   );
   confirmDelete(selectedPanel());
   const alert = await screen.findByRole('alert');
   expect(alert.textContent).toContain(COPY.AREAS.DELETE_ERROR_TITLE);
-  expect(alert.textContent).toContain('Slow');
+  // The 429 says how long to wait (rounded up to whole seconds), not the raw message.
+  expect(alert.textContent).toContain(COPY.AREAS.RATE_LIMITED(13));
   expect(failing.onDeleted).not.toHaveBeenCalled();
 });
 

@@ -428,6 +428,7 @@ Saved areas on /map: the save dialog, the area panel (the areas in view, the sel
 | `LOAD_THEIRS` | `'Load theirs'` |  |
 | `OVERWRITE_ERROR_TITLE` | `'Could not overwrite the area'` |  |
 | `ERROR_GENERIC` | `'Something went wrong. Try again.'` | A failure without an API error body (network error, proxy page). |
+| `RATE_LIMITED` | `` (seconds: number) => `Too many changes in a short time. Try again in ${seconds} s.` `` | A 429 from the per-user budget (`RATE_LIMIT`): the wait in whole seconds, from the response's `details.retryAfterMs` (else the whole window). |
 | `LIST_TITLE` | `'Areas in view'` | The area panel: its title, also the name of the list of the areas in the viewport. |
 | `LIST_LOADING` | `'Loading areas…'` | While the viewport's first answer is on its way (not "no areas"). |
 | `LIST_ERROR_TITLE` | `'Could not load the areas'` | The viewport's first load failed: the list cannot say whether there are areas. |

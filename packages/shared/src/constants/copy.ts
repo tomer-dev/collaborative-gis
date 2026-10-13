@@ -98,6 +98,12 @@ export const COPY = {
     OVERWRITE_ERROR_TITLE: 'Could not overwrite the area',
     /** A failure without an API error body (network error, proxy page). */
     ERROR_GENERIC: 'Something went wrong. Try again.',
+    /**
+     * A 429 from the per-user budget (`RATE_LIMIT`): the wait in whole seconds, from the
+     * response's `details.retryAfterMs` (else the whole window).
+     */
+    RATE_LIMITED: (seconds: number) =>
+      `Too many changes in a short time. Try again in ${seconds} s.`,
     /** The area panel: its title, also the name of the list of the areas in the viewport. */
     LIST_TITLE: 'Areas in view',
     /** While the viewport's first answer is on its way (not "no areas"). */
