@@ -165,6 +165,10 @@ describe('/login', () => {
       'disabled',
       false,
     );
+    // Focus goes back to the form's first field, not to the page.
+    expect(document.activeElement).toBe(
+      screen.getByRole('textbox', { name: COPY.AUTH.EMAIL_LABEL }),
+    );
   });
 
   it('shows the generic copy when the failure carries no message', async () => {

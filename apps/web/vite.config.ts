@@ -20,5 +20,9 @@ export default defineConfig({
       [ROUTES.WS]: { target: api.replace(/^http/, 'ws'), ws: true },
     },
   },
-  test: { environment: 'jsdom', include: ['src/**/*.test.{ts,tsx}'] },
+  test: {
+    environment: 'jsdom',
+    include: ['src/**/*.test.{ts,tsx}'],
+    setupFiles: ['src/test/jsdom-setup.ts'],
+  },
 });

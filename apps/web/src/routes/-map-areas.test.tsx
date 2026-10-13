@@ -210,17 +210,25 @@ it('opens the save dialog with the finished sketch on draw:done', async () => {
   expect(await screen.findByRole('dialog', { name: COPY.AREAS.SAVE_TITLE })).toBeTruthy();
 });
 
-it("lists the viewport's areas; picking one selects and highlights it like a click on its polygon", async () => {
-  await renderMap(conflictingServer);
+it("lists the viewport's areas; picking one flies to it, selects and highlights it like a click on its polygon", async () => {
+  const { map } = await renderMap(conflictingServer);
   await waitFor(() => expect(areaPaths()).toHaveLength(1));
+  const fitBounds = vi.spyOn(map, 'fitBounds');
 
   const list = await screen.findByRole('region', { name: COPY.AREAS.LIST_TITLE });
   fireEvent.click(within(list).getByRole('button', { name: /Orchard/ }));
 
   const panel = await screen.findByRole('region', { name: 'Orchard' });
+  expect(fitBounds).toHaveBeenCalledWith(L.latLngBounds(SQUARE.map(([lng, lat]) => [lat, lng])), {
+    padding: [MAP.FIT_PADDING_PX, MAP.FIT_PADDING_PX],
+  });
   expect(areaPaths()[0]?.classList.contains(MAP_CLASS.areaSelected)).toBe(true);
-  fireEvent.click(within(panel).getByRole('button', { name: COPY.AREAS.CLOSE }));
-  expect(await screen.findByRole('region', { name: COPY.AREAS.LIST_TITLE })).toBeTruthy();
+  // Focus follows the swap: the picked area's Close, then that area's row again.
+  const close = within(panel).getByRole('button', { name: COPY.AREAS.CLOSE });
+  expect(document.activeElement).toBe(close);
+  fireEvent.click(close);
+  const listAgain = await screen.findByRole('region', { name: COPY.AREAS.LIST_TITLE });
+  expect(document.activeElement).toBe(within(listAgain).getByRole('button', { name: /Orchard/ }));
   expect(areaPaths()[0]?.classList.contains(MAP_CLASS.areaSelected)).toBe(false);
 });
 
@@ -267,7 +275,7 @@ it('leaves an area whose create is still pending out of the list (SaveDialog can
   const list = await screen.findByRole('region', { name: COPY.AREAS.LIST_TITLE });
   expect(
     within(list)
-      .getAllByRole('button')
+      .getAllByRole('listitem')
       .map((row) => row.textContent),
   ).toEqual([expect.stringContaining('Orchard')]);
   expect(within(list).queryByText('Unsaved')).toBeNull();

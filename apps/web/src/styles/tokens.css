@@ -50,6 +50,7 @@
   --ease-*: initial;
   --animate-*: initial;
   --perspective-*: initial;
+  --breakpoint-*: initial;
 
   /* Spacing: 0 · 1=4 · 2=8 · 3=12 · 4=16 · 5=20 · 6=24 · 8=32 · 10=40 · 12=48 · 16=64 · 20=80 · 24=96 px.
      Control heights: h-8 / h-10 / h-12 (sm / md / lg). Icons: size-4 / size-5 / size-6. */
@@ -173,6 +174,16 @@
   /* A floating map panel stops growing here and scrolls its body (the area panel's list and
      history), leaving the map's corner column room for the presence list below it. */
   --max-height-panel: 60dvh;
+  /* The map's bottom-left column (area panel, presence list) stops below the left map controls.
+     Measured in Chromium, not derived: Leaflet's zoom bar (64 px) and LayerSwitch's base-layer
+     toolbar (50 px), each with a 12 px Leaflet margin, plus a 12 px gap = 150 px, and the column's
+     own 12 px bottom inset, rounded up to the grid. A new top-left control, or a change to either
+     one's height, means measuring again against this value. */
+  --max-height-map-corner: calc(100% - 10.25rem);
+
+  /* One breakpoint (max-sm: below it): a phone-width map folds the area list behind its header
+     button, so the map stays free to draw on. */
+  --breakpoint-sm: 40rem;
 
   /* Stacking. Map panes mirror MAP.AREAS_PANE_Z / DRAFTS_PANE_Z (Leaflet: tiles 200, overlay
      400, markers 600, its own controls 1000). Native <dialog> renders in the top layer;

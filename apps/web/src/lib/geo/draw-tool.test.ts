@@ -71,6 +71,8 @@ describe('createPolygonDraw (Leaflet.Editable)', () => {
     expect(first!.style.width).toBe(`${MAP.HANDLE_HIT_PX}px`);
     expect(first!.style.height).toBe(`${MAP.HANDLE_HIT_PX}px`);
     expect(first!.innerHTML).toBe('');
+    // Pointer-only targets with no name: none of them is a tab stop.
+    expect([...handles()].map((handle) => handle.tabIndex)).toEqual([-1, -1, -1]);
     expect(sketchPaths()).toHaveLength(1);
     expect(sketchPaths()[0]!.getAttribute('stroke-width')).toBe(String(MAP.DRAFT_STYLE.weight));
 

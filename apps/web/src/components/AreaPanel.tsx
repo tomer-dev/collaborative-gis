@@ -1,7 +1,7 @@
 import { COPY, LIMITS, type Area, type Bbox } from '@cgis/shared';
-import * as L from 'leaflet';
-import { useState, type FormEvent } from 'react';
-import { areaReadout, formatArea } from '../lib/area-readout';
+import { useRef, useState, type ComponentProps, type FormEvent, type RefObject } from 'react';
+import { flushSync } from 'react-dom';
+import { areaReadout } from '../lib/area-readout';
 import {
   AreaConflictError,
   areaErrorMessage,
@@ -12,6 +12,7 @@ import {
 } from '../lib/areas-mutations';
 import { Banner, Button, Field, IconClose, Input, Panel, Stat } from '../ui';
 import { AreaHistory } from './AreaHistory';
+import { AreasInViewPanel, inView, PANEL_SIZE } from './AreasInViewPanel';
 
 type SelectedAreaProps = {
   onClose: () => void;
@@ -26,6 +27,8 @@ export type AreaPanelProps = SelectedAreaProps & {
    * cached list, and the last viewport's list stays while the next one loads.
    */
   areas: readonly Area[];
+  /** The viewport query's state: loading and a failed load each say so, rather than "none". */
+  list: ComponentProps<typeof AreasInViewPanel>['list'];
   /** The current viewport; the list shows the areas whose bounds meet it. */
   bbox: Bbox | null;
   /** Optimistic areas whose create is in flight (`usePendingAreaIds`): never listed or opened. */
@@ -43,60 +46,54 @@ export type AreaPanelProps = SelectedAreaProps & {
  */
 export function AreaPanel({
   areas,
+  list,
   bbox,
   pendingIds,
   selectedId,
   onSelect,
+  onClose,
   ...selectedProps
 }: AreaPanelProps) {
+  const card = useRef<HTMLElement>(null);
+  // Here, not in the list card: a pick unmounts that card, and Close must bring it back as it was
+  // (on a phone, a refolded list would hide the row that Close puts focus on).
+  const [unfolded, setUnfolded] = useState(false);
   const saved = areas.filter((area) => !pendingIds.has(area.id));
   const selected = saved.find((area) => area.id === selectedId);
-  if (selected) return <SelectedAreaPanel key={selected.id} area={selected} {...selectedProps} />;
-  return <AreasInViewPanel areas={inView(saved, bbox)} onSelect={onSelect} />;
-}
+  // A pick or a Close swaps the card under the button that had focus: the other card renders now
+  // and focus goes to its control for the same area (the picked area's Close, the closed row).
+  const swapTo = (change: () => void, id: string) => {
+    flushSync(change);
+    const target = card.current?.querySelector(`[data-area-id="${id}"]`);
+    if (target instanceof HTMLElement) target.focus();
+  };
 
-/** The areas whose bounds meet `bbox`, the same test as the server's `&&` on the bounds query. */
-function inView(areas: readonly Area[], bbox: Bbox | null): Area[] {
-  if (bbox === null) return [];
-  const [west, south, east, north] = bbox;
-  const view = L.latLngBounds([south, west], [north, east]);
-  return areas.filter((area) =>
-    L.latLngBounds(area.geometry.coordinates[0].map(([lng, lat]) => L.latLng(lat, lng))).intersects(
-      view,
-    ),
-  );
-}
-
-type AreasInViewPanelProps = { areas: readonly Area[]; onSelect: (area: Area) => void };
-
-/** The areas in view with their size; the panel body scrolls (the server caps a viewport's areas). */
-function AreasInViewPanel({ areas, onSelect }: AreasInViewPanelProps) {
+  if (selected) {
+    return (
+      <SelectedAreaPanel
+        key={selected.id}
+        cardRef={card}
+        area={selected}
+        onClose={() => swapTo(onClose, selected.id)}
+        {...selectedProps}
+      />
+    );
+  }
   return (
-    <Panel as="section" variant="floating" title={COPY.AREAS.LIST_TITLE} className="max-h-panel">
-      <AreaList areas={areas} onSelect={onSelect} />
-    </Panel>
-  );
-}
-
-function AreaList({ areas, onSelect }: AreasInViewPanelProps) {
-  if (areas.length === 0) return <p className="text-sm text-fg-muted">{COPY.AREAS.LIST_EMPTY}</p>;
-  return (
-    <ul className="-mx-2 flex flex-col">
-      {areas.map((area) => (
-        <li key={area.id}>
-          <Button variant="ghost" size="sm" className="w-full" onClick={() => onSelect(area)}>
-            <span className="min-w-0 flex-1 truncate text-left">{area.name}</span>
-            <span className="font-normal text-fg-muted tabular-nums">
-              {formatArea(area.areaKm2)}
-            </span>
-          </Button>
-        </li>
-      ))}
-    </ul>
+    <AreasInViewPanel
+      cardRef={card}
+      areas={inView(saved, bbox)}
+      list={list}
+      unfolded={unfolded}
+      onToggleFold={() => setUnfolded(!unfolded)}
+      onSelect={(area) => swapTo(() => onSelect(area), area.id)}
+    />
   );
 }
 
 type SelectedAreaPanelProps = SelectedAreaProps & {
+  /** The card's section, for AreaPanel's focus moves. */
+  cardRef: RefObject<HTMLElement | null>;
   /** The selected area, as the viewport query has it now. */
   area: Area;
 };
@@ -105,7 +102,13 @@ type SelectedAreaPanelProps = SelectedAreaProps & {
  * The selected area: its server-measured size, a rename form (`PUT` with the version shown here),
  * delete, and its history with revert. Keyed by area id so the form starts over per area.
  */
-function SelectedAreaPanel({ area, onClose, onConflict, onDeleted }: SelectedAreaPanelProps) {
+function SelectedAreaPanel({
+  cardRef,
+  area,
+  onClose,
+  onConflict,
+  onDeleted,
+}: SelectedAreaPanelProps) {
   const update = useUpdateArea();
   const remove = useDeleteArea();
   const [nameError, setNameError] = useState<string | null>(null);
@@ -116,7 +119,8 @@ function SelectedAreaPanel({ area, onClose, onConflict, onDeleted }: SelectedAre
     event.preventDefault();
     const name = formAreaName(new FormData(event.currentTarget));
     setNameError(name === null ? COPY.AREAS.NAME_REQUIRED : null);
-    if (name === null) return;
+    // The same name saves nothing: no request, no new version in the history.
+    if (name === null || name === area.name) return;
     const edit = { id: area.id, body: { name, geometry: area.geometry, version: area.version } };
     update.mutate(edit, {
       onError: (error) => {
@@ -127,16 +131,18 @@ function SelectedAreaPanel({ area, onClose, onConflict, onDeleted }: SelectedAre
 
   return (
     <Panel
+      ref={cardRef}
       as="section"
       variant="floating"
       title={area.name}
-      className="max-h-panel"
+      className={PANEL_SIZE}
       actions={
         <Button
           variant="ghost"
           size="sm"
           icon={IconClose}
           aria-label={COPY.AREAS.CLOSE}
+          data-area-id={area.id}
           onClick={onClose}
         />
       }
@@ -171,15 +177,10 @@ function SelectedAreaPanel({ area, onClose, onConflict, onDeleted }: SelectedAre
             />
           </Field>
           <div className="flex gap-2">
-            <Button
-              variant="danger"
-              size="sm"
-              className="mr-auto"
-              disabled={remove.isPending}
-              onClick={() => remove.mutate(area.id, { onSuccess: () => onDeleted() })}
-            >
-              {remove.isPending ? COPY.AREAS.DELETE_PENDING : COPY.AREAS.DELETE}
-            </Button>
+            <DeleteButton
+              pending={remove.isPending}
+              onDelete={() => remove.mutate(area.id, { onSuccess: () => onDeleted() })}
+            />
             <Button type="submit" size="sm" disabled={update.isPending}>
               {update.isPending ? COPY.AREAS.RENAME_PENDING : COPY.AREAS.RENAME_SUBMIT}
             </Button>
@@ -188,5 +189,56 @@ function SelectedAreaPanel({ area, onClose, onConflict, onDeleted }: SelectedAre
         <AreaHistory area={area} onConflict={onConflict} />
       </div>
     </Panel>
+  );
+}
+
+type DeleteButtonProps = { pending: boolean; onDelete: () => void };
+
+/** Delete in two clicks, no dialog: Delete, then Yes in the inline "Delete?" (No goes back). */
+function DeleteButton({ pending, onDelete }: DeleteButtonProps) {
+  const [confirming, setConfirming] = useState(false);
+  const deleteButton = useRef<HTMLButtonElement>(null);
+  // Yes and No unmount the button that had focus: render Delete now and put focus back on it
+  // (after Yes it reads "Deleting…" until the card closes, or Delete again if the call failed).
+  const back = () => {
+    flushSync(() => setConfirming(false));
+    deleteButton.current?.focus();
+  };
+
+  if (confirming) {
+    return (
+      <div
+        role="group"
+        aria-label={COPY.AREAS.DELETE_CONFIRM}
+        className="mr-auto flex items-center gap-2"
+      >
+        <span className="text-sm font-medium">{COPY.AREAS.DELETE_CONFIRM}</span>
+        <Button
+          variant="danger"
+          size="sm"
+          onClick={() => {
+            back();
+            onDelete();
+          }}
+        >
+          {COPY.AREAS.DELETE_YES}
+        </Button>
+        <Button variant="secondary" size="sm" autoFocus onClick={back}>
+          {COPY.AREAS.DELETE_NO}
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <Button
+      ref={deleteButton}
+      variant="danger"
+      size="sm"
+      className="mr-auto"
+      disabled={pending}
+      onClick={() => setConfirming(true)}
+    >
+      {pending ? COPY.AREAS.DELETE_PENDING : COPY.AREAS.DELETE}
+    </Button>
   );
 }

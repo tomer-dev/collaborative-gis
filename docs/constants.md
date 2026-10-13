@@ -275,6 +275,7 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 | `DRAFTS_PANE` | `'drafts'` | Live drafts' pane: above the saved areas. |
 | `DRAFTS_PANE_Z` | `460` | `DRAFTS_PANE`'s z-index; tokens.css `--z-index-map-drafts` mirrors it (drift-tested). |
 | `MOVEEND_DEBOUNCE_MS` | `250` | One fetch per pan gesture. |
+| `FIT_PADDING_PX` | `48` | An area picked in the panel's list: the map fits its bounds with this much room on each side (px). |
 | `PRESENCE_COLORS` | `['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948']` | The 8-hue CVD-checked presence palette from the design-system brief (Grid 4). |
 | `HANDLE_HIT_PX` | `24` | Vertex handle hit box (Leaflet icon size): the WCAG 2.5.8 target size (≥ 24 CSS px) for dragging a vertex. The dot's radius, ring and colours are CSS (`.cgis-draw-handle` in map.css). |
 | `DRAFT_STYLE` | `{ weight: 2, dashArray: '8 4', fillOpacity: 0.12 }` | Leaflet path options for a sketch in progress (the own draft and other users' ghosts): dashed and faint, so it reads as unsaved next to solid saved areas. Design brief §4: 2 px, dashed 8/4, fill 12 %. Stroke and fill colours are CSS on `.cgis-draw-sketch`. |
@@ -294,7 +295,7 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 | `PANEL_TITLE` | `'New area'` | The sketch becomes an area when saved. |
 | `AREA_LABEL` | `'Area'` | Visible labels; also the readouts' accessible names. |
 | `VERTICES_LABEL` | `'Vertices'` |  |
-| `FINISH_LABEL` | `'Finish'` | The handler has no keyboard shortcuts, so these buttons are the keyboard path as well as the pointer one. |
+| `FINISH_LABEL` | `'Finish'` | Escape cancels (DrawControl); Finish and Undo have no shortcut, so these buttons are the keyboard path as well as the pointer one. |
 | `UNDO_LABEL` | `'Undo'` |  |
 | `CANCEL_LABEL` | `'Cancel'` |  |
 | `M2_UNIT` | `'m²'` | Area unit suffixes (Intl.NumberFormat has no area units). |
@@ -414,6 +415,9 @@ Saved areas on /map: the save dialog, the area panel (the areas in view, the sel
 | `RENAME_PENDING` | `'Renaming…'` |  |
 | `RENAME_ERROR_TITLE` | `'Could not rename the area'` |  |
 | `DELETE` | `'Delete'` |  |
+| `DELETE_CONFIRM` | `'Delete?'` | Delete asks once, inline: this question, then Yes (deletes) or No (back to Delete). |
+| `DELETE_YES` | `'Yes'` |  |
+| `DELETE_NO` | `'No'` |  |
 | `DELETE_PENDING` | `'Deleting…'` |  |
 | `DELETE_ERROR_TITLE` | `'Could not delete the area'` |  |
 | `CONFLICT_TITLE` | `'Someone else changed this area'` |  |
@@ -424,8 +428,14 @@ Saved areas on /map: the save dialog, the area panel (the areas in view, the sel
 | `LOAD_THEIRS` | `'Load theirs'` |  |
 | `OVERWRITE_ERROR_TITLE` | `'Could not overwrite the area'` |  |
 | `ERROR_GENERIC` | `'Something went wrong. Try again.'` | A failure without an API error body (network error, proxy page). |
+| `RATE_LIMITED` | `` (waitMs: number) => `Too many changes in a short time. Try again in ${Math.max(1, Math.ceil(waitMs / MS_PER_SECOND))} s.` `` | A 429 from the per-user budget (`RATE_LIMIT`): `waitMs` is the response's `details.retryAfterMs` (else the whole window), stated in whole seconds, rounded up. |
 | `LIST_TITLE` | `'Areas in view'` | The area panel: its title, also the name of the list of the areas in the viewport. |
+| `LIST_LOADING` | `'Loading areas…'` | While the viewport's first answer is on its way (not "no areas"). |
+| `LIST_ERROR_TITLE` | `'Could not load the areas'` | The viewport's first load failed: the list cannot say whether there are areas. |
+| `LIST_RETRY` | `'Retry'` | Loads the viewport's areas again. |
 | `LIST_EMPTY` | `'No saved areas in view.'` |  |
+| `LIST_SHOW` | `'Show the list'` | Phone width only: the area panel's header button that unfolds the list (it starts folded). |
+| `LIST_HIDE` | `'Hide the list'` | The same button once the list is unfolded. |
 | `HISTORY_TITLE` | `'History'` |  |
 | `HISTORY_LOADING` | `'Loading history…'` |  |
 | `HISTORY_ERROR_TITLE` | `'Could not load the history'` |  |
