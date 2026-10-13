@@ -82,11 +82,15 @@ function MapDrawControl({ map, onDone }: DrawControlProps) {
     };
   }, [map, handler]);
 
-  // Escape while drawing takes the Cancel button's path (a dialog's own Escape is handled first).
+  // Escape while drawing takes the Cancel button's path, except where Escape already means
+  // something: in a dialog (it closes it) or a text field (the rename input), the sketch stays.
   useEffect(() => {
     if (!drawing) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !event.defaultPrevented) handler.cancel();
+      if (event.key !== 'Escape') return;
+      if (event.target instanceof Element && event.target.closest('dialog, input, textarea'))
+        return;
+      handler.cancel();
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
