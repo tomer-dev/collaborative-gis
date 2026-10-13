@@ -45,7 +45,6 @@ const versions = [
   makeVersion(AREA_ID, 2, { changedAt: '2026-10-12T11:55:00.000Z', areaKm2: 0.5 }),
   makeVersion(AREA_ID, 1, { changedAt: '2026-10-10T12:00:00.000Z', areaKm2: 2.25 }),
 ];
-const relative = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
 
 const isVersionsGet = ({ method, path }: StubRequest) =>
   method === 'GET' && path === `/api/areas/${AREA_ID}/versions`;
@@ -81,16 +80,26 @@ it("lists the versions newest first: number, name, area, who and when; the area'
   expect(newest?.textContent).toContain(
     COPY.AREAS.VERSION_BY(EDITOR.slice(0, LIMITS.USER_ID_PREFIX)),
   );
-  expect(newest?.textContent).toContain(relative.format(-30, 'second'));
+  // date-fns formatDistanceToNow: 30 s rounds to a minute.
+  expect(newest?.textContent).toContain('1 minute ago');
   expect(newest?.textContent).toContain(COPY.AREAS.VERSION_CURRENT);
   expect(within(newest!).queryByRole('button')).toBeNull();
 
   expect(middle?.textContent).toContain(COPY.AREAS.VERSION_LABEL(2));
   expect(middle?.textContent).toContain(formatArea(0.5));
-  expect(middle?.textContent).toContain(relative.format(-5, 'minute'));
+  expect(middle?.textContent).toContain('5 minutes ago');
   expect(oldest?.textContent).toContain(COPY.AREAS.VERSION_LABEL(1));
   expect(oldest?.textContent).toContain(formatArea(2.25));
-  expect(oldest?.textContent).toContain(relative.format(-2, 'day'));
+  expect(oldest?.textContent).toContain('2 days ago');
+  // The exact time is the tooltip, and the machine-readable value the ISO string.
+  const { changedAt } = versions[2]!;
+  const time = oldest!.querySelector('time');
+  expect(time?.dateTime).toBe(changedAt);
+  expect(time?.title).toBe(
+    new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
+      Date.parse(changedAt),
+    ),
+  );
   expect(within(oldest!).getByRole('button', { name: COPY.AREAS.REVERT })).toBeTruthy();
 });
 
