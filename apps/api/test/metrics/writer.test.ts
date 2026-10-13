@@ -1,6 +1,6 @@
 import { TELEMETRY } from '@cgis/shared';
 import { describe, expect, it, vi } from 'vitest';
-import { timedQuery, writeMetric } from '../../src/metrics';
+import { MessageBatch, timedQuery, writeMetric } from '../../src/metrics';
 
 // Wire values (event names, blob order) are spelled out: they are what the dashboard query reads.
 
@@ -61,5 +61,25 @@ describe('wrangler.jsonc', () => {
       [{ binding: 'METRICS', dataset: TELEMETRY.DATASET }],
       [{ binding: 'METRICS', dataset: TELEMETRY.DATASET }],
     ]);
+  });
+});
+
+describe('MessageBatch', () => {
+  it('resets the count before flushing, so a throwing flush leaves no stale count', () => {
+    vi.useFakeTimers();
+    try {
+      const flush = vi.fn<(count: number) => void>().mockImplementationOnce(() => {
+        throw new Error('flush failed');
+      });
+      const batch = new MessageBatch(flush);
+      batch.add();
+      batch.add();
+      expect(() => vi.advanceTimersByTime(TELEMETRY.MESSAGES_FLUSH_MS)).toThrow('flush failed');
+      batch.add();
+      vi.advanceTimersByTime(TELEMETRY.MESSAGES_FLUSH_MS);
+      expect(flush.mock.calls).toEqual([[2], [1]]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

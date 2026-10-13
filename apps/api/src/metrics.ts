@@ -26,7 +26,8 @@ export function writeMetric(
 
 /**
  * Runs one areas request's database work and writes its time in ms as a `DB_QUERY` datapoint,
- * failed runs included. Workers' clock advances across I/O, so the value is the wait on Postgres.
+ * failed runs included. Workers' clock advances across I/O, so the value is the wait on Postgres,
+ * connect + query (`run` acquires the Hyperdrive connection inside the timed span).
  */
 export async function timedQuery<T>(env: MetricsEnv, op: DbOp, run: () => Promise<T>): Promise<T> {
   const started = Date.now();
@@ -52,9 +53,10 @@ export class MessageBatch {
   add(): void {
     this.pending++;
     this.timer ??= setTimeout(() => {
-      this.timer = undefined;
-      this.flush(this.pending);
+      const count = this.pending;
       this.pending = 0;
+      this.timer = undefined;
+      this.flush(count);
     }, TELEMETRY.MESSAGES_FLUSH_MS);
   }
 }
