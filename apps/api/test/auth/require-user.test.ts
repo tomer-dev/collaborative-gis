@@ -117,7 +117,7 @@ describe('attachUser() (TOM-26)', { timeout: TEST.SLOW_TIMEOUT_MS }, () => {
       expect(await ready.json()).toEqual({
         code: 'NOT_READY',
         message: 'dependency unreachable',
-        details: { db: 'down', room: 'up' },
+        details: { db: 'down', room: 'up', config: 'up' },
       });
       expect((await get(ROUTES.HEALTHZ, { cookie }, offline())).status).toBe(200);
     },
