@@ -22,7 +22,7 @@ describe('M1 composition stubs', () => {
     expect((await SELF.fetch('http://x/healthz')).status).toBe(200);
     const ready = await SELF.fetch('http://x/readyz');
     expect(ready.status).toBe(200);
-    expect(await ready.json()).toEqual({ status: 'ready', db: 'up', room: 'up' });
+    expect(await ready.json()).toEqual({ status: 'ready', db: 'up', room: 'up', config: 'up' });
   });
 
   it('the test env carries the vars and secrets lanes rely on', () => {
