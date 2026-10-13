@@ -61,7 +61,7 @@ export function boundsKey(origin: string, tile: Tile, version: number): string {
  * 1. The map version from the default Room (`getVersion()`, `TIMEOUTS.DO_PING_MS` deadline). If it
  *    fails or is late, the read goes to the database and nothing is stored (`BYPASS`), so bounds
  *    reads never fail with the Room.
- * 2. `If-None-Match` naming the ETag (a hash of version and tile) → 304, without a lookup.
+ * 2. `If-None-Match` naming the ETag (version and tile) → 304, without a lookup.
  * 3. A stored entry → that body (`HIT`).
  * 4. Else the handler queries; a 200 is stored with `Cache-Control: s-maxage=CACHE.BOUNDS_TTL_S`
  *    and the ETag, in `waitUntil` (`MISS`). The stored copy is rebuilt from the body with only
@@ -89,13 +89,14 @@ export function boundsCache(): MiddlewareHandler<AppEnv, string, { out: { query:
       return;
     }
 
-    const etag = await etagOf(version, tile);
+    const etag = etagOf(version, tile);
     const headers = {
       'cache-control': CACHE.CLIENT_CACHE_CONTROL,
       etag,
       [CACHE.STATUS_HEADER]: CACHE.STATUS.HIT,
     };
-    if (matchesAny(c.req.header('if-none-match'), etag)) {
+    // Weak comparison (RFC 9110 §13.1.2): a quoted tag never matches inside another, and `W/` passes.
+    if (c.req.header('if-none-match')?.includes(etag)) {
       logRead(c, CACHE.STATUS.HIT, tile, { version, notModified: true });
       return c.body(null, 304, headers);
     }
@@ -147,26 +148,12 @@ function mapVersion(env: Env): Promise<number> {
 }
 
 /**
- * A strong ETag: SHA-256 of the map version and the tile, known before any
- * lookup or query. One version and tile hold one set of rows: a write bumps the version after
+ * A strong ETag: the map version and the tile, known before any lookup or query. One version and tile hold one set of rows: a write bumps the version after
  * its commit and before its response (`publish`), so only a read that overlaps the write itself,
  * between the commit and the bump, can see the new rows under the old version, and the bump
  * retires that key at once.
  */
-async function etagOf(version: number, tile: Tile): Promise<string> {
-  const data = new TextEncoder().encode(`${version}:${tile.key}`);
-  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', data));
-  return `"${Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join('')}"`;
-}
-
-/** `If-None-Match` names `etag` (weak comparison, RFC 9110 §13.1.2), or is `*`. */
-function matchesAny(ifNoneMatch: string | undefined, etag: string): boolean {
-  if (!ifNoneMatch) return false;
-  return ifNoneMatch.split(',').some((tag) => {
-    const value = tag.trim();
-    return value === '*' || value.replace(/^W\//, '') === etag;
-  });
-}
+const etagOf = (version: number, tile: Tile) => `"${version}:${tile.key}"`;
 
 /** The read's one log line: the request fields, the cache outcome and the tile. */
 function logRead(c: Context<AppEnv>, cache: CacheStatus, tile: Tile, fields: object): void {
