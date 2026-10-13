@@ -1,0 +1,16 @@
+.git
+node_modules
+**/node_modules
+**/dist
+**/dist-types
+**/.wrangler
+**/worker-configuration.d.ts
+**/coverage
+**/storybook-static
+.env
+.env.*
+**/.dev.vars
+.superpowers
+.codegraph
+docs
+bench
