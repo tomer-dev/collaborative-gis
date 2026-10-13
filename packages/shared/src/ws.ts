@@ -40,13 +40,7 @@ const draftUpdate = z.object({
   ...base,
   payload: z.discriminatedUnion('op', [
     z.object({
-      op: z.literal('add'),
-      index: z.number().int().nonnegative(),
-      vertex: PositionSchema,
-      ...draftAuthor,
-    }),
-    z.object({
-      op: z.literal('move'),
+      op: z.enum(['add', 'move']),
       index: z.number().int().nonnegative(),
       vertex: PositionSchema,
       ...draftAuthor,
