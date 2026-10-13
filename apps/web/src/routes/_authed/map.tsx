@@ -8,10 +8,12 @@ import { ConflictDialog } from '../../components/ConflictDialog';
 import { ConnectionBanner } from '../../components/ConnectionBanner';
 import { DrawControl } from '../../components/DrawControl';
 import { GhostPolygons } from '../../components/GhostPolygons';
+import { LayerSwitch } from '../../components/LayerSwitch';
 import { MapView } from '../../components/Map';
 import { PresenceList } from '../../components/PresenceList';
 import { SaveDialog } from '../../components/SaveDialog';
-import { useAreasInBounds, usePendingAreaIds, type AreaEdit } from '../../lib/areas-query';
+import { usePendingAreaIds, type AreaEdit } from '../../lib/areas-mutations';
+import { useAreasInBounds } from '../../lib/areas-query';
 import type { LngLat } from '../../lib/geo/geodesic';
 import { useRoom } from '../../lib/use-room';
 import { ReportSelfColor } from '../-components/AppFrame';
@@ -26,9 +28,9 @@ type MapMode =
   | { kind: 'browse' }
   /** A finished sketch waiting for a name (SaveDialog). */
   | { kind: 'draft'; ring: LngLat[] }
-  /** An area picked on the map (AreaPanel). */
+  /** An area picked on the map or in the panel's list (AreaPanel). */
   | { kind: 'selected'; id: string }
-  /** A rename the server refused with 409 (ConflictDialog). */
+  /** A rename or a revert the server refused with 409 (ConflictDialog). */
   | { kind: 'conflict'; edit: AreaEdit; current: Area };
 
 const BROWSE: MapMode = { kind: 'browse' };
@@ -43,7 +45,10 @@ const NO_AREAS: readonly Area[] = [];
 function MapRoute() {
   // The latest map MapView created (StrictMode creates two in dev and removes the first).
   const [map, setMap] = useState<L.Map | null>(null);
-  const [bbox, setBbox] = useState<Bbox | null>(null);
+  // The debounced view MapView reports: the areas query and the optimistic create key on both.
+  const [view, setView] = useState<{ bbox: Bbox; zoom: number } | null>(null);
+  const bbox = view?.bbox ?? null;
+  const zoom = view?.zoom ?? null;
   const [mode, setMode] = useState<MapMode>(BROWSE);
   const selfId = Route.useRouteContext({ select: (context) => context.user.id });
   const room = useRoom({ selfId, map });
@@ -53,13 +58,16 @@ function MapRoute() {
     reportSelfColor(selfColor);
     return () => reportSelfColor(null);
   }, [reportSelfColor, selfColor]);
-  const areas = useAreasInBounds(bbox).data?.areas ?? NO_AREAS;
+  const areas = useAreasInBounds(bbox, zoom).data?.areas ?? NO_AREAS;
   const pendingIds = usePendingAreaIds();
   const selectedId = mode.kind === 'selected' ? mode.id : null;
 
   return (
     <div data-testid="map-root" className="absolute inset-0">
-      <MapView onReady={setMap} onBoundsChange={setBbox} />
+      <MapView
+        onReady={setMap}
+        onBoundsChange={(next, nextZoom) => setView({ bbox: next, zoom: nextZoom })}
+      />
       {map ? (
         <>
           <AreasLayer
@@ -71,14 +79,22 @@ function MapRoute() {
           />
           <DrawControl map={map} onDone={(ring) => setMode({ kind: 'draft', ring })} />
           <GhostPolygons map={map} drafts={room.drafts} users={room.users} />
+          <LayerSwitch map={map} />
         </>
       ) : null}
-      {/* One bottom-left column: the selected area's panel stacks above the presence list. */}
+      {/* One bottom-left column: the area panel stacks above the presence list. */}
       <div
         data-testid="map-corner"
         className="absolute bottom-3 left-3 z-controls flex flex-col items-start gap-2"
       >
-        <MapOverlay mode={mode} setMode={setMode} areas={areas} bbox={bbox} />
+        <MapOverlay
+          mode={mode}
+          setMode={setMode}
+          areas={areas}
+          bbox={bbox}
+          zoom={zoom}
+          pendingIds={pendingIds}
+        />
         <PresenceList users={room.users} selfId={selfId} />
       </div>
       <ConnectionBanner state={room.state} onRetry={room.reconnect} />
@@ -91,33 +107,37 @@ type MapOverlayProps = {
   setMode: (mode: MapMode) => void;
   areas: readonly Area[];
   bbox: Bbox | null;
+  zoom: number | null;
+  pendingIds: ReadonlySet<string>;
 };
 
 /** The one overlay for the current mode. */
-function MapOverlay({ mode, setMode, areas, bbox }: MapOverlayProps) {
+function MapOverlay({ mode, setMode, areas, bbox, zoom, pendingIds }: MapOverlayProps) {
   const select = (area: Area) => setMode({ kind: 'selected', id: area.id });
   const onConflict = (edit: AreaEdit, current: Area) =>
     setMode({ kind: 'conflict', edit, current });
 
   switch (mode.kind) {
     case 'browse':
-      return null;
-    case 'draft':
-      return <SaveDialog ring={mode.ring} bbox={bbox} onClose={() => setMode(BROWSE)} />;
-    case 'selected': {
-      // From the query, so the panel follows renames and refetches; gone from view, no panel.
-      const area = areas.find((candidate) => candidate.id === mode.id);
-      if (!area) return null;
+    case 'selected':
+      // From the query, so the panel follows renames and refetches; a selected area gone from
+      // view leaves the list of the areas in view.
       return (
         <AreaPanel
-          key={area.id}
-          area={area}
+          areas={areas}
+          bbox={bbox}
+          pendingIds={pendingIds}
+          selectedId={mode.kind === 'selected' ? mode.id : null}
+          onSelect={select}
           onClose={() => setMode(BROWSE)}
           onConflict={onConflict}
           onDeleted={() => setMode(BROWSE)}
         />
       );
-    }
+    case 'draft':
+      return (
+        <SaveDialog ring={mode.ring} bbox={bbox} zoom={zoom} onClose={() => setMode(BROWSE)} />
+      );
     case 'conflict':
       return (
         <ConflictDialog

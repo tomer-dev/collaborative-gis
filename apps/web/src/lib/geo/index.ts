@@ -1,3 +1,5 @@
+// The aerial modules (govmap-crs, govmap-layer, projection) are left out: layer-switch.ts loads
+// them on the first switch to aerial, so the map route does not carry proj4 until then.
 export {
   closeRing,
   invalidReason,

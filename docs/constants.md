@@ -18,17 +18,23 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 | `USER_NAME_MAX` | `60` | Presence list and ghost labels stay short; attachments stay small. |
 | `USER_ID_MAX` | `128` | With both strings capped, a socket attachment cannot reach the runtime's 16 KiB limit. |
 | `BOUNDS_LIMIT` | `500` | Caps one viewport response. |
+| `BODY_MAX_BYTES` | `64 * 1024` | Request body cap on mutations (64 KiB): 413 `PAYLOAD_TOO_LARGE` before JSON parsing. A ring at POLYGON_MAX_VERTICES with full-precision coordinates and a maximal name is about 41 KB. |
+| `VERSION_MAX` | `2_147_483_647` | Largest `version` a PUT body may carry: Postgres `integer` max, the type of `areas.version` and `area_versions.version`. A larger value would fail the query (22003) as a 500, not a 422. |
+| `VERSIONS_PAGE` | `200` | Most versions `GET /api/areas/:id/versions` returns: the newest ones. Bounds the payload of a long-edited area (each version carries its geometry). |
+| `PANEL_LIST_MAX` | `50` | Rows in the area panel's list of the areas in view; the rest show as one "+N more" line. |
+| `USER_ID_PREFIX` | `8` | Leading characters of a user id that name the editor in an area's history (the versions payload carries ids, not names). |
 | `PASSWORD_MIN` | `8` | Better Auth's default `minPasswordLength`; the register form's `minlength`. |
 
 ## TIMEOUTS
 
-`limits.ts`. Time budgets for the database and for a whole request.
+`limits.ts`. Time budgets for the database, the Room ping and a whole request.
 
 | Name | Value | Notes |
 |---|---|---|
 | `DB_CONNECT_MS` | `3000` | `/readyz` and every DB call fail fast when the DB is unreachable. |
 | `DB_QUERY_MS` | `3000` | Bounds one query inside the request budget. |
 | `REQUEST_MS` | `10_000` | Whole-request budget (§6). |
+| `DO_PING_MS` | `1000` | `/readyz` Room ping: the default Room must answer `getVersion()` within this. |
 
 ## GEO
 
@@ -41,24 +47,83 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 
 ## SEED
 
-`db.ts`. The small test seed (apps/api/src/db/seed.ts); the 10k benchmark seed is M2.
+`db.ts`. Random seed polygons (apps/api/src/db/seed.ts, `pnpm --filter @cgis/api db:seed [--count N]`): the tests' small set, and the 10k benchmark set with `--count 10000`.
 
 | Name | Value | Notes |
 |---|---|---|
-| `COUNT` | `50` | Enough rows for the planner to have statistics, fast to insert. |
+| `COUNT` | `50` | Default row count: enough for the planner to have statistics, fast to insert. |
+| `BATCH` | `500` | Rows per insert statement; each row binds 4 parameters (Postgres allows 65,535). |
+| `NAME_PREFIX` | `'seed-'` | Every seeded name starts with it (`seed-1`, `seed-2`, …), numbered on from the count. |
 | `BBOX` | `[34.27, 29.49, 35.9, 33.34]` | Israel as [w, s, e, n] in degrees: the demo region (MAP.DEFAULT_CENTER sits inside it). |
-| `MAX_RADIUS_DEG` | `0.02` | Largest distance from a polygon's centre to a vertex, in degrees (~2 km). |
-| `VERTICES` | `{ min: 4, max: 8 }` | Small, varied rings. |
-| `USER_ID` | `'seed'` | Seeded rows are recognisable. |
+| `MIN_RADIUS_DEG` | `0.003` | Smallest polygon scale (centre to farthest vertex), in degrees: every polygon ≥ 0.2 km across. |
+| `MAX_RADIUS_DEG` | `0.013` | Largest distance from a polygon's centre to a vertex, in degrees: ≤ 3 km across. |
+| `VERTICES` | `{ min: 4, max: 12 }` | Small, varied rings. |
+| `USER_ID` | `'seed'` | `created_by` of every seeded row: a rerun counts these rows and only tops up to the count. |
+
+## BENCH
+
+`db.ts`. The bounds-query benchmark (`pnpm --filter @cgis/api db:explain`): EXPLAIN ANALYZE with and without the GiST index, written to docs/benchmarks.md.
+
+| Name | Value | Notes |
+|---|---|---|
+| `ROWS` | `10_000` | Table size the benchmark seeds up to before measuring. |
+| `RUNS` | `20` | Runs per plan; p50 and p95 are taken over these. |
+| `VIEWPORT` | `[34.72, 32.02, 34.88, 32.12]` | A ~15 x 11 km viewport over Tel Aviv as [w, s, e, n] in degrees. |
+| `BOUNDS_P95_MS` | `100` | p95 budget for the bounds query's execution time: recorded next to the result, not asserted. |
 
 ## AUDIT
 
-`db.ts`. `audit_log` vocabulary (D20): one row per user action. An area event's row carries `(entity_id, version)`, pointing at the `area_versions` row the action produced.
+`db.ts`. `audit_log` vocabulary (D20): one row per user action. An area event's row carries `(entity_id, version)`, pointing at the `area_versions` row the action produced. Area mutations (and a create's draw session) write their rows inside the mutation's transaction; auth events and rejected requests come from the audit middleware after the response.
+
+### AUDIT.ENTITIES
+
+`audit_log.entity`: what the row's `entity_id` names (NULL when the event has no such id).
 
 | Name | Value | Notes |
 |---|---|---|
-| `ENTITIES` | `{ AREA: 'area' }` |  |
-| `ACTIONS` | `{ AREA_CREATE: 'area.create', AREA_UPDATE: 'area.update', AREA_DELETE: 'area.delete' }` |  |
+| `AREA` | `'area'` | An area; `entity_id` is its id. |
+| `USER` | `'user'` | An account; `entity_id` is the user id (NULL for a failed sign-in). |
+| `REQUEST` | `'request'` | A rejected HTTP request; no entity id (the row's `request_id` names the request). |
+| `DRAFT` | `'draft'` | A draft drawn on the map; no entity id (its request's `area.create` row names the area). |
+
+### AUDIT.ACTIONS
+
+`audit_log.action`: every event the API records, one group.
+
+| Name | Value | Notes |
+|---|---|---|
+| `AREA_CREATE` | `'area.create'` | A new area; `(entity_id, version)` points at its version 1 row in `area_versions`. |
+| `AREA_UPDATE` | `'area.update'` | An area edit; the row's `version` is the version the edit produced. |
+| `AREA_DELETE` | `'area.delete'` | A soft delete; the row's `version` is the bumped version the delete recorded. |
+| `AREA_REVERT` | `'area.revert'` | `POST /api/areas/:id/revert/:version`; the row's `version` is the new version it wrote. |
+| `AUTH_SIGN_IN` | `'auth.sign_in'` | Better Auth accepted an email sign-in (2xx); the row's user is the one signed in. |
+| `AUTH_SIGN_UP` | `'auth.sign_up'` | An email sign-up created an account (2xx). |
+| `AUTH_SIGN_OUT` | `'auth.sign_out'` | A sign-out answered 2xx; the row's user is the one whose session ended. |
+| `AUTH_SIGN_IN_FAILED` | `'auth.sign_in_failed'` | An email sign-in answered anything but 2xx (wrong password, unknown email, bad body, rate limit); no user, and `details` keeps the status and Better Auth's error code. |
+| `REQUEST_REJECTED` | `'request.rejected'` | A response with one of `CAPTURE.REJECTED_CODES` under `/api`; `details.code` says which. |
+| `DRAW_SESSION` | `'draw.session'` | A draft saved as an area: one per create, in its transaction, `details.vertices` the ring's vertex count. The Room writes none (its `clear` is also a resync or a cancel). |
+| `RETENTION_PURGE` | `'retention.purge'` | One retention purge batch (`RETENTION`): no user, the deleted counts in `details`. |
+
+### AUDIT.CAPTURE
+
+Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
+
+| Name | Value | Notes |
+|---|---|---|
+| `SIGN_IN_PATH` | `` `${ROUTES.AUTH}/sign-in/email` `` | Better Auth's email sign-in: 2xx → `auth.sign_in`, any other status → `auth.sign_in_failed`. |
+| `SIGN_UP_PATH` | `` `${ROUTES.AUTH}/sign-up/email` `` | Better Auth's email sign-up: 2xx → `auth.sign_up`. |
+| `SIGN_OUT_PATH` | `` `${ROUTES.AUTH}/sign-out` `` | Better Auth's sign-out: 2xx → `auth.sign_out`. |
+| `REJECTED_CODES` | `[ERROR_CODES.UNPROCESSABLE, ERROR_CODES.RATE_LIMITED]` | Responses recorded as `request.rejected` anywhere under `/api`: validation (422) and rate limits (429). A failed sign-in is recorded once, as `auth.sign_in_failed`. |
+
+## RETENTION
+
+`db.ts`. Retention of soft-deleted areas (D8): a daily Cron Trigger (apps/api/src/scheduled.ts) hard-deletes areas deleted more than `DAYS` ago, with their `area_versions`.
+
+| Name | Value | Notes |
+|---|---|---|
+| `DAYS` | `7` | Days a soft-deleted area and its version history are kept before the purge removes them. |
+| `CRON` | `'0 3 * * *'` | When the purge runs (cron syntax, UTC): daily at 03:00. apps/api/wrangler.jsonc `triggers.crons` repeats it as a JSON literal; a test fails when the two differ. |
+| `BATCH` | `500` | Most areas one purge statement deletes (with their versions), each batch its own transaction and audit row: a backlog shrinks run by run instead of one statement outgrowing the query timeout (`TIMEOUTS.DB_QUERY_MS`) every night. |
 
 ## WS
 
@@ -66,14 +131,15 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 
 | Name | Value | Notes |
 |---|---|---|
-| `DRAFT_RATE_PER_SEC` | `10` | D13: drafts ≤ 10 msg/s per user. |
-| `PRESENCE_IDLE_MS` | `60_000` | D13: presence dropped after 60 s. |
+| `DRAFT_RATE_PER_SEC` | `10` | D13: drafts ≤ 10 msg/s, enforced per socket (a token bucket in the Room). The burst guard on draft frames, which spend no drawing actions: D5 charges a draft session once. |
+| `PRESENCE_IDLE_MS` | `60_000` | D13: a draft not edited for 60 s is dropped by the Room's idle sweep; D5: its session ends. |
+| `SOCKET_IDLE_MS` | `3 * PING_INTERVAL_MS` | The idle sweep closes a socket with no frame and no ping for this long (`CLOSE_IDLE`): three ping intervals, so a hidden tab whose timers the browser throttles to one per minute stays. |
 | `ALARM_INTERVAL_MS` | `30_000` | Sweeps idle state twice per idle window. |
 | `BAD_FRAME_STRIKES` | `10` | Tolerates a few bad frames, stops a flood. |
 | `CLOSE_POLICY_VIOLATION` | `1008` | RFC 6455 "policy violation". |
 | `CLOSE_INTERNAL_ERROR` | `1011` | RFC 6455 "internal error": the server cannot attribute the socket. |
 | `CLOSE_IDLE` | `1001` | RFC 6455 "going away": a client that pings every `PING_INTERVAL_MS` is never reaped; one that stopped is dead, and reconnects if it is not. |
-| `PING_INTERVAL_MS` | `30_000` | Below `PRESENCE_IDLE_MS`, so a live tab is never swept; keeps proxies alive. |
+| `PING_INTERVAL_MS` | `30_000` | Client keep-alive, well inside `SOCKET_IDLE_MS`, so a live tab is never swept; keeps proxies alive. |
 | `AUTO_PING` | `'ping'` | The runtime answers without waking a hibernated Room. |
 | `AUTO_PONG` | `'pong'` |  |
 | `RECONNECT_BACKOFF_MS` | `{ min: 1000, max: 30_000 }` | Fast first retry, bounded worst case. |
@@ -94,21 +160,24 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 
 ## RATE_LIMIT
 
-`rate-limit.ts`. Per-user budget shared by REST mutations and WS drawing actions (D5): an exact sliding window.
+`rate-limit.ts`. Per-user budget shared by REST mutations and WS draft sessions (D5): an exact sliding window.
 
 | Name | Value | Notes |
 |---|---|---|
-| `DRAW_ACTIONS_PER_WINDOW` | `50` | D5: 50 drawing actions per user per window, one budget for REST and WS. |
+| `DRAW_ACTIONS_PER_WINDOW` | `50` | D5: 50 drawing actions per user per window, one budget for REST and WS. A REST mutation is one; so is a WS draft session (its frames are not). |
 | `WINDOW_MS` | `60_000` | D5: exact sliding window over the last 60 s; the 429 `Retry-After` is at most this long. |
-| `ACTIONS` | `{ DRAW: 'draw', MUTATE: 'mutate' }` | The only labels `RateLimiter.take` accepts; every action spends the same budget. |
+| `ACTIONS` | `{ DRAW: 'draw' }` | The only labels `RateLimiter.take` accepts. REST mutations and WS draft sessions both spend `DRAW`: one drawing-action budget (spec: `requireUser` then `take('draw')`). |
 
 ## AUTH
 
-`auth.ts`. Better Auth session settings (D24).
+`auth.ts`. Better Auth session settings (D24) and its sign-in rate limit.
 
 | Name | Value | Notes |
 |---|---|---|
 | `COOKIE_CACHE_MAX_AGE_S` | `300` | Better Auth's signed session cookie cache, in seconds (D24): within it a request is authenticated from the cookie without a database read, so a session revoked elsewhere stays usable for at most this long. |
+| `RATE_LIMIT_PATH` | `'/sign-in/*'` | Better Auth path pattern (relative to `ROUTES.AUTH`) the sign-in rate limit covers. On only under an https `BETTER_AUTH_URL` (a deployed Worker). |
+| `RATE_LIMIT_WINDOW_S` | `60` | Sign-in rate limit window, in seconds; over the limit Better Auth answers 429 `X-Retry-After`. |
+| `RATE_LIMIT_MAX` | `10` | Sign-in attempts per client IP per window. Counted in each Worker isolate's memory, so it slows one client; the zone's WAF rate rule (docs/deploy.md) is the global cap. |
 
 ## ROUTES
 
@@ -118,12 +187,15 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 |---|---|---|
 | `API_PREFIX` | `'/api'` | Everything under it goes to `wrangler dev`. |
 | `HEALTHZ` | `'/healthz'` | Liveness. |
-| `READYZ` | `'/readyz'` | Readiness (DB reachable). |
+| `READYZ` | `'/readyz'` | Readiness: the database and the Room answer. |
 | `AUTH` | `'/api/auth'` | Better Auth mount. |
 | `AREAS` | `'/api/areas'` | Area CRUD + bbox query. |
 | `AREA_BY_ID` | `'/:id'` | One area, relative to AREAS (`PUT`/`DELETE /api/areas/:id`). |
+| `AREA_VERSIONS` | `'/:id/versions'` | One area's saved versions, relative to AREAS (`GET /api/areas/:id/versions`). |
+| `AREA_REVERT` | `'/:id/revert/:version'` | Revert to a saved version, relative to AREAS (`POST /api/areas/:id/revert/:version`). |
 | `WS` | `'/ws'` | Room WebSocket upgrade. |
 | `OPENAPI` | `'/openapi.json'` | OpenAPI 3.1 document of the routes with `describeRoute` metadata. |
+| `DOCS` | `'/docs'` | API reference UI (Scalar) rendering OPENAPI; public and read-only, like the document. |
 | `APP` | `{ HOME: '/', LOGIN: '/login', REGISTER: '/register', MAP: '/map' }` | SPA routes: redirect/Link/navigate targets (file-route ids in createFileRoute stay literal). |
 
 ## DEV
@@ -133,6 +205,7 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 | Name | Value | Notes |
 |---|---|---|
 | `API_ORIGIN` | `'http://localhost:8787'` | `wrangler dev` default port: the Vite proxy target and the tests' `BETTER_AUTH_URL`. |
+| `WEB_ORIGIN` | `'http://localhost:5173'` | `vite` default port: the e2e run's SPA origin (apps/web/e2e/stack.ts) and its Worker's CLIENT_ORIGIN. |
 
 ## HEADERS
 
@@ -155,12 +228,36 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 
 ## OPENAPI
 
-`http.ts`. The `GET /openapi.json` document's `info` (hono-openapi `openAPIRouteHandler`).
+`http.ts`. The `GET /openapi.json` document's `info` (hono-openapi `openAPIRouteHandler`) and the `/docs` UI.
 
 | Name | Value | Notes |
 |---|---|---|
-| `TITLE` | `'Collaborative GIS API'` | Names the `/openapi.json` document. |
+| `TITLE` | `'Collaborative GIS API'` | Names the `/openapi.json` document and the `/docs` page. |
 | `VERSION` | `'0.1.0'` | Document version; bump with breaking contract changes. |
+| `UI_BUNDLE` | `'https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.73.1/dist/browser/standalone.js'` | The `/docs` page's Scalar script: the single-file browser build of a pinned release (no code-split chunks, so one integrity hash covers all of it), never the CDN's moving latest, since it runs on the API origin. Bump with `@scalar/hono-api-reference`, and `UI_BUNDLE_INTEGRITY` with it. |
+| `UI_BUNDLE_INTEGRITY` | `'sha384-kYDGzV91Jnn3TbHINV3nt54riK2uMJDfN5Al8dAkz4FssELTBWbD8rgw32sTKfOi'` | Subresource Integrity of `UI_BUNDLE`: the browser refuses the script if the CDN serves other bytes. `curl -sS -o f <UI_BUNDLE> && openssl dgst -sha384 -binary f \| openssl base64 -A` (matches `dist/browser/standalone.js` in the npm tarball). |
+
+## READINESS
+
+`http.ts`. `GET /readyz` body values; the 503 `NOT_READY` carries the same `{ db, room }` in `details`.
+
+| Name | Value | Notes |
+|---|---|---|
+| `READY` | `'ready'` | 200 `status`: the database and the Room both answered. |
+| `UP` | `'up'` | A dependency answered within its deadline. |
+| `DOWN` | `'down'` | A dependency failed or missed its deadline. |
+
+## CACHE
+
+`cache.ts`. The viewport cache (D6, spec §5): `GET /api/areas` answers from the Workers Cache API under a key of the quantised tile and the Room's map version (not the zoom: the response does not vary by it).
+
+| Name | Value | Notes |
+|---|---|---|
+| `BOUNDS_TTL_S` | `30` | Lifetime of a bounds entry in the Cache API (`Cache-Control: s-maxage` on the stored copy). A write never waits for it: it bumps the map version, so later reads use a new key. |
+| `TILE_QUANT_DEG` | `0.1` | Grid step (degrees, ~11 km of latitude) a viewport is snapped outward to before the query and the cache key. It adds less than one step per side, so a zoomed-in viewport's query stays small next to `LIMITS.BOUNDS_LIMIT`, while nearby viewports share one entry. |
+| `CLIENT_CACHE_CONTROL` | `'private, no-cache'` | `Cache-Control` the browser gets: kept, but revalidated each time by `If-None-Match` (a 304 while the map version is unchanged); `private`, so no shared cache serves it without a session. |
+| `STATUS_HEADER` | `'x-cache'` | Response header naming how the read was answered (one of `STATUS`); also a log field. |
+| `STATUS` | `{ HIT: 'HIT', MISS: 'MISS', BYPASS: 'BYPASS' }` | `HIT`: from the Cache API, or a 304 from the version alone. `MISS`: queried, then stored. `BYPASS`: the Room did not give its version in time, so the read is queried and not stored. |
 
 ## MAP
 
@@ -173,6 +270,8 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 | `OSM_TILE_URL` | `'https://tile.openstreetmap.org/{z}/{x}/{y}.png'` | OSM standard tiles. |
 | `OSM_ATTRIBUTION` | `'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'` | Required by the OSM tile usage policy. |
 | `OSM_MAX_ZOOM` | `19` | Highest zoom OSM serves. |
+| `OSM_Z0_METRES_PER_PIXEL` | `156543.03392804097` | Web Mercator metres per pixel at zoom 0 on the equator: 2π × 6,378,137 m / 256 px. Times cos(latitude) / 2^zoom it is OSM's ground resolution, which the layer switch matches to the nearest `GOVMAP.RESOLUTIONS` level. |
+| `CROSSFADE_MS` | `300` | Base-layer switch: the new base layer fades in over a still copy of the old one for this long, with no fade under prefers-reduced-motion. tokens.css `--transition-duration-slow` mirrors it (drift-tested). |
 | `AREAS_PANE` | `'areas'` | Saved areas' pane: above the tiles and Leaflet's overlay pane (400). |
 | `AREAS_PANE_Z` | `450` | `AREAS_PANE`'s z-index; tokens.css `--z-index-map-areas` mirrors it (drift-tested). |
 | `DRAFTS_PANE` | `'drafts'` | Live drafts' pane: above the saved areas. |
@@ -203,6 +302,23 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 | `M2_UNIT` | `'m²'` | Area unit suffixes (Intl.NumberFormat has no area units). |
 | `KM2_UNIT` | `'km²'` |  |
 
+## GOVMAP
+
+`govmap.ts`. govmap aerial imagery: the Survey of Israel orthophoto from govmap's legacy ArcGIS tile cache on the EPSG:2039 grid (D3 option A, D22, ADR-0005). Values verified against the live CDN on 2026-10-12; the resolutions are govmap's published table, kept verbatim.
+
+| Name | Value | Notes |
+|---|---|---|
+| `EPSG` | `'EPSG:2039'` | The Israeli TM Grid's EPSG code: the Leaflet CRS `code` and the proj4 definition's name. |
+| `ITM_PROJ4` | `'+proj=tmerc +lat_0=31.7343936111111 +lon_0=35.2045169444444 +k=1.0000067 +x_0=219529.584 +y_0=626907.39 +ellps=GRS80 +towgs84=23.772,17.49,17.859,-0.3132,-1.85274,1.67299,-5.4262 +units=m +no_defs +type=crs'` | epsg.io's EPSG:2039 definition with the EPSG:9676 datum shift (0.5 m accuracy) in `+towgs84` (position-vector signs). Without `+towgs84` positions move by about 78 m; with the registry's coordinate-frame signs pasted unchanged, by about 155 m. |
+| `ORIGIN` | `[-5403700, 7116700]` | Top-left corner of the tile grid in EPSG:2039 metres [x, y], as govmap's own client sets it. |
+| `RESOLUTIONS` | `[793.751587503175, 264.583862501058, 132.291931250529, 66.1459656252646, 26.4583862501058, 13.2291931250529, 6.61459656252646, 2.64583862501058, 1.32291931250529, 0.661459656252646, 0.330729828126323, 0.13229193125052918]` | Metres per pixel for levels L00–L11 (1:3,000,000 to 1:500 at 96 dpi). Adjacent levels step ×3, ×2.5 or ×2, not a power of two. |
+| `ITM_BOUNDS` | `[[100000, 350000], [300000, 820000]]` | Projected extent [[minX, minY], [maxX, maxY]] in EPSG:2039 metres: epsg.io's area of use padded to take in Mt Hermon. Leaflet clips the tile range to it. |
+| `TILE_HOST` | `'https://cdn.govmap.gov.il'` | Legacy tile CDN: no Referer or Origin check, no CORS headers, missing tiles answer 403. |
+| `CACHES` | `['B0BZ1ORTO23', 'M2023ORT3TS', '020522B0B20R']` | Aerial caches on `TILE_HOST`, newest first by tile `Last-Modified`: 2024-01 (the newest that answers), 2023-03 (govmap's published national orthophoto config), 2022-05 (the 2021 national orthophoto). The layer uses the first; the others are documented alternatives, not a runtime fallback. |
+| `TILE_LEVEL_DIGITS` | `2` | Tile path level `L08`: decimal, zero-padded to this many digits. |
+| `TILE_INDEX_HEX_DIGITS` | `8` | Tile path row `R…` and column `C…`: lowercase hex (uppercase answers 403), zero-padded. |
+| `ATTRIBUTION` | `'Aerial imagery &copy; Survey of Israel, via <a href="https://www.govmap.gov.il/">govmap</a>'` | The terms require crediting the Survey of Israel; fair use credits the portal too. |
+
 ## QUERY
 
 `query.ts`. TanStack Query keys the SPA's data layer (T13) and room hook (T14) share: the first element of each key, so one prefix matches every variant.
@@ -210,6 +326,7 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 | Name | Value | Notes |
 |---|---|---|
 | `AREAS_KEY` | `'areas'` | `[AREAS_KEY, bbox]`: the areas in one viewport (`GET /api/areas?bbox=`). |
+| `VERSIONS_KEY` | `'areaVersions'` | `[VERSIONS_KEY, id, version]`: one area's saved versions (`GET /api/areas/:id/versions`), keyed by the area's current version too, so any new version refetches the history. |
 | `CREATE_AREA_KEY` | `'createArea'` | Mutation key of the area create, whose pending entries hold the optimistic areas' ids. |
 | `RETRY_LIMIT` | `3` | Retries of a failed query (TanStack Query's default); a 401 is never retried. |
 
@@ -227,11 +344,23 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 
 | Name | Value | Notes |
 |---|---|---|
-| `DEGRADED_TITLE` | `'Reconnecting'` |  |
-| `DEGRADED_DETAIL` | `'Live updates are paused. Your drawing is kept.'` |  |
-| `OFFLINE_TITLE` | `'Offline'` |  |
-| `OFFLINE_DETAIL` | `` `Live updates are off. Saved areas refresh every ${WS.OFFLINE_POLL_MS / MS_PER_SECOND} s.` `` |  |
-| `RETRY` | `'Retry'` |  |
+| `DEGRADED_TITLE` | `'Reconnecting…'` | Banner while `degraded`: the socket keeps retrying with backoff. |
+| `DEGRADED_DETAIL` | `'Live updates are paused. Your drawing is kept.'` | The local draft stays in memory and is resent after the next join. |
+| `OFFLINE_TITLE` | `'Offline'` | Banner while `offline`: the saved areas are polled every `WS.OFFLINE_POLL_MS`. |
+| `OFFLINE_DETAIL` | `` `Showing the last saved areas; polling every ${WS.OFFLINE_POLL_MS / MS_PER_SECOND} s. Your drawing is kept.` `` | States the poll interval from `WS.OFFLINE_POLL_MS`. |
+| `RESYNC_TITLE` | `'Resyncing…'` | Banner while a re-join waits for the Room's state (after a reconnect or a `resync` error); brief. |
+| `RESYNC_DETAIL` | `'Catching up with the live map.'` | Ghosts and presence are replaced by the Room's answer; the draft is resent. |
+| `RETRY` | `'Retry'` | The offline banner's button: connect now. |
+
+### COPY.MAP
+
+The base-layer switch on /map (LayerSwitch): the toolbar's name and its two toggles.
+
+| Name | Value | Notes |
+|---|---|---|
+| `BASE_LAYER_LABEL` | `'Base map'` |  |
+| `OSM_LABEL` | `'Street map'` | OpenStreetMap on Web Mercator. |
+| `AERIAL_LABEL` | `'Aerial imagery'` | govmap's aerial imagery on the EPSG:2039 grid. |
 
 ### COPY.PRESENCE
 
@@ -267,7 +396,7 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 
 ### COPY.AREAS
 
-Saved areas on /map: the save dialog, the selected-area panel and the conflict dialog (D4).
+Saved areas on /map: the save dialog, the area panel (the areas in view, the selected area and its history) and the conflict dialog (D4).
 
 | Name | Value | Notes |
 |---|---|---|
@@ -299,6 +428,20 @@ Saved areas on /map: the save dialog, the selected-area panel and the conflict d
 | `LOAD_THEIRS` | `'Load theirs'` |  |
 | `OVERWRITE_ERROR_TITLE` | `'Could not overwrite the area'` |  |
 | `ERROR_GENERIC` | `'Something went wrong. Try again.'` | A failure without an API error body (network error, proxy page). |
+| `LIST_TITLE` | `'Areas in view'` | The area panel: its title, also the name of the list of the areas in the viewport. |
+| `LIST_EMPTY` | `'No saved areas in view.'` |  |
+| `LIST_MORE` | `` (count: number) => `+${count} more` `` | Under the list when more than `LIMITS.PANEL_LIST_MAX` areas are in view. |
+| `HISTORY_TITLE` | `'History'` |  |
+| `HISTORY_LOADING` | `'Loading history…'` |  |
+| `HISTORY_ERROR_TITLE` | `'Could not load the history'` |  |
+| `VERSION_LABEL` | `` (version: number) => `Version ${version}` `` |  |
+| `VERSION_CURRENT` | `'Current'` | In place of the revert button on the version the area is at now. |
+| `VERSION_BY` | `` (who: string) => `by ${who}` `` | Who saved a version: a user id prefix (`LIMITS.USER_ID_PREFIX`). |
+| `REVERT` | `'Revert to this version'` |  |
+| `REVERT_PENDING` | `'Reverting…'` |  |
+| `REVERT_ERROR_TITLE` | `'Could not revert the area'` |  |
+| `REVERT_DELETED` | `'This area has been deleted, so it cannot be reverted.'` | 409: someone deleted the area; a revert never brings it back. |
+| `REVERT_MISSING` | `'That version is no longer available. The history has been refreshed.'` | 404: the area or that version is gone; the lists and the history refetch. |
 
 ## ERROR_CODES
 
@@ -315,7 +458,7 @@ Saved areas on /map: the save dialog, the selected-area panel and the conflict d
 | `PAYLOAD_TOO_LARGE` | `'PAYLOAD_TOO_LARGE'` | Body limit. |
 | `RATE_LIMITED` | `'RATE_LIMITED'` | D13 rate limits. |
 | `TIMEOUT` | `'TIMEOUT'` | Request budget exceeded. |
-| `NOT_READY` | `'NOT_READY'` | DB unreachable. |
+| `NOT_READY` | `'NOT_READY'` | `/readyz`: the database or the Room did not answer. |
 | `INTERNAL` | `'INTERNAL'` | Sanitised server error. |
 | `NOT_IMPLEMENTED` | `'NOT_IMPLEMENTED'` | Mounted route whose lane has not landed. |
 | `UPGRADE_REQUIRED` | `'UPGRADE_REQUIRED'` | `/ws` only speaks WebSocket. |
@@ -336,7 +479,7 @@ Saved areas on /map: the save dialog, the selected-area panel and the conflict d
 | `PAYLOAD_TOO_LARGE` | `'Payload too large'` | Generic 413. |
 | `RATE_LIMITED` | `'Too many requests'` | Generic 429. |
 | `TIMEOUT` | `'timeout'` | 504 body. |
-| `NOT_READY` | `'database unreachable'` | `/readyz` 503 body. |
+| `NOT_READY` | `'dependency unreachable'` | `/readyz` 503 body; `details: { db, room }` says which one is down. |
 | `INTERNAL` | `'Internal Server Error'` | 5xx bodies never leak `err.message`. |
 | `NOT_IMPLEMENTED` | `'not implemented'` | 501 until the lane fills the stub. |
 | `UPGRADE_REQUIRED` | `'websocket upgrade required'` | 426 body. |
@@ -344,7 +487,7 @@ Saved areas on /map: the save dialog, the selected-area panel and the conflict d
 
 ## ERROR_REASONS
 
-`errors.ts`. `ApiError.message`s more specific than their code's default in ERROR_MESSAGES.
+`errors.ts`. `ApiError.message`s more specific than their code's default in ERROR_MESSAGES, and the `details.reason`s the API itself names.
 
 | Name | Value | Notes |
 |---|---|---|
@@ -352,6 +495,7 @@ Saved areas on /map: the save dialog, the selected-area panel and the conflict d
 | `INVALID_GEOMETRY` | `'invalid geometry'` | 422: PostGIS `ST_IsValid` rejected a polygon Zod accepted; `details.reason` says why. |
 | `VERSION_CONFLICT` | `'version conflict'` | 409: the area's stored `version` is not the one the client edited; `details.current` is. |
 | `NAME_TOO_LONG` | `'name too long'` | 422 on sign-up: the trimmed name is longer than `LIMITS.USER_NAME_MAX`. |
+| `AREA_DELETED` | `'area deleted'` | 409 `details.reason` (the message is the code's default): a revert on a soft-deleted area, which stays deleted. |
 
 ## WS_MESSAGES
 
@@ -361,3 +505,4 @@ Saved areas on /map: the save dialog, the selected-area panel and the conflict d
 |---|---|---|
 | `NOT_JSON` | `'frames must be JSON text'` | Says what the Room accepts; a schema failure sends Zod's issue text instead. |
 | `NOT_JOINED` | `'send join first'` | Drafts come only from users in presence. |
+| `ROOM_STATE_LOST` | `'room state lost; join again'` | `error CONFLICT` with `resync: true`: the socket joined state the Room has since lost (its storage went while the socket stayed attached); every frame but `join`/`leave` is dropped until it joins again. |

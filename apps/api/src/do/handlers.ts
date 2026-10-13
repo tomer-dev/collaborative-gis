@@ -1,17 +1,47 @@
 import { ERROR_CODES, ERROR_MESSAGES, type PresenceState, WS, WS_MESSAGES } from '@cgis/shared';
-import { type DraftOp, type DraftStore, takeDraftToken } from './drafts';
+import { log } from '../log';
+import { applyDraftOp, type DraftOp, type DraftStore, takeDraftToken } from './drafts';
+import { ensureEpoch, storedEpoch } from './epoch';
 import type { DraftRelay } from './frames';
 import { presenceOf } from './presence';
+import type { TakeResult } from './rate-limiter';
 import { save, sendAll, sendError, sendTo, type Socket, sockets } from './sockets';
 
-/** What the handlers need from the Room: its state (sockets, storage) and its draft store. */
-export type RoomCtx = { ctx: DurableObjectState; drafts: DraftStore };
+/**
+ * What the handlers need from the Room: its state (sockets, storage), its draft store, and the
+ * call that spends one `RATE_LIMIT.ACTIONS.DRAW` from a user's `RateLimiter` budget, once per
+ * draft session (D5).
+ */
+export type RoomCtx = {
+  ctx: DurableObjectState;
+  drafts: DraftStore;
+  takeDrawAction: (userId: string) => Promise<TakeResult>;
+};
 
-/** `join`: into presence (broadcast to all), then the current drafts to the joiner. */
+/**
+ * `join`: into presence (broadcast to all), then all current drafts to the joiner. The socket
+ * takes the Room's storage epoch, so a join is also how a socket told to resync recovers.
+ */
 export function join(room: RoomCtx, socket: Socket): void {
-  save(socket, { joined: true });
+  save(socket, { joined: true, epoch: ensureEpoch(room.ctx.storage) });
   sendPresence(room);
   sendTo(room.ctx, socket.ws, { type: 'draft:state', payload: { drafts: room.drafts.all() } });
+}
+
+/**
+ * True, after answering `error CONFLICT` with `resync: true`, when `socket` joined state the Room
+ * no longer has: it is joined, but its epoch is not the stored one (the storage was lost while the
+ * socket stayed attached). The caller drops the frame; the socket's frames keep getting this
+ * answer until it joins again.
+ */
+export function outlivedState(room: RoomCtx, socket: Socket): boolean {
+  const { joined, epoch } = socket.attachment;
+  if (!joined || epoch === storedEpoch(room.ctx.storage)) return false;
+  save(socket, {});
+  sendError(room.ctx, socket.ws, ERROR_CODES.CONFLICT, WS_MESSAGES.ROOM_STATE_LOST, {
+    resync: true,
+  });
+  return true;
 }
 
 /** `leave`: out of presence; the socket stays open. */
@@ -27,18 +57,34 @@ export function setPresence(room: RoomCtx, socket: Socket, state: PresenceState)
 }
 
 /**
- * `draft:update`: joined sockets only, `WS.DRAFT_RATE_PER_SEC` per socket (over budget →
- * `error RATE_LIMITED` with `retryAfter` ms to the sender only), frames with `seq <= lastSeq`
- * dropped silently, then the op is applied to the sender's draft and relayed to everyone else.
+ * `draft:update`, joined sockets only. The socket's bucket (`WS.DRAFT_RATE_PER_SEC`) is the burst
+ * guard on every frame. A frame with `seq <= lastSeq` is then dropped silently. An op that does
+ * not fit the Room's copy (the two diverged, or the Room ended the session) is
+ * `error DRAFT_OP_MISFIT` with `resync: true`. Otherwise the op is applied to the sender's draft
+ * and relayed to everyone else.
+ *
+ * D5 (owner ruling, 2026-10-13): a frame is not a drawing action; a draft session is. The `add`
+ * that starts a draft with no session open spends one action from the user's `RateLimiter`
+ * budget (shared with REST mutations) and opens the session. Every later op spends nothing until
+ * the session ends: a `clear` and the `add`s after it (a resync replay, or a cancel and a new
+ * sketch) stay in it, as do a departure and hibernation. It ends on the user's save
+ * (`sessionSaved`) or at the idle sweep (`sweepIdle`).
+ *
+ * A refused start is `error RATE_LIMITED`, and a failed limiter call is `error INTERNAL` (fails
+ * closed); either way nothing is stored, so the draft stays empty. The bucket's refusals and the
+ * budget's carry `retryAfter` ms and the refused frame's `frameSeq`, to the sender only. room.ts
+ * runs one user's frames one at a time, so no other frame of theirs touches this attachment or
+ * their session while the limiter answers.
  */
-export function draftUpdate(
+export async function draftUpdate(
   room: RoomCtx,
   socket: Socket,
   seq: number,
   op: DraftOp,
   now: number,
-): void {
+): Promise<void> {
   const { ws, attachment } = socket;
+  const { userId } = attachment;
   if (!attachment.joined) {
     save(socket, {});
     sendError(room.ctx, ws, ERROR_CODES.BAD_REQUEST, WS_MESSAGES.NOT_JOINED);
@@ -49,21 +95,75 @@ export function draftUpdate(
     save(socket, take.bucket);
     sendError(room.ctx, ws, ERROR_CODES.RATE_LIMITED, ERROR_MESSAGES.RATE_LIMITED, {
       retryAfter: take.retryAfterMs,
+      frameSeq: seq,
     });
     return;
   }
-  if (attachment.lastSeq !== null && seq <= attachment.lastSeq) {
-    save(socket, take.bucket);
-    return;
+  // Stored before the limiter call: an alarm sweep while it runs sees this frame's lastSeen.
+  save(socket, take.bucket);
+  if (attachment.lastSeq !== null && seq <= attachment.lastSeq) return;
+  const current = room.drafts.vertices(userId);
+  const next = applyDraftOp(current ?? [], op);
+  // With no session open, only an `add` makes a draft: the session's one drawing action.
+  if (current === undefined && next !== undefined && next.length > 0) {
+    if (!(await startSession(room, socket, seq))) return;
   }
   save(socket, { ...take.bucket, lastSeq: seq });
-  if (!room.drafts.apply(attachment.userId, op, now)) {
-    sendError(room.ctx, ws, ERROR_CODES.DRAFT_OP_MISFIT, ERROR_MESSAGES.DRAFT_OP_MISFIT);
+  if (next === undefined) {
+    sendError(room.ctx, ws, ERROR_CODES.DRAFT_OP_MISFIT, ERROR_MESSAGES.DRAFT_OP_MISFIT, {
+      resync: true,
+    });
     return;
   }
+  // A `clear` with no session open opens none.
+  if (current !== undefined || next.length > 0) room.drafts.write(userId, next, now);
   // userId after the spread: the sender's id overwrites any userId the client put in the op.
-  const relay: DraftRelay = { type: 'draft:update', payload: { ...op, userId: attachment.userId } };
-  sendAll(room.ctx, relay, attachment.userId);
+  const relay: DraftRelay = { type: 'draft:update', payload: { ...op, userId } };
+  sendAll(room.ctx, relay, userId);
+}
+
+/**
+ * The sender's new draft session asks the user's budget for its one drawing action: `true` when
+ * granted. Otherwise the sender has been answered (`RATE_LIMITED` with `retryAfter` and
+ * `frameSeq`, or `INTERNAL` when the call failed), or the socket closed meanwhile (the frame goes
+ * with it), and the caller drops the frame.
+ */
+async function startSession(room: RoomCtx, socket: Socket, seq: number): Promise<boolean> {
+  const { ws, attachment } = socket;
+  const budget = await spendDrawAction(room, attachment.userId);
+  // Closed while the limiter answered (peer close or idle sweep): the frame goes with the socket.
+  if (ws.readyState !== WebSocket.OPEN) return false;
+  if (!budget) {
+    sendError(room.ctx, ws, ERROR_CODES.INTERNAL, ERROR_MESSAGES.INTERNAL);
+    return false;
+  }
+  if (!budget.ok) {
+    sendError(room.ctx, ws, ERROR_CODES.RATE_LIMITED, ERROR_MESSAGES.RATE_LIMITED, {
+      retryAfter: budget.retryAfterMs,
+      frameSeq: seq,
+    });
+    return false;
+  }
+  return true;
+}
+
+/**
+ * `userId` saved an area (`area:created` from the create route): their draw session ends, so their
+ * next `add` starts a new one and spends again (D5). A draft of theirs still on screen goes with
+ * it (`draft:state`); the client clears it before the save, so usually none is.
+ */
+export function sessionSaved(room: RoomCtx, userId: string): void {
+  if (room.drafts.end(userId)) sendDraftState(room);
+}
+
+/** One drawing action from `userId`'s budget; `undefined`, logged, when the call fails. */
+async function spendDrawAction(room: RoomCtx, userId: string): Promise<TakeResult | undefined> {
+  try {
+    return await room.takeDrawAction(userId);
+  } catch (err) {
+    log('error', 'rate limiter call failed', { error: String(err) });
+    return undefined;
+  }
 }
 
 /** A bad frame: `error BAD_REQUEST`, one strike, and at `WS.BAD_FRAME_STRIKES` a 1008 close. */
@@ -78,19 +178,26 @@ export function strike(room: RoomCtx, socket: Socket, message: string): void {
   if (socket.attachment.joined) departed(room, socket);
 }
 
-/** After a joined socket left: drop the draft if it was the user's last socket, rebroadcast. */
+/**
+ * After a joined socket left: drop the draft if it was the user's last socket, rebroadcast. The
+ * draw session stays open (D5), so the draft a reconnect sends again spends nothing.
+ */
 export function departed(room: RoomCtx, socket: Socket): void {
   sendPresence(room);
   if (dropDraftIfLast(room, socket)) sendDraftState(room);
 }
 
 /**
- * The alarm's sweep: closes sockets silent for more than `WS.PRESENCE_IDLE_MS` (no frame and no
- * auto-answered ping) with `WS.CLOSE_IDLE`, drops drafts not edited for that long, and broadcasts
- * `presence` / `draft:state` only when they changed. True while open sockets remain.
+ * The alarm's sweep: closes sockets silent for more than `WS.SOCKET_IDLE_MS` (no frame and no
+ * auto-answered ping) with `WS.CLOSE_IDLE`, ends the draw sessions not edited for
+ * `WS.PRESENCE_IDLE_MS` and drops their drafts (D13, D5), and broadcasts `presence` /
+ * `draft:state` only when they changed. The socket cutoff is the longer one, so a hidden tab whose
+ * pings the browser throttles to one a minute stays open (its draft still expires). True while
+ * open sockets or sessions remain: a killed Room's sockets are cut without a close event, so their
+ * drafts outlive them, and they still expire on time.
  */
 export function sweepIdle(room: RoomCtx, now: number): boolean {
-  const cutoff = now - WS.PRESENCE_IDLE_MS;
+  const cutoff = now - WS.SOCKET_IDLE_MS;
   let presenceChanged = false;
   let draftsChanged = false;
   for (const socket of sockets(room.ctx)) {
@@ -103,19 +210,22 @@ export function sweepIdle(room: RoomCtx, now: number): boolean {
       draftsChanged = dropDraftIfLast(room, socket) || draftsChanged;
     }
   }
-  draftsChanged = room.drafts.deleteIdle(cutoff) || draftsChanged;
+  draftsChanged = room.drafts.deleteIdle(now - WS.PRESENCE_IDLE_MS) || draftsChanged;
   if (presenceChanged) sendPresence(room);
   if (draftsChanged) sendDraftState(room);
-  return sockets(room.ctx).length > 0;
+  return sockets(room.ctx).length > 0 || room.drafts.count() > 0;
 }
 
-/** Deletes the user's draft unless another open, joined socket of theirs remains. */
+/**
+ * Empties the user's draft unless another open, joined socket of theirs remains; `true` if a draft
+ * on screen went. Their session stays open.
+ */
 function dropDraftIfLast(room: RoomCtx, socket: Socket): boolean {
   const { userId } = socket.attachment;
   const stays = sockets(room.ctx).some(
     ({ ws, attachment }) => ws !== socket.ws && attachment.joined && attachment.userId === userId,
   );
-  return !stays && room.drafts.delete(userId);
+  return !stays && room.drafts.empty(userId);
 }
 
 function sendPresence(room: RoomCtx): void {

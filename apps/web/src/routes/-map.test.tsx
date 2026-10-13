@@ -158,8 +158,9 @@ it('connects the map to the room and lists who is there', async () => {
 it("shows the user's own presence colour in the header once the room assigns it", async () => {
   renderAppAt('/map', signedIn);
   await screen.findByTestId('map-root');
-  const header = screen.getByRole('banner');
-  const avatar = () => header.querySelector('[style*="--presence"]');
+  // The app's top bar (jsdom also reads a panel's <header> inside a <section> as a banner).
+  const header = screen.getByRole('heading', { level: 1, name: COPY.APP.NAME }).closest('header');
+  const avatar = () => header?.querySelector('[style*="--presence"]');
   expect(avatar()).toBeNull();
 
   const socket = sockets.at(-1);

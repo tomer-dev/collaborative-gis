@@ -1,9 +1,19 @@
+const PING_INTERVAL_MS = 30_000;
+
 /** Realtime room behaviour, server and client (D13). */
 export const WS = {
-  /** D13: drafts ≤ 10 msg/s per user. */
+  /**
+   * D13: drafts ≤ 10 msg/s, enforced per socket (a token bucket in the Room). The burst guard on
+   * draft frames, which spend no drawing actions: D5 charges a draft session once.
+   */
   DRAFT_RATE_PER_SEC: 10,
-  /** D13: presence dropped after 60 s. */
+  /** D13: a draft not edited for 60 s is dropped by the Room's idle sweep; D5: its session ends. */
   PRESENCE_IDLE_MS: 60_000,
+  /**
+   * The idle sweep closes a socket with no frame and no ping for this long (`CLOSE_IDLE`): three
+   * ping intervals, so a hidden tab whose timers the browser throttles to one per minute stays.
+   */
+  SOCKET_IDLE_MS: 3 * PING_INTERVAL_MS,
   /** Sweeps idle state twice per idle window. */
   ALARM_INTERVAL_MS: 30_000,
   /** Tolerates a few bad frames, stops a flood. */
@@ -17,8 +27,11 @@ export const WS = {
    * stopped is dead, and reconnects if it is not.
    */
   CLOSE_IDLE: 1001,
-  /** Below `PRESENCE_IDLE_MS`, so a live tab is never swept; keeps proxies alive. */
-  PING_INTERVAL_MS: 30_000,
+  /**
+   * Client keep-alive, well inside `SOCKET_IDLE_MS`, so a live tab is never swept; keeps proxies
+   * alive.
+   */
+  PING_INTERVAL_MS,
   /** The runtime answers without waking a hibernated Room. */
   AUTO_PING: 'ping',
   AUTO_PONG: 'pong',

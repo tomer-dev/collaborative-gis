@@ -87,7 +87,7 @@ it('reports the initial bbox, then one debounced bbox per burst of moveend event
   const { map } = renderMap({ onBoundsChange });
 
   expect(onBoundsChange).toHaveBeenCalledTimes(1);
-  expect(onBoundsChange).toHaveBeenLastCalledWith(boundsToBbox(map));
+  expect(onBoundsChange).toHaveBeenLastCalledWith(boundsToBbox(map), map.getZoom());
 
   vi.spyOn(map, 'getBounds').mockReturnValue(israel);
   map.fire('moveend');
@@ -98,12 +98,10 @@ it('reports the initial bbox, then one debounced bbox per burst of moveend event
 
   vi.advanceTimersByTime(1);
   expect(onBoundsChange).toHaveBeenCalledTimes(2);
-  expect(onBoundsChange).toHaveBeenLastCalledWith([
-    expect.closeTo(34.7, 9),
-    31.9,
-    expect.closeTo(35.0, 9),
-    32.2,
-  ]);
+  expect(onBoundsChange).toHaveBeenLastCalledWith(
+    [expect.closeTo(34.7, 9), 31.9, expect.closeTo(35.0, 9), 32.2],
+    map.getZoom(),
+  );
 });
 
 it('keeps one map across re-renders and calls the latest onBoundsChange', () => {

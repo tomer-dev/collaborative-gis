@@ -1,101 +1,26 @@
 import { ROOM, WS } from '@cgis/shared';
-import { evictDurableObject, runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test';
-import { env } from 'cloudflare:workers';
+import { evictDurableObject, runInDurableObject } from 'cloudflare:test';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { z } from 'zod';
-import { withRoomUser } from '../../src/do/handoff';
 import { attachmentOf } from '../../src/do/presence';
-import { Room } from '../../src/do/room';
-import { socketClient } from './socket-client';
+import {
+  add,
+  barrier,
+  closeRoom,
+  connect,
+  drawer,
+  join,
+  newRoom,
+  REFUSED_SEQ,
+  stub,
+  T0,
+  users,
+  vertex,
+} from './protocol-harness';
 
-// Wire values (types, codes, payload shapes) are spelled out: they are the contract T8 and T14 use.
-
-/** Any server frame; payloads are checked with toEqual/toMatchObject, so they stay unknown here. */
-const FrameSchema = z.object({
-  type: z.string(),
-  seq: z.number(),
-  ts: z.number(),
-  payload: z.record(z.string(), z.unknown()),
-});
-type Frame = z.infer<typeof FrameSchema>;
-
-type Client = {
-  userId: string;
-  ws: WebSocket;
-  frames: Frame[];
-  /** Frames of one type, in arrival order. */
-  of: (type: string) => Frame[];
-  /** Resolves once `of(type)` has `count` frames, with the last of them. */
-  waitFor: (type: string, count?: number) => Promise<Frame>;
-  closed: Promise<CloseEvent>;
-  send: (type: string, payload: unknown, seq?: number) => void;
-};
-
-// Timing-dependent tests freeze the clock with vi.setSystemTime: it mocks Date for the whole
-// isolate, and the vitest plugin runs the Room in the test isolate, so the Room reads the same
-// clock. T0 is far ahead of the real clock: workerd schedules alarms on real time, so an alarm
-// armed at a mocked instant in the past would fire mid-test (see rate-limit/rate-limiter.test.ts).
-const T0 = Date.UTC(2100, 0, 1);
-
-// Each test gets its own Room (a fresh name): no drafts, counters or alarms leak between tests.
-let stub: DurableObjectStub<Room>;
-let clients: Client[] = [];
-
-beforeEach(() => {
-  stub = env.ROOM.get(env.ROOM.idFromName(crypto.randomUUID()));
-  clients = [];
-});
-
-afterEach(async () => {
-  vi.useRealTimers();
-  if (clients.length === 0) return;
-  // Eviction waits for in-flight requests; closing the sockets keeps them from outliving the test.
-  await evictDurableObject(stub, { webSockets: 'close' });
-});
-
-/** Opens a socket the way ws.ts does: straight to the Room, the user in the hand-off headers. */
-async function connect(userId: string, name = userId.toUpperCase()): Promise<Client> {
-  const upgrade = new Request('http://room/ws', { headers: { Upgrade: 'websocket' } });
-  const res = await stub.fetch(withRoomUser(upgrade, { id: userId, name }));
-  expect(res.status).toBe(101);
-  const ws = res.webSocket;
-  if (!ws) throw new Error('expected a webSocket on the 101 response');
-
-  let seq = 0;
-  const client: Client = {
-    userId,
-    ws,
-    ...socketClient(ws, (data) => FrameSchema.parse(JSON.parse(data))),
-    send(type, payload, explicitSeq) {
-      seq = explicitSeq ?? seq + 1;
-      ws.send(JSON.stringify({ type, seq, ts: Date.now(), payload }));
-    },
-  };
-  clients.push(client);
-  return client;
-}
-
-/** Connects and joins; resolves once the joiner has its presence and draft:state replies. */
-async function join(userId: string): Promise<Client> {
-  const client = await connect(userId);
-  client.send('join', { mapId: ROOM.DEFAULT_ROOM_ID });
-  await client.waitFor('draft:state');
-  return client;
-}
-
-/**
- * Frames to one socket arrive in order. A `presence:set` round trip is a barrier: once `client`
- * has the presence it triggers, every frame the Room sent it earlier has arrived.
- */
-async function barrier(client: Client): Promise<void> {
-  const seen = client.of('presence').length;
-  client.send('presence:set', { state: 'viewing' });
-  await client.waitFor('presence', seen + 1);
-}
-
-const users = (frame: Frame) => frame.payload['users'];
-const vertex = (i: number): [number, number] => [34.8 + i / 100, 32];
-const add = (i: number) => ({ op: 'add', index: i, vertex: vertex(i) });
+// The frames of the Room protocol. Hibernation, the alarm and idle sweep, and frame order are in
+// protocol-lifecycle.test.ts.
+beforeEach(newRoom);
+afterEach(closeRoom);
 
 describe('join and presence', () => {
   it('two sockets join: both receive presence with 2 users', async () => {
@@ -192,15 +117,18 @@ describe('draft:update', () => {
     // Frozen clock: every frame arrives at T0, so the socket's bucket cannot refill mid-burst
     // however long the Room (or a loaded machine) takes to handle them.
     vi.setSystemTime(T0);
-    const a = await join('a');
+    const a = await join(drawer());
     const b = await join('b');
-    for (let i = 0; i <= WS.DRAFT_RATE_PER_SEC; i++) a.send('draft:update', add(i));
+    for (let i = 0; i < WS.DRAFT_RATE_PER_SEC; i++) a.send('draft:update', add(i));
+    a.send('draft:update', add(WS.DRAFT_RATE_PER_SEC), REFUSED_SEQ);
     const error = await a.waitFor('error');
     expect(error.payload).toEqual({
       code: 'RATE_LIMITED',
       message: 'Too many requests',
       // One token's worth of time: 1 s / DRAFT_RATE_PER_SEC.
       retryAfter: 1000 / WS.DRAFT_RATE_PER_SEC,
+      // The refused frame's own seq: the client takes that op back and sends it again.
+      frameSeq: REFUSED_SEQ,
     });
     await barrier(a);
     await barrier(b);
@@ -222,13 +150,14 @@ describe('draft:update', () => {
     expect(a.of('error')).toEqual([]);
   });
 
-  it('answers an op that does not fit the draft with DRAFT_OP_MISFIT and relays nothing', async () => {
+  it('answers an op that does not fit the draft with DRAFT_OP_MISFIT (resync) and relays nothing', async () => {
     const a = await join('a');
     const b = await join('b');
     a.send('draft:update', add(3));
     expect((await a.waitFor('error')).payload).toEqual({
       code: 'DRAFT_OP_MISFIT',
       message: 'draft op does not fit the current draft',
+      resync: true,
     });
     await barrier(b);
     expect(b.of('draft:update')).toEqual([]);
@@ -348,112 +277,5 @@ describe('outgoing envelope', () => {
     expect(seqs).toEqual([...seqs].sort((x, y) => x - y));
     expect(new Set(seqs).size).toBe(seqs.length);
     for (const frame of a.frames) expect(frame.ts).toBeGreaterThanOrEqual(before);
-  });
-});
-
-describe('hibernation', () => {
-  it('after eviction, presence is rebuilt from socket attachments', async () => {
-    const a = await join('a');
-    const b = await join('b');
-    a.send('presence:set', { state: 'drawing' });
-    await b.waitFor('presence', 2);
-    await evictDurableObject(stub); // drops the instance, hibernates the sockets
-    b.send('presence:set', { state: 'drawing' });
-    expect(users(await a.waitFor('presence', 4))).toEqual([
-      expect.objectContaining({ userId: 'a', state: 'drawing' }),
-      expect.objectContaining({ userId: 'b', state: 'drawing' }),
-    ]);
-  });
-
-  it('a fresh Room over the same state answers join from the attachments', async () => {
-    await join('a');
-    await join('b');
-    const c = await connect('c');
-    await evictDurableObject(stub);
-    await runInDurableObject(stub, async (_room, state) => {
-      const fresh = new Room(state, env);
-      const socket = state.getWebSockets().find((ws) => attachmentOf(ws)?.userId === 'c');
-      if (!socket) throw new Error('expected c’s socket');
-      await fresh.webSocketMessage(
-        socket,
-        JSON.stringify({ type: 'join', seq: 1, ts: 1, payload: { mapId: ROOM.DEFAULT_ROOM_ID } }),
-      );
-    });
-    expect(users(await c.waitFor('presence'))).toEqual([
-      expect.objectContaining({ userId: 'a' }),
-      expect.objectContaining({ userId: 'b' }),
-      expect.objectContaining({ userId: 'c' }),
-    ]);
-  });
-});
-
-describe('alarm', () => {
-  it('is scheduled when a socket connects', async () => {
-    await connect('a');
-    const alarm = await runInDurableObject(stub, (_room, state) => state.storage.getAlarm());
-    expect(alarm).toEqual(expect.any(Number));
-  });
-
-  it('drops a draft idle for more than WS.PRESENCE_IDLE_MS, broadcasts draft:state, reschedules', async () => {
-    const a = await join('a');
-    const b = await join('b');
-    a.send('draft:update', add(0));
-    await b.waitFor('draft:update');
-    await runInDurableObject(stub, (_room, state) => {
-      state.storage.sql.exec(
-        'UPDATE drafts SET updated_at = ?',
-        Date.now() - WS.PRESENCE_IDLE_MS - 1,
-      );
-    });
-    expect(await runDurableObjectAlarm(stub)).toBe(true);
-    expect((await b.waitFor('draft:state', 2)).payload).toEqual({ drafts: [] });
-    const alarm = await runInDurableObject(stub, (_room, state) => state.storage.getAlarm());
-    expect(alarm).toEqual(expect.any(Number));
-  });
-
-  it('keeps a fresh draft and broadcasts nothing when nothing changed', async () => {
-    const a = await join('a');
-    const b = await join('b');
-    a.send('draft:update', add(0));
-    await b.waitFor('draft:update');
-    const before = b.frames.length;
-    expect(await runDurableObjectAlarm(stub)).toBe(true);
-    await barrier(b);
-    expect(b.frames.slice(before).map((frame) => frame.type)).toEqual(['presence']);
-  });
-
-  it('closes a socket silent for more than WS.PRESENCE_IDLE_MS and drops it from presence', async () => {
-    const a = await join('a');
-    const b = await join('b');
-    await runInDurableObject(stub, (_room, state) => {
-      for (const ws of state.getWebSockets()) {
-        const attachment = attachmentOf(ws);
-        if (attachment?.userId === 'a') {
-          ws.serializeAttachment({ ...attachment, lastSeen: Date.now() - WS.PRESENCE_IDLE_MS - 1 });
-        }
-      }
-    });
-    expect(await runDurableObjectAlarm(stub)).toBe(true);
-    expect((await a.closed).code).toBe(WS.CLOSE_IDLE);
-    expect(users(await b.waitFor('presence', 2))).toEqual([
-      expect.objectContaining({ userId: 'b' }),
-    ]);
-  });
-
-  it('does not reschedule once no socket remains', async () => {
-    const a = await connect('a');
-    a.ws.close(1000, 'bye');
-    // A client-initiated close fires no close event on this end in workerd; poll the Room instead.
-    await vi.waitFor(async () => {
-      const open = await runInDurableObject(
-        stub,
-        (_room, state) =>
-          state.getWebSockets().filter((ws) => ws.readyState === WebSocket.OPEN).length,
-      );
-      expect(open).toBe(0);
-    });
-    expect(await runDurableObjectAlarm(stub)).toBe(true);
-    const alarm = await runInDurableObject(stub, (_room, state) => state.storage.getAlarm());
-    expect(alarm).toBeNull();
   });
 });

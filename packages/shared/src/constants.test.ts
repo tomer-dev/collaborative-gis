@@ -33,7 +33,12 @@ describe('constants', () => {
 
   it('the WS client thresholds are ordered and the ping beats the Room idle sweep', () => {
     expect(shared.WS.CLIENT_DEGRADED_AFTER).toBeLessThan(shared.WS.CLIENT_OFFLINE_AFTER);
-    expect(shared.WS.PING_INTERVAL_MS).toBeLessThan(shared.WS.PRESENCE_IDLE_MS);
+    expect(shared.WS.SOCKET_IDLE_MS).toBe(3 * shared.WS.PING_INTERVAL_MS);
+    // Chrome runs the timers of a long-hidden tab once a minute: its ping still beats the cutoff.
+    const hiddenTabTimerMs = 60_000;
+    expect(Math.max(shared.WS.PING_INTERVAL_MS, hiddenTabTimerMs)).toBeLessThan(
+      shared.WS.SOCKET_IDLE_MS,
+    );
     expect(shared.WS.CLIENT_BACKOFF_JITTER).toBeGreaterThan(0);
     expect(shared.WS.CLIENT_BACKOFF_JITTER).toBeLessThan(1);
   });

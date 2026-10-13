@@ -6,7 +6,9 @@ import { authHandler } from './auth';
 import { apiError, httpExceptionError } from './errors';
 import { log, requestFields } from './log';
 import { middleware } from './middleware';
+import { auditAuth, auditRejections } from './middleware/audit';
 import { areas } from './routes/areas';
+import { docs } from './routes/docs';
 import { health } from './routes/health';
 import { wsUpgrade } from './ws';
 
@@ -26,7 +28,12 @@ export function createApp() {
   const app = new Hono<AppEnv>();
 
   app.use('*', middleware());
+  // D20 audit rows, written after the response is decided (in `waitUntil`): auth events, and the
+  // 422/429 rejections on the API.
+  app.use(`${ROUTES.AUTH}/*`, auditAuth());
+  app.use(`${ROUTES.API_PREFIX}/*`, auditRejections());
   app.route('/', health);
+  app.route('/', docs);
   app.all(`${ROUTES.AUTH}/*`, authHandler);
   // `route` returns this same app, typed with the areas schema: that is the type createApp returns.
   const typed = app.route(ROUTES.AREAS, areas);

@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { AreaSchema } from './area';
-import { LIMITS } from './constants';
-import { PositionSchema } from './geo';
+import { AreaSchema } from './area.ts';
+import { LIMITS } from './constants/index.ts';
+import { PositionSchema } from './geo.ts';
 
 const base = { seq: z.number().int().nonnegative(), ts: z.number().int().nonnegative() };
 
@@ -93,7 +93,18 @@ const error = z.object({
   type: z.literal('error'),
   ...base,
   // retryAfter is in milliseconds (RATE_LIMITED: wait at least this long before retrying).
-  payload: z.object({ code: z.string(), message: z.string(), retryAfter: z.number().optional() }),
+  // resync: the Room no longer has what the client relies on (its state was lost, the sender's
+  // draft diverged or was dropped, or the frame failed inside the Room). The frame was dropped;
+  // the client joins again and resends its draft as `clear` + `add`s. Optional (additive).
+  // frameSeq: the `seq` of the client frame this answers (RATE_LIMITED on a `draft:update`: the
+  // Room refused that op before applying it, so the client can take it back and send it again).
+  payload: z.object({
+    code: z.string(),
+    message: z.string(),
+    retryAfter: z.number().optional(),
+    resync: z.boolean().optional(),
+    frameSeq: z.number().int().optional(),
+  }),
 });
 
 export const WsEnvelopeSchema = z.discriminatedUnion('type', [
