@@ -159,6 +159,23 @@ describe('useRoom', () => {
     expect(invalidate).toHaveBeenLastCalledWith({ queryKey: [QUERY.AREAS_KEY] });
   });
 
+  it('connects at once when a poll gets an answer, not at the end of the backoff wait', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0); // the longest wait: no retry within one poll
+    const room = renderRoom();
+    for (let failures = 1; failures <= WS.CLIENT_OFFLINE_AFTER; failures++) {
+      act(() => room.socket().drop(1006));
+      if (failures < WS.CLIENT_OFFLINE_AFTER) room.advance(backoffDelay(failures, () => 0));
+    }
+    const dropped = room.socket();
+    expect(backoffDelay(WS.CLIENT_OFFLINE_AFTER, () => 0)).toBeGreaterThan(WS.OFFLINE_POLL_MS);
+
+    await act(async () => void vi.advanceTimersByTime(WS.OFFLINE_POLL_MS));
+
+    expect(room.socket()).not.toBe(dropped);
+    room.open();
+    expect(room.result.current.state).toBe('open');
+  });
+
   it('resyncs on the first open when the connection degraded before it', () => {
     const room = renderRoom();
     const invalidate = vi.spyOn(room.queryClient, 'invalidateQueries');
@@ -208,7 +225,10 @@ describe('useRoom', () => {
     room.advance(WS.OFFLINE_POLL_MS);
     expect(room.result.current.state).toBe('degraded');
     expect(invalidate).toHaveBeenCalledTimes(1);
-    expect(invalidate).toHaveBeenLastCalledWith({ queryKey: [QUERY.AREAS_KEY] });
+    expect(invalidate).toHaveBeenLastCalledWith(
+      { queryKey: [QUERY.AREAS_KEY] },
+      { throwOnError: true },
+    );
   });
 
   it('stops the offline poll once the areas API answers 401 (the session ended)', async () => {

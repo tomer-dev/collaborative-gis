@@ -41,6 +41,12 @@ export interface RoomConnection {
   onOpen(handler: () => void): () => void;
   /** Connects now: skips the backoff wait, and resumes after a halt (1008, `shouldRetry()`). */
   reconnect(): void;
+  /**
+   * The network looks reachable again (the browser's `online`, an HTTP answer): connects now
+   * instead of at the end of the backoff wait, unless a socket is already connecting or the
+   * retries are halted.
+   */
+  retryNow(): void;
   /** Closes the socket and stops for good. */
   close(): void;
 }
@@ -221,6 +227,7 @@ export function createRoomConnection({
       halted = false;
       connect();
     },
+    retryNow: online,
     close() {
       disposed = true;
       clearTimeout(retryTimer);
