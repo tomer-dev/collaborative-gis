@@ -46,9 +46,11 @@ export function AppRouterProvider({ router }: { router: AppRouter }) {
   const [checked, setChecked] = useState(false);
   if (!checked && !isPending) setChecked(true);
 
+  // Not before the first answer: the guards would run against the unknown (null) session and
+  // send a signed-in visitor to /login. The router loads on its own once it mounts.
   useEffect(() => {
-    void router.invalidate();
-  }, [router, userId]);
+    if (checked) void router.invalidate();
+  }, [router, checked, userId]);
 
   if (!checked) {
     return (
