@@ -6,7 +6,7 @@ import {
   type RouterHistory,
 } from '@tanstack/react-router';
 import { COPY } from '@cgis/shared/constants';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { authClient } from './lib/auth-client';
 import { readSignedInHint, writeSignedInHint } from './lib/signed-in-hint';
 import { routeTree } from './routeTree.gen';
@@ -22,10 +22,31 @@ export function createAppRouter(
     history,
     // `session` stays null until AppRouterProvider injects the resolved value.
     context: { queryClient, session: null },
+    // While a route's chunk (autoCodeSplitting) loads, the frame stays: the hand-off from the
+    // checking frame to the map never blanks the screen, and no navigation does either.
+    defaultPendingComponent: EmptyFrame,
+    defaultPendingMs: 0,
+    defaultPendingMinMs: 0,
   });
 }
 
 export type AppRouter = ReturnType<typeof createAppRouter>;
+
+/** The app frame with nothing in it: what the screen shows while a route is on its way. */
+function EmptyFrame() {
+  return <AppFrame>{null}</AppFrame>;
+}
+
+/** The empty frame during the first session check; a screen reader still hears the status. */
+function CheckingFrame() {
+  return (
+    <AppFrame>
+      <p role="status" className="sr-only">
+        {COPY.AUTH.SESSION_CHECKING}
+      </p>
+    </AppFrame>
+  );
+}
 
 declare module '@tanstack/react-router' {
   interface Register {
@@ -52,15 +73,28 @@ export function AppRouterProvider({ router }: { router: AppRouter }) {
   // Read once: what this browser remembered before this load's first answer rewrites it.
   const [remembered] = useState(readSignedInHint);
 
+  // The current location's route chunks (autoCodeSplitting) load during the check, so the
+  // map is ready to mount at the hand-off. No guard runs here; a failed load is the router's
+  // to retry when it renders the route.
+  useEffect(() => {
+    if (checked) return;
+    for (const match of router.matchRoutes(router.latestLocation.pathname)) {
+      void router.loadRouteChunk(router.routesById[match.routeId])?.catch(() => {});
+    }
+  }, [router, checked]);
+
   // Not before the first answer: the guards would run against the unknown (null) session and
-  // send a signed-in visitor to /login. The router loads on its own once it mounts.
+  // send a signed-in visitor to /login. The RouterProvider's own mount load reads that first
+  // answer, so only a later change of user invalidates.
+  const loadedUserId = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     if (!checked) return;
     writeSignedInHint(userId !== null);
-    void router.invalidate();
+    if (loadedUserId.current !== undefined) void router.invalidate();
+    loadedUserId.current = userId;
   }, [router, checked, userId]);
 
-  if (!checked && remembered) return <AppFrame>{null}</AppFrame>;
+  if (!checked && remembered) return <CheckingFrame />;
   if (!checked) {
     return (
       <p role="status" className="grid h-full place-items-center text-sm">
