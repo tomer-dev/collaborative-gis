@@ -54,7 +54,7 @@ describe('tokens.css', () => {
     }
   });
 
-  it('matches the four tokens the pre-mount skeleton in index.html re-declares', () => {
+  it('matches the five tokens the pre-mount skeleton in index.html re-declares', () => {
     const html = readFileSync(join(import.meta.dirname, '../../index.html'), 'utf8');
     const style = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
     const darkAt = style.indexOf('@media (prefers-color-scheme: dark)');
@@ -63,12 +63,13 @@ describe('tokens.css', () => {
     expect(light.map((d) => d.name)).toEqual([
       '--color-bg-raised',
       '--color-line',
+      '--color-line-control',
       '--color-fg',
       '--color-map-bg',
     ]);
     for (const d of light) expect(d.value, d.name).toBe(resolve(d.name));
     for (const d of dark) expect(d.value, `dark ${d.name}`).toBe(resolve(d.name, darkDecls));
-    // Every one of the four that tokens.css themes, and only those, gets a dark value here too.
+    // Every one of the five that tokens.css themes, and only those, gets a dark value here too.
     expect(dark.map((d) => d.name)).toEqual(
       light.map((d) => d.name).filter((n) => darkDecls.some((d) => d.name === n)),
     );

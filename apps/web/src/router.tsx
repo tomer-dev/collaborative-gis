@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from 'react';
 import { authClient } from './lib/auth-client';
 import { readSignedInHint, writeSignedInHint } from './lib/signed-in-hint';
 import { routeTree } from './routeTree.gen';
-import { AppFrame } from './routes/-components/AppFrame';
+import { AppFrame, SessionMenuPlaceholder } from './routes/-components/AppFrame';
 import { NotFound } from './routes/-components/NotFound';
 
 /** Builds the app router; tests pass a memory history. */
@@ -38,19 +38,32 @@ export type AppRouter = ReturnType<typeof createAppRouter>;
 /**
  * The app frame with nothing in it: what the screen shows while a route is on its way. The main
  * is map-coloured, so a remembered cold load never shows the page background before the tiles.
+ * A browser signed in (the hint) keeps the session menu's box, so a map chunk slower than the
+ * session answer does not drop the reserve between the checking frame and the real menu.
  */
 function EmptyFrame() {
-  return <AppFrame mainClassName="bg-map-bg">{null}</AppFrame>;
+  return (
+    <AppFrame
+      headerEnd={readSignedInHint() ? <SessionMenuPlaceholder /> : undefined}
+      mainClassName="bg-map-bg"
+    >
+      {null}
+    </AppFrame>
+  );
 }
 
 /**
  * The frame during the first session check. A browser remembered as signed in sees it empty, as
- * if the app stayed (the status is for screen readers only); any other sees the status in it.
+ * if the app stayed (the status is for screen readers only), with the session menu's box reserved
+ * in the top bar so nothing shifts when it arrives; any other sees the status in it.
  */
 function CheckingFrame({ quiet }: { quiet: boolean }) {
   return (
     // The map colour only under the empty main: text-fg is unreadable on it in dark mode.
-    <AppFrame mainClassName={quiet ? 'bg-map-bg' : ''}>
+    <AppFrame
+      headerEnd={quiet ? <SessionMenuPlaceholder /> : undefined}
+      mainClassName={quiet ? 'bg-map-bg' : ''}
+    >
       <p role="status" className={quiet ? 'sr-only' : 'grid h-full place-items-center text-sm'}>
         {COPY.AUTH.SESSION_CHECKING}
       </p>

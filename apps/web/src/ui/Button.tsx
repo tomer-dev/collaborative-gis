@@ -15,12 +15,12 @@ const base = cx(
 
 const variantClass: Record<ButtonVariant, string> = {
   primary:
-    'bg-primary text-primary-fg enabled:hover:bg-primary-hover enabled:active:bg-primary-active',
+    'bg-primary text-primary-fg not-disabled:hover:bg-primary-hover not-disabled:active:bg-primary-active',
   secondary:
-    'border border-line-control bg-bg-raised text-fg enabled:hover:bg-bg-hover enabled:active:bg-bg-active',
-  ghost: 'bg-transparent text-fg enabled:hover:bg-bg-hover enabled:active:bg-bg-active',
+    'border border-line-control bg-bg-raised text-fg not-disabled:hover:bg-bg-hover not-disabled:active:bg-bg-active',
+  ghost: 'bg-transparent text-fg not-disabled:hover:bg-bg-hover not-disabled:active:bg-bg-active',
   danger:
-    'bg-danger-strong text-danger-strong-fg enabled:hover:bg-danger-strong-hover enabled:active:bg-danger-strong-active',
+    'bg-danger-strong text-danger-strong-fg not-disabled:hover:bg-danger-strong-hover not-disabled:active:bg-danger-strong-active',
 };
 
 /** Height and text per size; padding for text buttons, a square width for icon-only ones. */
@@ -36,6 +36,11 @@ const iconClass: Record<ButtonSize, string> = {
   md: 'size-4 shrink-0',
   lg: 'size-5 shrink-0',
 };
+
+/** The classes of a text button, for an anchor that must look like one (the top-bar Guide link). */
+export function buttonClass(variant: ButtonVariant, size: ButtonSize): string {
+  return cx(base, variantClass[variant], sizeClass[size], paddingClass[size]);
+}
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
