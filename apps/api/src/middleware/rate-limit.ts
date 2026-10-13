@@ -19,8 +19,8 @@ const MS_PER_SECOND = 1000;
  * `areas.post('/', describeRoute(...), mutationGuards(), validate('json', ...), handler)`.
  * In order, each answering by itself and stopping the chain:
  * 1. `requireUser()`: no session → 401, and the user's budget is never touched.
- * 2. `rateLimit(RATE_LIMIT.ACTIONS.DRAW)`: spends one action of the per-user budget the WS drawing
- *    actions share (D5) → 429 when it is spent, so rejected attempts (413, 422) count too.
+ * 2. `rateLimit(RATE_LIMIT.ACTIONS.DRAW)`: spends one action of the per-user budget the WS draft
+ *    sessions share (D5) → 429 when it is spent, so rejected attempts (413, 422) count too.
  * 3. `bodyLimit`: a body over `LIMITS.BODY_MAX_BYTES` → 413 `PAYLOAD_TOO_LARGE`, before anything
  *    parses it (by `Content-Length`, else while reading the stream).
  */
