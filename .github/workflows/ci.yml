@@ -114,6 +114,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: playwright chromium
         run: pnpm --filter @cgis/web exec playwright install --with-deps chromium
+      # Every story as a headless-Chromium component test (play functions, a11y as errors).
+      - name: storybook tests
+        run: pnpm --filter @cgis/web test:storybook
       # The Worker's secrets are test-only values (no apps/api/.dev.vars here; wrangler reads env).
       - name: e2e
         run: pnpm e2e
