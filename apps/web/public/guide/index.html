@@ -3449,9 +3449,9 @@ vary: Origin</pre>
               <dl>
                 <dt>Delivered</dt>
                 <dd>
-                  Ordering buffers for sequence gaps (a per-user frame queue in the Room, a client
-                  send queue while connecting), a 10 frames/s cap per socket, and batched frame
-                  metrics.
+                  No queue. Related, but not a queue: the Room handles one user's frames in arrival
+                  order, the client holds frames until the socket opens, frames are capped at 10/s
+                  per socket, and frame metrics are batched.
                 </dd>
                 <dt>Missing</dt>
                 <dd>
@@ -3773,8 +3773,9 @@ vary: Origin</pre>
             This page: <code>apps/web/public/guide/index.html</code>, one file with its images in
             <code>apps/web/public/guide/img/</code>; the deployed app serves it at
             <code>/guide/</code>; the audit it cites is
-            <a href="criteria-matrix.md">criteria-matrix.md</a> and the production query results are
-            under <code>evidence/</code>. Emails in the screenshots are covered. The audit is from
+            <a href="criteria-matrix.md">criteria-matrix.md</a>, and the evidence files (the
+            production query results, the CI run list and the Docker log) are under
+            <code>evidence/</code>. Emails in the screenshots are covered. The audit is from
             2026-10-13 at <code>main</code> 1a581e7; the feature check was repeated at 267deb2
             (Codex, 2026-10-13, <a href="codex-check.md">codex-check.md</a>); the page was updated
             after PRs #67 and #71 merged.

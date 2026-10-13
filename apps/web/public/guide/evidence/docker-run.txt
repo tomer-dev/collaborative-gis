@@ -1,6 +1,6 @@
-Captured 2026-10-13 on a Linux host with Docker 2x (compose project cgistest), with the repository's docker-compose.yml plus a port override: API on host port 20000, PostGIS on 15433.
-Sequence: plain `up` (postgis only) -> `--profile api up --build` -> /readyz -> health -> api logs (first 40 lines, secrets filtered) -> `down`.
-The image was already built by an earlier cold run (67 s), so this run's build step shows 6 s; ANSI colour codes were stripped, nothing else changed.
+Captured 2026-10-13 on a Linux host (compose project cgistest), with the repository's docker-compose.yml plus a port override: API on host port 20000, PostGIS on 15433. The image came from an earlier cold build (67 s) of the Dockerfile as of dd2b21b, before dd3560d copied tsconfig.base.json into the image, so the two tsconfig warnings below are from that older Dockerfile and dd3560d fixes them.
+Sequence: plain `up` (postgis only) -> `--profile api up --build` -> /readyz -> health -> api logs (first 40 lines, secrets filtered) -> LAN exposure (listening sockets) -> `down -v`.
+The image was already built, so this run's build step shows 6 s; ANSI colour codes were stripped, nothing else changed.
 
 == plain up (postgis only)
  Container cgistest-postgis-1 Created 
