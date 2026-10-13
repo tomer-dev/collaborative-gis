@@ -3,19 +3,12 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { MAP } from '@cgis/shared';
 import { describe, expect, it } from 'vitest';
+import { parseTokens } from '../stories/tokens';
 
 // Read from disk: Vitest stubs CSS imports (even `?raw`) to empty strings.
 const tokensCss = readFileSync(join(import.meta.dirname, 'tokens.css'), 'utf8');
 
-/** `--name: value;` declarations in source order, with the line each one sits on. */
-function declarations(css: string) {
-  return css.split('\n').flatMap((line) => {
-    const match = /^\s*(--[\w-]+(?:-\*)?):\s*([^;]+);/.exec(line);
-    return match ? [{ name: match[1]!, value: match[2]!.trim(), line }] : [];
-  });
-}
-
-const decls = declarations(tokensCss);
+const decls = parseTokens(tokensCss);
 const themeValue = (name: string) => decls.find((d) => d.name === name)?.value;
 
 describe('tokens.css', () => {
@@ -35,7 +28,7 @@ describe('tokens.css', () => {
 
   it('keeps every length on the 4 px grid unless the line documents a grid-exception', () => {
     const offGrid = decls.flatMap((d) => {
-      if (d.line.includes('grid-exception:')) return [];
+      if (d.note?.includes('grid-exception:')) return [];
       const lengths = [...d.value.matchAll(/(-?\d*\.?\d+)(px|rem)\b/g)].map(([, n, unit]) =>
         unit === 'rem' ? Number(n) * 16 : Number(n),
       );
@@ -76,7 +69,7 @@ describe('tokens.css', () => {
 
   it('keeps the map tokens off the colours the dark theme redefines (the basemap stays light)', () => {
     const darkBlock = tokensCss.slice(tokensCss.indexOf('@variant dark {'));
-    const darkNames = new Set(declarations(darkBlock).map((d) => d.name));
+    const darkNames = new Set(parseTokens(darkBlock).map((d) => d.name));
     const themed = decls
       .filter((d) => d.name.startsWith('--map-'))
       .flatMap((d) => [...d.value.matchAll(/var\((--[\w-]+)\)/g)].map(([, ref]) => ref!))
@@ -86,7 +79,7 @@ describe('tokens.css', () => {
 
   it('gives every themed semantic colour a dark value', () => {
     const darkBlock = tokensCss.slice(tokensCss.indexOf('@variant dark {'));
-    const darkNames = new Set(declarations(darkBlock).map((d) => d.name));
+    const darkNames = new Set(parseTokens(darkBlock).map((d) => d.name));
     for (const name of [
       '--color-bg',
       '--color-bg-raised',

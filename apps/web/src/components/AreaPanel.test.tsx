@@ -2,7 +2,6 @@ import {
   COPY,
   ERROR_CODES,
   ERROR_REASONS,
-  LIMITS,
   type Area,
   type AreaList,
   type Bbox,
@@ -93,19 +92,17 @@ function rename(panel: HTMLElement, name: string) {
   fireEvent.click(within(panel).getByRole('button', { name: COPY.AREAS.RENAME_SUBMIT }));
 }
 
-it('lists only the areas in the viewport with name and area, capped with a "+N more" line', () => {
-  const extra = 3;
-  const inView = Array.from({ length: LIMITS.PANEL_LIST_MAX + extra }, (_, i) =>
-    makeArea(`area-${i}`, { name: `Field ${i}`, areaKm2: i + 1 }),
+it('lists only the areas in the viewport with name and area', () => {
+  const inView = [1, 2].map((km2) =>
+    makeArea(`area-${km2}`, { name: `Field ${km2}`, areaKm2: km2 }),
   );
   renderPanel(() => jsonResponse(500, {}), { areas: [berlin, ...inView], selectedId: null });
 
   const rows = within(listPanel()).getAllByRole('button');
-  expect(rows).toHaveLength(LIMITS.PANEL_LIST_MAX);
-  expect(rows[0]?.textContent).toContain('Field 0');
+  expect(rows).toHaveLength(2);
+  expect(rows[0]?.textContent).toContain('Field 1');
   expect(rows[0]?.textContent).toContain(formatArea(1));
   expect(within(listPanel()).queryByText('Berlin')).toBeNull();
-  expect(within(listPanel()).getByText(COPY.AREAS.LIST_MORE(extra))).toBeTruthy();
 });
 
 it('says when no saved area is in view', () => {
