@@ -14,3 +14,4 @@ export * from './govmap.ts';
 export * from './query.ts';
 export * from './copy.ts';
 export * from './errors.ts';
+export * from './telemetry.ts';

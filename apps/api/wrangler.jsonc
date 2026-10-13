@@ -23,6 +23,8 @@
       { "name": "RATE_LIMITER", "class_name": "RateLimiter" },
     ],
   },
+  // Metrics datapoints (src/metrics.ts); the dataset is TELEMETRY.DATASET, and a test fails if they differ.
+  "analytics_engine_datasets": [{ "binding": "METRICS", "dataset": "cgis_metrics" }],
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["Room"] },
     { "tag": "v2", "new_sqlite_classes": ["RateLimiter"] },
@@ -52,6 +54,7 @@
           { "name": "RATE_LIMITER", "class_name": "RateLimiter" },
         ],
       },
+      "analytics_engine_datasets": [{ "binding": "METRICS", "dataset": "cgis_metrics" }],
       // Empty on purpose: the origin stays out of the repository. Every deploy fills both with
       // `--var` (the deploy workflow reads PRODUCTION_ORIGIN; docs/deploy.md). Declared here so
       // the generated binding types keep them required.
