@@ -22,4 +22,28 @@ describe('index.html', () => {
     expect(script).toContain(`localStorage.getItem('${AUTH.SIGNED_IN_HINT_KEY}')`);
     expect(script).toContain(`=== '${AUTH.SIGNED_IN_HINT_VALUE}'`);
   });
+
+  // The inline script's free `document` and `localStorage` bind to the parsed page and a stub.
+  const runScript = (storage: Pick<Storage, 'getItem'>) =>
+    new Function('document', 'localStorage', doc.querySelector('#skeleton + script')!.textContent)(
+      doc,
+      storage,
+    );
+  const skeleton = () => doc.querySelector('#skeleton')!;
+
+  it('marks the skeleton remembered from the hint, and never throws on blocked storage', () => {
+    runScript({ getItem: () => null });
+    expect(skeleton().hasAttribute('data-remembered')).toBe(false);
+    runScript({ getItem: () => AUTH.SIGNED_IN_HINT_VALUE });
+    expect(skeleton().hasAttribute('data-remembered')).toBe(true);
+    skeleton().removeAttribute('data-remembered');
+    expect(() =>
+      runScript({
+        getItem: () => {
+          throw new Error('blocked');
+        },
+      }),
+    ).not.toThrow();
+    expect(skeleton().hasAttribute('data-remembered')).toBe(false);
+  });
 });

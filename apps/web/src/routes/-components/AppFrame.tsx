@@ -3,8 +3,7 @@ import { COPY, ROUTES } from '@cgis/shared/constants';
 import { useMutation } from '@tanstack/react-query';
 import { createContext, type ReactNode } from 'react';
 import { authClient } from '../../lib/auth-client';
-import { Avatar, Button } from '../../ui';
-import { buttonClass } from '../../ui/Button';
+import { Avatar, Button, buttonClass } from '../../ui';
 
 type AppFrameProps = {
   /** Right side of the top bar; the `_authed` layout puts `SessionMenu` here. */
@@ -91,7 +90,7 @@ export function SessionMenuPlaceholder() {
   return (
     <div aria-hidden="true" className="flex min-w-0 items-center gap-3 text-sm">
       <AvatarSlot />
-      <span className="h-4 w-16 min-w-0 rounded-sm bg-line" />
+      <span className="h-4 w-16 min-w-4 rounded-sm bg-line" />
       <Button variant="secondary" size="sm" className="invisible">
         {COPY.AUTH.SIGN_OUT}
       </Button>

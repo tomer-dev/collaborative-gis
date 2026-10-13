@@ -38,9 +38,18 @@ export type AppRouter = ReturnType<typeof createAppRouter>;
 /**
  * The app frame with nothing in it: what the screen shows while a route is on its way. The main
  * is map-coloured, so a remembered cold load never shows the page background before the tiles.
+ * A browser signed in (the hint) keeps the session menu's box, so a map chunk slower than the
+ * session answer does not drop the reserve between the checking frame and the real menu.
  */
 function EmptyFrame() {
-  return <AppFrame mainClassName="bg-map-bg">{null}</AppFrame>;
+  return (
+    <AppFrame
+      headerEnd={readSignedInHint() ? <SessionMenuPlaceholder /> : undefined}
+      mainClassName="bg-map-bg"
+    >
+      {null}
+    </AppFrame>
+  );
 }
 
 /**

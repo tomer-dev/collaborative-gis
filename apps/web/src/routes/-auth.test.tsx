@@ -414,6 +414,28 @@ describe('cold load', () => {
     expect(router.state.location.pathname).toBe(ROUTES.APP.MAP);
   });
 
+  it('remembered, session before the map chunk: the reserve stays until the real menu replaces it', async () => {
+    localStorage.setItem(AUTH.SIGNED_IN_HINT_KEY, AUTH.SIGNED_IN_HINT_VALUE);
+    const { router } = renderAppAt(ROUTES.APP.MAP, { data: null, isPending: true });
+    // The map's load outlasts the session answer (a cold chunk on a slow link). The route object
+    // is shared by every test, so the loader is put back.
+    const map = router.routesById['/_authed/map'];
+    let loaded!: () => void;
+    map.options.loader = () => new Promise<void>((r) => (loaded = r));
+    try {
+      await sessionRoundTrip();
+      await act(async () => auth.set(signedIn));
+      expect(screen.getByText(COPY.AUTH.SIGN_OUT).className).toContain('invisible');
+      await act(async () => loaded());
+      expect(await screen.findByTestId('map-root')).toBeTruthy();
+      expect(screen.getByRole('button', { name: COPY.AUTH.SIGN_OUT }).className).not.toContain(
+        'invisible',
+      );
+    } finally {
+      delete map.options.loader;
+    }
+  });
+
   it('remembered as signed in but the session ended: one redirect to /login and the hint is cleared', async () => {
     localStorage.setItem(AUTH.SIGNED_IN_HINT_KEY, AUTH.SIGNED_IN_HINT_VALUE);
     const { router, resolved, visited } = renderAppAt(ROUTES.APP.MAP, {
