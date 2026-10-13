@@ -371,7 +371,7 @@ pre#out{display:none;white-space:pre-wrap;font-family:var(--mono);font-size:.8re
 
   <section class="card medium" data-id="D7">
     <header><h3>D7 · One room per map, or sharded by area</h3><span class="sev">Medium</span><span class="affects">TOM-33, 41</span></header>
-    <p>A Durable Object is single-threaded with a soft limit of about 1,000 requests per second. One room per map is simplest and ample for this assignment; sharding by map tile is the documented growth path. The choice decides whether sharding is built now or only designed.</p>
+    <p>A Durable Object is single-threaded with a soft limit of about 1,000 requests per second. One room per map is simplest and ample for the product brief; sharding by map tile is the documented growth path. The choice decides whether sharding is built now or only designed.</p>
     <div class="kid"><b>Like you're 5:</b> everyone drawing on one map sits in one room with one teacher. If the room gets too full we can split into smaller rooms later. Do we build the extra rooms now or just draw the plan?</div>
     <div class="opts">
       <label class="opt"><input type="radio" name="D7" value="per-map"><span>One room per map; sharding as an ADR only <span class="rec">recommended</span></span></label>
