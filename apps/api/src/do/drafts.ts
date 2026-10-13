@@ -36,32 +36,26 @@ export function applyDraftOp(vertices: Position[], op: DraftOp): Position[] | un
   }
 }
 
-/** A per-socket token bucket, kept in the socket attachment so hibernation cannot refill it. */
-type DraftBucket = { tokens: number; refilledAt: number };
+/** A per-socket fixed one-second window, kept in the socket attachment so hibernation keeps it. */
+type DraftRate = { windowStart: number; frames: number };
 
 type DraftTake =
-  { ok: true; bucket: DraftBucket } | { ok: false; bucket: DraftBucket; retryAfterMs: number };
+  { ok: true; rate: DraftRate } | { ok: false; rate: DraftRate; retryAfterMs: number };
 
-/** A full bucket: a burst of `WS.DRAFT_RATE_PER_SEC` frames, then that many per second (D13). */
-export function fullDraftBucket(now: number): DraftBucket {
-  return { tokens: WS.DRAFT_RATE_PER_SEC, refilledAt: now };
-}
+/** A window opening at `now`, nothing counted yet (D13: `WS.DRAFT_RATE_PER_SEC` frames a second). */
+export const freshDraftRate = (now: number): DraftRate => ({ windowStart: now, frames: 0 });
 
 /**
- * Refills `bucket` for the time since `refilledAt` and spends one token. Without a whole token,
- * says how long until one has accrued.
+ * Counts one frame in `rate`'s window; a frame a second or more after its start (or before it, a
+ * clock that stepped back) opens a new one. Past the cap, says how long until the window ends.
  */
-export function takeDraftToken(bucket: DraftBucket, now: number): DraftTake {
-  const rate = WS.DRAFT_RATE_PER_SEC;
-  // Math.max: a clock that steps back must not drain the bucket.
-  const elapsed = Math.max(0, now - bucket.refilledAt);
-  const tokens = Math.min(rate, bucket.tokens + (elapsed * rate) / MS_PER_SECOND);
-  if (tokens >= 1) return { ok: true, bucket: { tokens: tokens - 1, refilledAt: now } };
-  return {
-    ok: false,
-    bucket: { tokens, refilledAt: now },
-    retryAfterMs: Math.ceil(((1 - tokens) * MS_PER_SECOND) / rate),
-  };
+export function takeDraftFrame(rate: DraftRate, now: number): DraftTake {
+  const open = now >= rate.windowStart && now - rate.windowStart < MS_PER_SECOND;
+  const current = open ? rate : freshDraftRate(now);
+  if (current.frames < WS.DRAFT_RATE_PER_SEC) {
+    return { ok: true, rate: { ...current, frames: current.frames + 1 } };
+  }
+  return { ok: false, rate: current, retryAfterMs: current.windowStart + MS_PER_SECOND - now };
 }
 
 type DraftRow = { user_id: string; vertices: string };

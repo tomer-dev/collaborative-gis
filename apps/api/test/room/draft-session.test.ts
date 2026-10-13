@@ -20,7 +20,7 @@ import { socketClient } from './socket-client';
 // the `add`s after it (a resync replay, a cancel and redraw) stay in the open session.
 
 const { DRAW_ACTIONS_PER_WINDOW: DRAW_LIMIT, WINDOW_MS, ACTIONS } = RATE_LIMIT;
-/** One frame per this many ms keeps the per-socket bucket full: only the shared budget refuses. */
+/** One frame per this many ms keeps the per-socket window under its cap: only the budget refuses. */
 const DRAFT_GAP_MS = 1000 / WS.DRAFT_RATE_PER_SEC;
 /** More frames than the whole budget, all in one session. */
 const SESSION_FRAMES = DRAW_LIMIT + 10;
@@ -103,7 +103,7 @@ const add = (i: number): DraftOp => ({ op: 'add', index: i, vertex: vertex(i) })
 const CLEAR: DraftOp = { op: 'clear' };
 const adds = (n: number) => Array.from({ length: n }, (_, i) => add(i));
 
-/** One `DRAFT_GAP_MS` later on the mocked clock, so the per-socket bucket never refuses. */
+/** One `DRAFT_GAP_MS` later on the mocked clock, so the per-socket window never refuses. */
 const tick = () => vi.setSystemTime(Date.now() + DRAFT_GAP_MS);
 
 /**

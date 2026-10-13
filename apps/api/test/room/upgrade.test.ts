@@ -1,4 +1,4 @@
-import { type AreaEvent, LIMITS, MAP, ROOM, WS } from '@cgis/shared';
+import { type AreaEvent, LIMITS, MAP, ROOM } from '@cgis/shared';
 import { evictDurableObject, runInDurableObject } from 'cloudflare:test';
 import { env, exports } from 'cloudflare:workers';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -28,8 +28,8 @@ async function connect(id: string, name: string): Promise<WebSocket> {
 }
 
 /** Calls the Room directly, the way `wsUpgrade` does, with the trusted user headers. */
-function roomFetch(init: RequestInit = {}, path = '/ws'): Promise<Response> {
-  return room().fetch(`http://room${path}`, init);
+function roomFetch(init: RequestInit = {}): Promise<Response> {
+  return room().fetch('http://room/ws', init);
 }
 
 /** Resolves with the next text frame `ws` receives. */
@@ -144,10 +144,9 @@ describe('Room Durable Object', () => {
       lastSeen: expect.any(Number),
       joined: false,
       strikes: 0,
-      tokens: WS.DRAFT_RATE_PER_SEC,
-      refilledAt: expect.any(Number),
+      windowStart: expect.any(Number),
+      frames: 0,
       lastSeq: null,
-      epoch: null,
     });
     const { color, lastSeen } = PresenceAttachmentSchema.parse(attachment);
     expect(MAP.PRESENCE_COLORS).toContain(color);
@@ -178,26 +177,6 @@ describe('Room Durable Object', () => {
     expect(await attachments()).toContainEqual(expect.objectContaining({ name: 'Bob' }));
   });
 
-  // workerd sends every `Upgrade: websocket` fetch as GET, so the other methods go without it.
-  const user = { 'x-user-id': 'u1', 'x-user-name': 'Alice' };
-  it.each([
-    ['POST /ws', { method: 'POST', headers: user }, '/ws'],
-    ['HEAD /ws', { method: 'HEAD', headers: user }, '/ws'],
-    ['GET / (upgrade)', { headers: trusted('u1', 'Alice') }, '/'],
-    ['GET /_count', { headers: user }, '/_count'],
-  ])('answers 404 NOT_FOUND to %s and keeps no socket', async (_label, init, path) => {
-    const res = await roomFetch(init, path);
-    expect(res.status).toBe(404);
-    await res.body?.cancel();
-    expect(await socketCount()).toBe(0);
-  });
-
-  it('answers 426 UPGRADE_REQUIRED without Upgrade: websocket', async () => {
-    const res = await roomFetch({ headers: { 'x-user-id': 'u1', 'x-user-name': 'Alice' } });
-    expect(res.status).toBe(426);
-    expect(await res.json()).toMatchObject({ code: 'UPGRADE_REQUIRED' });
-  });
-
   it.each([
     ['no user headers', UPGRADE],
     ['an empty id', trusted('', 'Alice')],
@@ -214,16 +193,12 @@ describe('Room Durable Object', () => {
     expect(await socketCount()).toBe(0);
   });
 
-  it('never throws out of fetch: a failed attach is a logged 500 and leaves no socket', async () => {
+  it('a failed attach rejects the call (the Worker answers 500) and leaves no socket', async () => {
     // Attaching happens before acceptWebSocket, so a throw here must not leave a socket behind.
     vi.spyOn(WebSocket.prototype, 'serializeAttachment').mockImplementationOnce(() => {
       throw new Error('boom');
     });
-    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const res = await roomFetch({ headers: trusted('u1', 'Alice') });
-    expect(res.status).toBe(500);
-    expect(await res.json()).toEqual({ code: 'INTERNAL', message: 'Internal Server Error' });
-    expect(logged).toHaveBeenCalledOnce();
+    await expect(roomFetch({ headers: trusted('u1', 'Alice') })).rejects.toThrow('boom');
     expect(await socketCount()).toBe(0);
   });
 

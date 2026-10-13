@@ -99,10 +99,4 @@ export const WS_MESSAGES = {
   NOT_JSON: 'frames must be JSON text',
   /** Drafts come only from users in presence. */
   NOT_JOINED: 'send join first',
-  /**
-   * `error CONFLICT` with `resync: true`: the socket joined state the Room has since lost (its
-   * storage went while the socket stayed attached); every frame but `join`/`leave` is dropped
-   * until it joins again.
-   */
-  ROOM_STATE_LOST: 'room state lost; join again',
 } as const;

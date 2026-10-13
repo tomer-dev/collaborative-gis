@@ -7,7 +7,6 @@ import {
   type PresenceUser,
   type WsClientEvent,
   type WsEvent,
-  WS_MESSAGES,
 } from '@cgis/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, renderHook } from '@testing-library/react';
@@ -34,15 +33,14 @@ type ServerEvent = Omit<WsEvent, 'seq' | 'ts'>;
  * The Room on the far side of the fake sockets, cut down to what the resync contract needs: one
  * draft per user that outlives a killed socket (the Room keeps drafts in SQLite), `join` answered
  * with `presence` + the full `draft:state`, the client's ops applied with the Room's rule (a misfit
- * is `DRAFT_OP_MISFIT` + `resync`), other users' ops relayed. After `loseState()` every frame but
- * `join` is answered `CONFLICT` + `resync`, as the Room does for a socket that outlived its state.
+ * is `DRAFT_OP_MISFIT` + `resync`), other users' ops relayed. `loseState()` drops every draft, so
+ * the client's next op misfits, as on a Room whose storage went while the socket stayed attached.
  */
 class FakeRoom {
   readonly drafts = new Map<string, Position[]>();
   private socket: FakeSocket | null = null;
   private handled = 0;
   private seq = 0;
-  private outlived = false;
 
   /** The upgrade succeeds: `socket` is the client's connection from now on. */
   accept(socket: FakeSocket): void {
@@ -60,7 +58,6 @@ class FakeRoom {
   /** The Room's storage is gone while the socket stays attached. */
   loseState(): void {
     this.drafts.clear();
-    this.outlived = true;
   }
 
   /** Answers, in order, the frames the client sent since the last call. */
@@ -90,16 +87,11 @@ class FakeRoom {
 
   private handle(frame: WsClientEvent): void {
     if (frame.type === 'join') {
-      this.outlived = false;
       this.send({ type: 'presence', payload: { users: USERS } });
       this.send({ type: 'draft:state', payload: { drafts: this.all() } });
       return;
     }
     if (frame.type === 'leave') return;
-    if (this.outlived) {
-      this.error(ERROR_CODES.CONFLICT, WS_MESSAGES.ROOM_STATE_LOST);
-      return;
-    }
     if (frame.type === 'draft:update' && !this.apply(SELF, frame.payload)) {
       this.error(ERROR_CODES.DRAFT_OP_MISFIT, ERROR_MESSAGES.DRAFT_OP_MISFIT);
     }

@@ -1,6 +1,6 @@
 import { LIMITS, type Position, WS } from '@cgis/shared';
 import { describe, expect, it } from 'vitest';
-import { applyDraftOp, fullDraftBucket, takeDraftToken } from '../../src/do/drafts';
+import { applyDraftOp, freshDraftRate, takeDraftFrame } from '../../src/do/drafts';
 
 const A: Position = [34.8, 32.0];
 const B: Position = [34.9, 32.0];
@@ -31,46 +31,19 @@ describe('applyDraftOp', () => {
   });
 });
 
-describe('takeDraftToken', () => {
-  const t0 = 1_700_000_000_000;
-
-  it(`allows a burst of WS.DRAFT_RATE_PER_SEC (${WS.DRAFT_RATE_PER_SEC}), then refuses with retryAfterMs`, () => {
-    let bucket = fullDraftBucket(t0);
+describe('takeDraftFrame', () => {
+  it(`counts WS.DRAFT_RATE_PER_SEC (${WS.DRAFT_RATE_PER_SEC}) frames a second, then refuses until the window ends`, () => {
+    const t0 = 1_700_000_000_000;
+    let rate = freshDraftRate(t0);
     for (let i = 0; i < WS.DRAFT_RATE_PER_SEC; i++) {
-      const take = takeDraftToken(bucket, t0);
+      const take = takeDraftFrame(rate, t0 + i);
       expect(take.ok).toBe(true);
-      bucket = take.bucket;
+      rate = take.rate;
     }
-    const refused = takeDraftToken(bucket, t0);
-    expect(refused).toEqual({
-      ok: false,
-      bucket: { tokens: 0, refilledAt: t0 },
-      retryAfterMs: 1000 / WS.DRAFT_RATE_PER_SEC,
-    });
-  });
-
-  it('refills at WS.DRAFT_RATE_PER_SEC per second, capped at a full bucket', () => {
-    const empty = { tokens: 0, refilledAt: t0 };
-    const interval = 1000 / WS.DRAFT_RATE_PER_SEC;
-    expect(takeDraftToken(empty, t0 + interval - 1).ok).toBe(false);
-    expect(takeDraftToken(empty, t0 + interval)).toEqual({
+    expect(takeDraftFrame(rate, t0 + 400)).toEqual({ ok: false, rate, retryAfterMs: 600 });
+    expect(takeDraftFrame(rate, t0 + 1000)).toEqual({
       ok: true,
-      bucket: { tokens: 0, refilledAt: t0 + interval },
+      rate: { windowStart: t0 + 1000, frames: 1 },
     });
-    expect(takeDraftToken(empty, t0 + 60_000).bucket.tokens).toBe(WS.DRAFT_RATE_PER_SEC - 1);
-  });
-
-  it('retryAfterMs is never too early: retrying after it succeeds', () => {
-    for (const tokens of [0, 0.25, 0.5, 0.99]) {
-      const refused = takeDraftToken({ tokens, refilledAt: t0 }, t0);
-      if (refused.ok) throw new Error(`expected a refusal with ${tokens} tokens`);
-      expect(refused.retryAfterMs).toBeGreaterThan(0);
-      expect(takeDraftToken(refused.bucket, t0 + refused.retryAfterMs).ok).toBe(true);
-    }
-  });
-
-  it('does not drain when the clock steps back', () => {
-    const take = takeDraftToken({ tokens: 2, refilledAt: t0 }, t0 - 5000);
-    expect(take).toEqual({ ok: true, bucket: { tokens: 1, refilledAt: t0 - 5000 } });
   });
 });

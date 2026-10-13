@@ -31,7 +31,11 @@ function post(path: string, body: unknown, ip: string) {
     `${DEPLOYED_ORIGIN}${ROUTES.AUTH}${path}`,
     {
       method: 'POST',
-      headers: { origin: DEPLOYED_ORIGIN, 'content-type': 'application/json', 'cf-connecting-ip': ip },
+      headers: {
+        origin: DEPLOYED_ORIGIN,
+        'content-type': 'application/json',
+        'cf-connecting-ip': ip,
+      },
       body: JSON.stringify(body),
     },
     deployedEnv,

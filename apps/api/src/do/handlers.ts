@@ -1,7 +1,6 @@
 import { ERROR_CODES, ERROR_MESSAGES, type PresenceState, WS, WS_MESSAGES } from '@cgis/shared';
 import { log } from '../log';
-import { applyDraftOp, type DraftOp, type DraftStore, takeDraftToken } from './drafts';
-import { ensureEpoch, storedEpoch } from './epoch';
+import { applyDraftOp, type DraftOp, type DraftStore, takeDraftFrame } from './drafts';
 import type { DraftRelay } from './frames';
 import { presenceOf } from './presence';
 import type { TakeResult } from './rate-limiter';
@@ -19,29 +18,13 @@ export type RoomCtx = {
 };
 
 /**
- * `join`: into presence (broadcast to all), then all current drafts to the joiner. The socket
- * takes the Room's storage epoch, so a join is also how a socket told to resync recovers.
+ * `join`: into presence (broadcast to all), then all current drafts to the joiner. A socket told
+ * to resync recovers by joining again.
  */
 export function join(room: RoomCtx, socket: Socket): void {
-  save(socket, { joined: true, epoch: ensureEpoch(room.ctx.storage) });
+  save(socket, { joined: true });
   sendPresence(room);
   sendTo(room.ctx, socket.ws, { type: 'draft:state', payload: { drafts: room.drafts.all() } });
-}
-
-/**
- * True, after answering `error CONFLICT` with `resync: true`, when `socket` joined state the Room
- * no longer has: it is joined, but its epoch is not the stored one (the storage was lost while the
- * socket stayed attached). The caller drops the frame; the socket's frames keep getting this
- * answer until it joins again.
- */
-export function outlivedState(room: RoomCtx, socket: Socket): boolean {
-  const { joined, epoch } = socket.attachment;
-  if (!joined || epoch === storedEpoch(room.ctx.storage)) return false;
-  save(socket, {});
-  sendError(room.ctx, socket.ws, ERROR_CODES.CONFLICT, WS_MESSAGES.ROOM_STATE_LOST, {
-    resync: true,
-  });
-  return true;
 }
 
 /** `leave`: out of presence; the socket stays open. */
@@ -57,7 +40,7 @@ export function setPresence(room: RoomCtx, socket: Socket, state: PresenceState)
 }
 
 /**
- * `draft:update`, joined sockets only. The socket's bucket (`WS.DRAFT_RATE_PER_SEC`) is the burst
+ * `draft:update`, joined sockets only. The socket's window (`WS.DRAFT_RATE_PER_SEC`) is the burst
  * guard on every frame. A frame with `seq <= lastSeq` is then dropped silently. An op that does
  * not fit the Room's copy (the two diverged, or the Room ended the session) is
  * `error DRAFT_OP_MISFIT` with `resync: true`. Otherwise the op is applied to the sender's draft
@@ -71,7 +54,7 @@ export function setPresence(room: RoomCtx, socket: Socket, state: PresenceState)
  * (`sessionSaved`) or at the idle sweep (`sweepIdle`).
  *
  * A refused start is `error RATE_LIMITED`, and a failed limiter call is `error INTERNAL` (fails
- * closed); either way nothing is stored, so the draft stays empty. The bucket's refusals and the
+ * closed); either way nothing is stored, so the draft stays empty. The window's refusals and the
  * budget's carry `retryAfter` ms and the refused frame's `frameSeq`, to the sender only. room.ts
  * runs one user's frames one at a time, so no other frame of theirs touches this attachment or
  * their session while the limiter answers.
@@ -90,9 +73,9 @@ export async function draftUpdate(
     sendError(room.ctx, ws, ERROR_CODES.BAD_REQUEST, WS_MESSAGES.NOT_JOINED);
     return;
   }
-  const take = takeDraftToken(attachment, now);
+  const take = takeDraftFrame(attachment, now);
   if (!take.ok) {
-    save(socket, take.bucket);
+    save(socket, take.rate);
     sendError(room.ctx, ws, ERROR_CODES.RATE_LIMITED, ERROR_MESSAGES.RATE_LIMITED, {
       retryAfter: take.retryAfterMs,
       frameSeq: seq,
@@ -100,7 +83,7 @@ export async function draftUpdate(
     return;
   }
   // Stored before the limiter call: an alarm sweep while it runs sees this frame's lastSeen.
-  save(socket, take.bucket);
+  save(socket, take.rate);
   if (attachment.lastSeq !== null && seq <= attachment.lastSeq) return;
   const current = room.drafts.vertices(userId);
   const next = applyDraftOp(current ?? [], op);
@@ -108,7 +91,7 @@ export async function draftUpdate(
   if (current === undefined && next !== undefined && next.length > 0) {
     if (!(await startSession(room, socket, seq))) return;
   }
-  save(socket, { ...take.bucket, lastSeq: seq });
+  save(socket, { ...take.rate, lastSeq: seq });
   if (next === undefined) {
     sendError(room.ctx, ws, ERROR_CODES.DRAFT_OP_MISFIT, ERROR_MESSAGES.DRAFT_OP_MISFIT, {
       resync: true,
