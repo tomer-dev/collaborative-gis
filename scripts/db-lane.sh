@@ -13,8 +13,9 @@ if [[ ! "$name" =~ ^[a-z_][a-z0-9_]{0,62}$ ]]; then
   exit 2
 fi
 
-# Local docker-compose credentials only (docker-compose.yml); never point this at Neon.
-base="postgresql://cgis:cgis@127.0.0.1:5433"
+# Local docker-compose credentials only (docker-compose.yml); never point this at Neon. CGIS_LOCAL_DB
+# overrides the base URL on a machine whose PostGIS listens elsewhere (no database name).
+base="${CGIS_LOCAL_DB:-postgresql://cgis:cgis@127.0.0.1:5433}"
 export PGOPTIONS='-c client_min_messages=warning'
 
 # Fails when the database exists (or a concurrent run created it first); the next step fails if
