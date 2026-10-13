@@ -40,11 +40,15 @@ function EmptyFrame() {
   return <AppFrame mainClassName="bg-map-bg">{null}</AppFrame>;
 }
 
-/** The empty frame during the first session check; a screen reader still hears the status. */
-function CheckingFrame() {
+/**
+ * The frame during the first session check. A browser remembered as signed in sees it empty, as
+ * if the app stayed (the status is for screen readers only); any other sees the status in it.
+ */
+function CheckingFrame({ quiet }: { quiet: boolean }) {
   return (
-    <AppFrame mainClassName="bg-map-bg">
-      <p role="status" className="sr-only">
+    // The map colour only under the empty main: text-fg is unreadable on it in dark mode.
+    <AppFrame mainClassName={quiet ? 'bg-map-bg' : ''}>
+      <p role="status" className={quiet ? 'sr-only' : 'grid h-full place-items-center text-sm'}>
         {COPY.AUTH.SESSION_CHECKING}
       </p>
     </AppFrame>
@@ -61,8 +65,9 @@ declare module '@tanstack/react-router' {
  * Renders the router once the session is known and feeds it in as router context, so
  * `beforeLoad` guards read it. When the user changes (sign-in, sign-out, expiry) the
  * router is invalidated, which re-runs the guards on the current route.
- * Until the first answer, a browser that was signed in last time (the stored hint) sees the
- * app frame, as if the app stayed; any other sees the session status, never a flash of the app.
+ * Until the first answer, every browser sees the app frame (the pre-mount skeleton in index.html
+ * already painted it): one that was signed in last time (the stored hint) sees it empty, as if
+ * the app stayed; any other sees the session status in it, never a flash of a page.
  * Sits inside the QueryClientProvider so route components can use queries.
  */
 export function AppRouterProvider({ router }: { router: AppRouter }) {
@@ -98,13 +103,6 @@ export function AppRouterProvider({ router }: { router: AppRouter }) {
     loadedUserId.current = userId;
   }, [router, checked, userId]);
 
-  if (!checked && remembered) return <CheckingFrame />;
-  if (!checked) {
-    return (
-      <p role="status" className="grid h-full place-items-center text-sm">
-        {COPY.AUTH.SESSION_CHECKING}
-      </p>
-    );
-  }
+  if (!checked) return <CheckingFrame quiet={remembered} />;
   return <RouterProvider router={router} context={{ session: user }} />;
 }
