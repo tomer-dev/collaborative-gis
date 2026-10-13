@@ -46,7 +46,8 @@ function EmptyFrame() {
  */
 function CheckingFrame({ quiet }: { quiet: boolean }) {
   return (
-    <AppFrame mainClassName="bg-map-bg">
+    // The map colour only under the empty main: text-fg is unreadable on it in dark mode.
+    <AppFrame mainClassName={quiet ? 'bg-map-bg' : ''}>
       <p role="status" className={quiet ? 'sr-only' : 'grid h-full place-items-center text-sm'}>
         {COPY.AUTH.SESSION_CHECKING}
       </p>

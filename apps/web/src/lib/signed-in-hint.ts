@@ -1,9 +1,10 @@
 import { AUTH } from '@cgis/shared/constants';
 
 /**
- * Whether this browser held a session the last time the app checked. A cold load uses it to
- * show the app frame instead of the session status while the first check runs; the guards
- * still act on the real answer. Storage that throws (private mode, blocked site data) counts
+ * Whether this browser held a session the last time the app checked. While the first check of a
+ * cold load runs, the app frame shows either way; the hint decides whether the session status
+ * in it is visible (not remembered) or for screen readers only (remembered). The guards still
+ * act on the real answer. Storage that throws (private mode, blocked site data) counts
  * as nothing remembered.
  */
 export function readSignedInHint(): boolean {

@@ -20,8 +20,9 @@ export const AUTH = {
   RATE_LIMIT_MAX: 10,
   /**
    * `localStorage` key the web app sets while this browser holds a session and removes once it
-   * holds none. On a cold load it decides whether the app frame shows before the first session
-   * check answers (set) or the session status does (unset). Never carries who was signed in.
+   * holds none. Before a cold load's first session check answers, the app frame shows either way;
+   * the key decides whether the session status in it is visible (unset) or for screen readers
+   * only (set). Never carries who was signed in.
    */
   SIGNED_IN_HINT_KEY: 'cgis.signedIn',
   /** The only value `SIGNED_IN_HINT_KEY` holds; any other (or none) means nothing remembered. */
