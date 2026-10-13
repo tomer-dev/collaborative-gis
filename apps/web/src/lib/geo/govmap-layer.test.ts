@@ -6,7 +6,7 @@ import { createGovmapLayer } from './govmap-layer';
 
 const FOUNTAIN = L.latLng(32.0779953, 34.7741951);
 const WESTERN_WALL = L.latLng(31.7767, 35.2345);
-const CACHE_URL = `${GOVMAP.TILE_HOST}/${GOVMAP.CACHES[0]}`;
+const CACHE_URL = `${GOVMAP.TILE_HOST}/${GOVMAP.CACHE}`;
 
 const layer = createGovmapLayer();
 
@@ -31,10 +31,6 @@ describe('createGovmapLayer', () => {
   it('writes row and column in lowercase hex (uppercase answers 403)', () => {
     const path = tileUrlAt(FOUNTAIN, 11).slice(CACHE_URL.length + 1);
     expect(path).toMatch(/^L\d{2}\/R[0-9a-f]{8}\/C[0-9a-f]{8}\.jpg$/);
-  });
-
-  it('uses the first cache in GOVMAP.CACHES', () => {
-    expect(layer.cache).toBe(GOVMAP.CACHES[0]);
   });
 
   it('credits the Survey of Israel', () => {
