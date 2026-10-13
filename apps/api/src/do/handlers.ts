@@ -9,6 +9,7 @@ import {
 } from '@cgis/shared';
 import { log } from '../log';
 import { type DraftStore, takeDraftFrame } from './drafts';
+import { ensureEpoch, storedEpoch } from './epoch';
 import type { DraftRelay } from './frames';
 import { presenceOf } from './presence';
 import type { TakeResult } from './rate-limiter';
@@ -26,13 +27,29 @@ export type RoomCtx = {
 };
 
 /**
- * `join`: into presence (broadcast to all), then all current drafts to the joiner. A socket told
- * to resync recovers by joining again.
+ * `join`: into presence (broadcast to all), then all current drafts to the joiner. The socket
+ * takes the Room's storage epoch, so a join is also how a socket told to resync recovers.
  */
 export function join(room: RoomCtx, socket: Socket): void {
-  save(socket, { joined: true });
+  save(socket, { joined: true, epoch: ensureEpoch(room.ctx.storage) });
   sendPresence(room);
   sendTo(room.ctx, socket.ws, { type: 'draft:state', payload: { drafts: room.drafts.all() } });
+}
+
+/**
+ * True, after answering `error CONFLICT` with `resync: true`, when `socket` joined state the Room
+ * no longer has: it is joined, but its epoch is not the stored one (the storage was lost while the
+ * socket stayed attached). The caller drops the frame; the socket's frames keep getting this
+ * answer until it joins again.
+ */
+export function outlivedState(room: RoomCtx, socket: Socket): boolean {
+  const { joined, epoch } = socket.attachment;
+  if (!joined || epoch === storedEpoch(room.ctx.storage)) return false;
+  save(socket, {});
+  sendError(room.ctx, socket.ws, ERROR_CODES.CONFLICT, WS_MESSAGES.ROOM_STATE_LOST, {
+    resync: true,
+  });
+  return true;
 }
 
 /** `leave`: out of presence; the socket stays open. */

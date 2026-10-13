@@ -24,13 +24,18 @@ export const PresenceAttachmentSchema = z.object({
   frames: z.number().int().nonnegative(),
   /** The `seq` of the last accepted `draft:update`; older or repeated frames are dropped. */
   lastSeq: z.number().int().nonnegative().nullable(),
+  /**
+   * The Room's storage epoch (epoch.ts) at this socket's last `join`; null before its first. A
+   * joined socket whose epoch is not the stored one is told to resync.
+   */
+  epoch: z.uuid().nullable(),
 });
 export type PresenceAttachment = z.infer<typeof PresenceAttachmentSchema>;
 type PresenceColor = PresenceAttachment['color'];
 
 /**
- * The attachment a new socket starts with: `viewing`, not joined, no strikes, an empty draft window
- * and no accepted `seq`.
+ * The attachment a new socket starts with: `viewing`, not joined, no strikes, an empty draft
+ * window, no accepted `seq` and no epoch (its first `join` sets one).
  */
 export async function newAttachment(user: AuthUser, now: number): Promise<PresenceAttachment> {
   return {
@@ -43,6 +48,7 @@ export async function newAttachment(user: AuthUser, now: number): Promise<Presen
     strikes: 0,
     ...freshDraftRate(now),
     lastSeq: null,
+    epoch: null,
   };
 }
 
