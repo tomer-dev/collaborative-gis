@@ -1,11 +1,14 @@
-/** Per-user budget shared by REST mutations and WS drawing actions (D5): an exact sliding window. */
+/** Per-user budget shared by REST mutations and WS draft sessions (D5): an exact sliding window. */
 export const RATE_LIMIT = {
-  /** D5: 50 drawing actions per user per window, one budget for REST and WS. */
+  /**
+   * D5: 50 drawing actions per user per window, one budget for REST and WS. A REST mutation is
+   * one; so is a WS draft session (its frames are not).
+   */
   DRAW_ACTIONS_PER_WINDOW: 50,
   /** D5: exact sliding window over the last 60 s; the 429 `Retry-After` is at most this long. */
   WINDOW_MS: 60_000,
   /**
-   * The only labels `RateLimiter.take` accepts. REST mutations and WS draft actions both spend
+   * The only labels `RateLimiter.take` accepts. REST mutations and WS draft sessions both spend
    * `DRAW`: one drawing-action budget (spec: `requireUser` then `take('draw')`).
    */
   ACTIONS: { DRAW: 'draw' },

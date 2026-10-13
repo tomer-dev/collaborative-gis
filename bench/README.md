@@ -8,9 +8,10 @@ Two [k6](https://k6.io) scripts that drive a running API Worker:
   minute.
 - `ws.js`: each VU signs up one user, opens `/ws` with that session cookie and the SPA `Origin`,
   sends `join`, waits until every VU of the run is in `presence`, then sends `draft:update` frames
-  at `FRAMES_PER_SEC` for `SEND_SECONDS` and counts the other VUs' frames it receives. Each frame
-  spends one action from the user's 50-per-minute budget, so `FRAMES_PER_SEC` × `SEND_SECONDS`
-  must stay under 50 per minute for a run to pass. The default is 45 frames in 30 s.
+  at `FRAMES_PER_SEC` for `SEND_SECONDS` and counts the other VUs' frames it receives. A VU's
+  frames are one draft session, which spends one action from the user's 50-per-minute budget
+  (D5), so only the Room's 10 frames per second per socket bounds `FRAMES_PER_SEC`. The default
+  is 300 frames in 30 s.
 
 `auth.js` is the sign-up both share. Every URL, count, threshold and duration sits in the `CONFIG`
 object at the top of each script and can be overridden with `-e NAME=value`.
@@ -80,16 +81,16 @@ Shared by both scripts:
 
 `ws.js`:
 
-| Name               | Default          | Meaning                                                                            |
-| ------------------ | ---------------- | ---------------------------------------------------------------------------------- |
-| `WS_PATH`          | `/ws`            | WebSocket endpoint                                                                 |
-| `MAP_ID`           | `default`        | `mapId` of the `join` frame                                                        |
-| `FRAMES_PER_SEC`   | 1.5              | `draft:update` frames per VU per second (Room: ≤ 10/s per socket, 50/min per user) |
-| `SEND_SECONDS`     | 30               | How long each VU sends                                                             |
-| `ECHO_WINDOW_MS`   | 1000             | A frame later than this counts as missed                                           |
-| `MIN_ECHO_RATIO`   | 0.95             | `ws_echo_within_window` threshold                                                  |
-| `READY_TIMEOUT_MS` | 15000            | Wait for every VU in presence before giving up                                     |
-| `LINGER_MS`        | 3000             | Listening time after a VU's last frame                                             |
-| `VERTEX_ORIGIN`    | `[34.78, 32.08]` | JSON `[lng, lat]` the draft vertices start from                                    |
+| Name               | Default          | Meaning                                                           |
+| ------------------ | ---------------- | ----------------------------------------------------------------- |
+| `WS_PATH`          | `/ws`            | WebSocket endpoint                                                |
+| `MAP_ID`           | `default`        | `mapId` of the `join` frame                                       |
+| `FRAMES_PER_SEC`   | 10               | `draft:update` frames per VU per second (Room: ≤ 10/s per socket) |
+| `SEND_SECONDS`     | 30               | How long each VU sends                                            |
+| `ECHO_WINDOW_MS`   | 1000             | A frame later than this counts as missed                          |
+| `MIN_ECHO_RATIO`   | 0.95             | `ws_echo_within_window` threshold                                 |
+| `READY_TIMEOUT_MS` | 15000            | Wait for every VU in presence before giving up                    |
+| `LINGER_MS`        | 3000             | Listening time after a VU's last frame                            |
+| `VERTEX_ORIGIN`    | `[34.78, 32.08]` | JSON `[lng, lat]` the draft vertices start from                   |
 
 Recorded results: `docs/benchmarks-load.md`.
