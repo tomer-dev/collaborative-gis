@@ -31,8 +31,7 @@ export const OPENAPI = {
   /**
    * The `/docs` page's Scalar script: the single-file browser build of a pinned release (no
    * code-split chunks, so one integrity hash covers all of it), never the CDN's moving latest,
-   * since it runs on the API origin. Bump with `@scalar/hono-api-reference`, and
-   * `UI_BUNDLE_INTEGRITY` with it.
+   * since it runs on the API origin. Bump the version here and `UI_BUNDLE_INTEGRITY` with it.
    */
   UI_BUNDLE: 'https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.73.1/dist/browser/standalone.js',
   /**
