@@ -6,28 +6,17 @@ import { isWebSocketUpgrade, withRoomUser } from './do/handoff';
 import { apiError } from './errors';
 import { requireUser } from './middleware/require-user';
 
-/** `new URL(value).origin`, or null for a missing or unparsable value. */
-function originOf(value: string | undefined): string | null {
-  if (!value) return null;
-  try {
-    return new URL(value).origin;
-  } catch {
-    return null;
-  }
-}
-
 /**
  * The checks between a signed-in request and its socket: 426 UPGRADE_REQUIRED without
  * `Upgrade: websocket`, then 403 FORBIDDEN (`ERROR_REASONS.ORIGIN_NOT_ALLOWED`) unless the
- * Origin header, normalised, equals `env.CLIENT_ORIGIN`. Better Auth's `getSession` ignores
+ * Origin header equals `env.CLIENT_ORIGIN` (compared raw, as CORS does). Better Auth's `getSession` ignores
  * Origin, so this is what stops another site's page from opening a socket with a visitor's
  * cookie. Browsers always send Origin on a WebSocket upgrade, so a missing one is refused too.
  */
 export function wsGate(): MiddlewareHandler<AppEnv> {
   return async (c, next) => {
     if (!isWebSocketUpgrade(c.req.raw)) return apiError(c, ERROR_CODES.UPGRADE_REQUIRED);
-    const origin = originOf(c.req.header(HEADERS.ORIGIN));
-    if (!origin || origin !== originOf(c.env.CLIENT_ORIGIN)) {
+    if (c.req.header(HEADERS.ORIGIN) !== c.env.CLIENT_ORIGIN) {
       return apiError(c, ERROR_CODES.FORBIDDEN, ERROR_REASONS.ORIGIN_NOT_ALLOWED);
     }
     await next();

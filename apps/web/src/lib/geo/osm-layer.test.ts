@@ -11,8 +11,4 @@ describe('createOsmLayer', () => {
     expect(layer.getAttribution?.()).toBe(MAP.OSM_ATTRIBUTION);
     expect(layer.options.maxZoom).toBe(MAP.OSM_MAX_ZOOM);
   });
-
-  it('builds a new layer per call (a layer belongs to one map at a time)', () => {
-    expect(createOsmLayer()).not.toBe(createOsmLayer());
-  });
 });

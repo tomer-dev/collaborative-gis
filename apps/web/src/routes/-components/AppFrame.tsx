@@ -2,7 +2,7 @@ import type { AuthUser } from '@cgis/shared';
 import { COPY } from '@cgis/shared/constants';
 import { useMutation } from '@tanstack/react-query';
 import { createContext, type ReactNode } from 'react';
-import { signOut } from '../../lib/auth';
+import { authClient } from '../../lib/auth-client';
 import { Avatar, Button } from '../../ui';
 
 type AppFrameProps = {
@@ -37,7 +37,7 @@ export const ReportSelfColor = createContext<(color: string | null) => void>(() 
  * failed one leaves the session as it was and shows an alert.
  */
 export function SessionMenu({ user, color }: { user: AuthUser; color: string | null }) {
-  const signOutMutation = useMutation({ mutationFn: signOut });
+  const signOutMutation = useMutation({ mutationFn: () => authClient.signOut() });
 
   return (
     <div className="flex items-center gap-3 text-sm">

@@ -69,14 +69,11 @@ function inView(areas: readonly Area[], bbox: Bbox | null): Area[] {
 
 type AreasInViewPanelProps = { areas: readonly Area[]; onSelect: (area: Area) => void };
 
-/** The areas in view with their size, up to `LIMITS.PANEL_LIST_MAX`, then a "+N more" line. */
+/** The areas in view with their size; the panel body scrolls (the server caps a viewport's areas). */
 function AreasInViewPanel({ areas, onSelect }: AreasInViewPanelProps) {
-  const shown = areas.slice(0, LIMITS.PANEL_LIST_MAX);
-  const more = areas.length - shown.length;
   return (
     <Panel as="section" variant="floating" title={COPY.AREAS.LIST_TITLE} className="max-h-panel">
-      <AreaList areas={shown} onSelect={onSelect} />
-      {more > 0 ? <p className="pt-2 text-xs text-fg-muted">{COPY.AREAS.LIST_MORE(more)}</p> : null}
+      <AreaList areas={areas} onSelect={onSelect} />
     </Panel>
   );
 }

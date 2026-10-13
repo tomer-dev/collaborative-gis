@@ -10,23 +10,22 @@ import { bodyLimit } from 'hono/body-limit';
 import { every } from 'hono/combine';
 import type { AppEnv } from '../app';
 import { apiError } from '../errors';
-import { requireUser, type SignedIn } from './require-user';
+import type { SignedIn } from './require-user';
 
 const MS_PER_SECOND = 1000;
 
 /**
  * The one guard every mutation route mounts (create, update, delete, revert), before validation:
  * `areas.post('/', describeRoute(...), mutationGuards(), validate('json', ...), handler)`.
- * In order, each answering by itself and stopping the chain:
- * 1. `requireUser()`: no session → 401, and the user's budget is never touched.
- * 2. `rateLimit(RATE_LIMIT.ACTIONS.DRAW)`: spends one action of the per-user budget the WS draft
+ * The router's `requireUser()` has already answered 401 without a session. In order, each answering
+ * by itself and stopping the chain:
+ * 1. `rateLimit(RATE_LIMIT.ACTIONS.DRAW)`: spends one action of the per-user budget the WS draft
  *    sessions share (D5) → 429 when it is spent, so rejected attempts (413, 422) count too.
- * 3. `bodyLimit`: a body over `LIMITS.BODY_MAX_BYTES` → 413 `PAYLOAD_TOO_LARGE`, before anything
+ * 2. `bodyLimit`: a body over `LIMITS.BODY_MAX_BYTES` → 413 `PAYLOAD_TOO_LARGE`, before anything
  *    parses it (by `Content-Length`, else while reading the stream).
  */
 export function mutationGuards(): MiddlewareHandler<AppEnv & SignedIn> {
   return every(
-    requireUser(),
     rateLimit(RATE_LIMIT.ACTIONS.DRAW),
     bodyLimit({
       maxSize: LIMITS.BODY_MAX_BYTES,

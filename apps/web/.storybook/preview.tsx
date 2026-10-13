@@ -10,9 +10,9 @@ const preview = {
     controls: { matchers: { color: /(background|color)$/i } },
     options: { storySort: { order: ['Foundations', 'Components', '*'] } },
   },
-  // Light/dark toolbar: tokens.css switches the semantic colours on .dark at <html>.
+  // Light/dark toolbar: tokens.css follows the OS unless <html> has .light or .dark.
   decorators: [
-    withThemeByClassName({ themes: { light: '', dark: 'dark' }, defaultTheme: 'light' }),
+    withThemeByClassName({ themes: { light: 'light', dark: 'dark' }, defaultTheme: 'light' }),
   ],
   tags: ['autodocs'],
 } satisfies Preview;

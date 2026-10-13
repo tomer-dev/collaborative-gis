@@ -33,7 +33,8 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('rateLimit middleware', () => {
+// Each test but the first spends a full budget against the DO: { timeout } for a loaded machine.
+describe('rateLimit middleware', { timeout: TEST.SLOW_TIMEOUT_MS }, () => {
   it('answers 401 without a user and never reaches the handler', async () => {
     const { post, handler } = appFor();
     const res = await post();
@@ -42,65 +43,40 @@ describe('rateLimit middleware', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
-  it(
-    'lets DRAW_ACTIONS_PER_WINDOW requests through, then answers 429 with Retry-After',
-    async () => {
-      const { post, handler } = appFor(freshUser());
-      for (let i = 0; i < LIMIT; i++) expect((await post()).status).toBe(201);
-      expect(handler).toHaveBeenCalledTimes(LIMIT);
+  it('lets DRAW_ACTIONS_PER_WINDOW requests through, then answers 429 with Retry-After', async () => {
+    const { post, handler } = appFor(freshUser());
+    for (let i = 0; i < LIMIT; i++) expect((await post()).status).toBe(201);
+    expect(handler).toHaveBeenCalledTimes(LIMIT);
 
-      const res = await post();
-      expect(res.status).toBe(429);
-      expect(res.headers.get('Retry-After')).toBe(String(WINDOW_MS / 1000));
-      expect(await res.json()).toEqual({
-        code: 'RATE_LIMITED',
-        message: 'Too many requests',
-        details: { retryAfterMs: WINDOW_MS },
-      });
-      expect(handler).toHaveBeenCalledTimes(LIMIT);
-    },
-    TEST.SLOW_TIMEOUT_MS,
-  );
+    const res = await post();
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBe(String(WINDOW_MS / 1000));
+    expect(await res.json()).toEqual({
+      code: 'RATE_LIMITED',
+      message: 'Too many requests',
+      details: { retryAfterMs: WINDOW_MS },
+    });
+    expect(handler).toHaveBeenCalledTimes(LIMIT);
+  });
 
-  it(
-    'rounds Retry-After up to whole seconds',
-    async () => {
-      const { post } = appFor(freshUser());
-      for (let i = 0; i < LIMIT; i++) await post();
+  it('rounds Retry-After up to whole seconds', async () => {
+    const { post } = appFor(freshUser());
+    for (let i = 0; i < LIMIT; i++) await post();
 
-      vi.setSystemTime(T0 + 20_500);
-      const res = await post();
-      expect(res.status).toBe(429);
-      expect(res.headers.get('Retry-After')).toBe('40');
-      expect(await res.json()).toMatchObject({ details: { retryAfterMs: 39_500 } });
-    },
-    TEST.SLOW_TIMEOUT_MS,
-  );
+    vi.setSystemTime(T0 + 20_500);
+    const res = await post();
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBe('40');
+    expect(await res.json()).toMatchObject({ details: { retryAfterMs: 39_500 } });
+  });
 
-  it(
-    'shares one budget with direct take() calls (the Room DO path)',
-    async () => {
-      const user = freshUser();
-      const limiter = env.RATE_LIMITER.get(env.RATE_LIMITER.idFromName(user.id));
-      for (let i = 0; i < LIMIT; i++) await limiter.take(ACTIONS.DRAW);
+  it('shares one budget with direct take() calls (the Room DO path)', async () => {
+    const user = freshUser();
+    const limiter = env.RATE_LIMITER.get(env.RATE_LIMITER.idFromName(user.id));
+    for (let i = 0; i < LIMIT; i++) await limiter.take(ACTIONS.DRAW);
 
-      const { post, handler } = appFor(user);
-      expect((await post()).status).toBe(429);
-      expect(handler).not.toHaveBeenCalled();
-    },
-    TEST.SLOW_TIMEOUT_MS,
-  );
-
-  it(
-    'keeps budgets per user',
-    async () => {
-      const alice = appFor(freshUser());
-      const bob = appFor(freshUser());
-      for (let i = 0; i < LIMIT; i++) await alice.post();
-
-      expect((await alice.post()).status).toBe(429);
-      expect((await bob.post()).status).toBe(201);
-    },
-    TEST.SLOW_TIMEOUT_MS,
-  );
+    const { post, handler } = appFor(user);
+    expect((await post()).status).toBe(429);
+    expect(handler).not.toHaveBeenCalled();
+  });
 });

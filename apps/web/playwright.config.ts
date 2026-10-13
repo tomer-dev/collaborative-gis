@@ -40,7 +40,6 @@ export default defineConfig({
       ].join(' '),
       cwd: REPO_ROOT,
       url: `${api}${ROUTES.HEALTHZ}`,
-      reuseExistingServer: false,
       timeout: STACK.SERVER_START_MS,
       env: {
         CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE: laneDatabaseUrl(),
@@ -51,10 +50,9 @@ export default defineConfig({
     },
     {
       name: 'web',
-      command: `pnpm --filter @cgis/web dev --config e2e/vite.config.ts --port ${new URL(web).port} --strictPort`,
+      command: `pnpm --filter @cgis/web dev --port ${new URL(web).port} --strictPort`,
       cwd: REPO_ROOT,
       url: web,
-      reuseExistingServer: false,
       timeout: STACK.SERVER_START_MS,
     },
   ],

@@ -5,7 +5,6 @@ import * as L from 'leaflet';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { fakeSockets, serverFrame } from '../lib/fake-websocket';
 import { useRoom } from '../lib/use-room';
-import type { SocketFactory } from '../lib/ws';
 import { GhostPolygons } from './GhostPolygons';
 
 let map: L.Map;
@@ -40,8 +39,8 @@ const triangle: Draft['vertices'] = [
 const ghosts = () => Array.from(map.getPane(MAP.DRAFTS_PANE)!.querySelectorAll('path'));
 
 /** The map route's wiring: the room hook feeding the ghost layer. */
-function Room({ createSocket }: { createSocket: SocketFactory }) {
-  const room = useRoom({ selfId: 'me', map, createSocket });
+function Room() {
+  const room = useRoom({ selfId: 'me', map });
   return <GhostPolygons map={map} drafts={room.drafts} users={room.users} />;
 }
 
@@ -49,7 +48,7 @@ it("draws another user's draft:update as a dashed ghost in their colour; clear r
   const fake = fakeSockets();
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <Room createSocket={fake.factory} />
+      <Room />
     </QueryClientProvider>,
   );
   const receive = (frame: object) => act(() => fake.latest().receive(frame));
@@ -73,7 +72,7 @@ it("draws another user's draft:update as a dashed ghost in their colour; clear r
   expect(ghosts()).toHaveLength(0);
 });
 
-it('follows the drafts it is given: moves a ghost in place, skips authors without a colour, cleans up on unmount', () => {
+it('follows the drafts it is given: redraws a ghost, skips authors without a colour, cleans up on unmount', () => {
   const draw = (drafts: Draft[]) => <GhostPolygons map={map} drafts={drafts} users={users} />;
   const view = render(draw([{ userId: 'u2', vertices: triangle }]));
   const [first] = ghosts();
@@ -85,8 +84,8 @@ it('follows the drafts it is given: moves a ghost in place, skips authors withou
       { userId: 'stranger', vertices: triangle },
     ]),
   );
-  expect(ghosts()).toEqual([first]);
-  expect(first!.getAttribute('d')).not.toBe(before);
+  expect(ghosts()).toHaveLength(1);
+  expect(ghosts()[0]!.getAttribute('d')).not.toBe(before);
 
   view.unmount();
   expect(ghosts()).toHaveLength(0);

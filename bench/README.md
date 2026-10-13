@@ -36,15 +36,15 @@ k6 exits non-zero when a threshold fails.
 
 ## What passes
 
-| Script    | Threshold                                                    | Metric                                             |
-| --------- | ------------------------------------------------------------ | -------------------------------------------------- |
-| `rest.js` | p95 read < `READ_P95_MS` (300 ms)                            | `http_req_duration{op:read}`                       |
-| `rest.js` | p95 write < `WRITE_P95_MS` (600 ms)                          | `http_req_duration{op:write}`                      |
-| `rest.js` | no 429 from `/api/areas`                                     | `areas_rate_limited` count == 0, check `never 429` |
-| `rest.js` | failed requests < `MAX_ERROR_RATE` (1 %)                     | `http_req_failed`                                  |
-| `ws.js`   | ≥ `MIN_ECHO_RATIO` (95 %) of frames echoed within 1 s        | `ws_echo_within_window`                            |
-| `ws.js`   | no `error` frame from the Room (`RATE_LIMITED`, ...)         | `ws_error_frames` count == 0                       |
-| both      | every check passes (sign-up, statuses, upgrade 101, all VUs) | `checks`                                           |
+| Script    | Threshold                                                    | Metric                             |
+| --------- | ------------------------------------------------------------ | ---------------------------------- |
+| `rest.js` | p95 read < `READ_P95_MS` (300 ms)                            | `http_req_duration{op:read}`       |
+| `rest.js` | p95 write < `WRITE_P95_MS` (600 ms)                          | `http_req_duration{op:write}`      |
+| `rest.js` | no 429 from `/api/areas`                                     | `http_reqs{status:429}` count == 0 |
+| `rest.js` | failed requests < `MAX_ERROR_RATE` (1 %)                     | `http_req_failed`                  |
+| `ws.js`   | ≥ `MIN_ECHO_RATIO` (95 %) of frames echoed within 1 s        | `ws_echo_within_window`            |
+| `ws.js`   | no `error` frame from the Room (`RATE_LIMITED`, ...)         | `ws_error_frames` count == 0       |
+| both      | every check passes (sign-up, statuses, upgrade 101, all VUs) | `checks`                           |
 
 `ws_echo_within_window` has one sample per (frame, other VU) pair: true when that VU received the
 frame within `ECHO_WINDOW_MS` of its send time. VUs share no memory, so each frame carries its own
@@ -55,42 +55,14 @@ counts as missed by every other VU. `ws_echo_latency` is the send-to-receive del
 
 ## Environment variables
 
-Shared by both scripts:
+Set with `-e NAME=value`; every other value is a constant in the script's `CONFIG`.
 
-| Name           | Default                   | Meaning                                                   |
-| -------------- | ------------------------- | --------------------------------------------------------- |
-| `BASE_URL`     | `http://localhost:8787`   | The Worker under test                                     |
-| `ORIGIN`       | `http://localhost:5173`   | Sent as `Origin`; must equal the Worker's `CLIENT_ORIGIN` |
-| `SIGN_UP_PATH` | `/api/auth/sign-up/email` | Better Auth email sign-up                                 |
-| `VUS`          | 10 (REST), 5 (WS)         | Virtual users, one account each                           |
-| `PASSWORD`     | `load-test-password`      | Password of every generated account                       |
-| `RUN_ID`       | `load-<base36 time>`      | Prefix of generated emails, user names and area names     |
-
-`rest.js`:
-
-| Name             | Default        | Meaning                                                                |
-| ---------------- | -------------- | ---------------------------------------------------------------------- |
-| `AREAS_PATH`     | `/api/areas`   | Areas endpoint                                                         |
-| `DURATION`       | `1m`           | Run length (k6 duration)                                               |
-| `WRITES_PER_MIN` | 40             | Area creates per VU per minute (paces the loop)                        |
-| `VIEWPORTS`      | 4 Israel boxes | JSON `[{ "bbox": [w, s, e, n], "zoom": z }, ...]`, read each iteration |
-| `SQUARE_DEG`     | 0.005          | Side of each created square, in degrees                                |
-| `READ_P95_MS`    | 300            | Read p95 threshold                                                     |
-| `WRITE_P95_MS`   | 600            | Write p95 threshold                                                    |
-| `MAX_ERROR_RATE` | 0.01           | Highest share of failed requests                                       |
-
-`ws.js`:
-
-| Name               | Default          | Meaning                                                           |
-| ------------------ | ---------------- | ----------------------------------------------------------------- |
-| `WS_PATH`          | `/ws`            | WebSocket endpoint                                                |
-| `MAP_ID`           | `default`        | `mapId` of the `join` frame                                       |
-| `FRAMES_PER_SEC`   | 10               | `draft:update` frames per VU per second (Room: ≤ 10/s per socket) |
-| `SEND_SECONDS`     | 30               | How long each VU sends                                            |
-| `ECHO_WINDOW_MS`   | 1000             | A frame later than this counts as missed                          |
-| `MIN_ECHO_RATIO`   | 0.95             | `ws_echo_within_window` threshold                                 |
-| `READY_TIMEOUT_MS` | 15000            | Wait for every VU in presence before giving up                    |
-| `LINGER_MS`        | 3000             | Listening time after a VU's last frame                            |
-| `VERTEX_ORIGIN`    | `[34.78, 32.08]` | JSON `[lng, lat]` the draft vertices start from                   |
+| Name             | Default                 | Meaning                                                           |
+| ---------------- | ----------------------- | ----------------------------------------------------------------- |
+| `BASE_URL`       | `http://localhost:8787` | The Worker under test                                             |
+| `ORIGIN`         | `http://localhost:5173` | Sent as `Origin`; must equal the Worker's `CLIENT_ORIGIN`         |
+| `VUS`            | 10 (REST), 5 (WS)       | Virtual users, one account each                                   |
+| `FRAMES_PER_SEC` | 10 (`ws.js`)            | `draft:update` frames per VU per second (Room: ≤ 10/s per socket) |
+| `SEND_SECONDS`   | 30 (`ws.js`)            | How long each VU sends                                            |
 
 Recorded results: `docs/benchmarks-load.md`.
