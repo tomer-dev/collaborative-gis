@@ -1,7 +1,6 @@
-import { type AreaList, type Draft, QUERY } from '@cgis/shared';
+import { type AreaList, applyDraftOp, type Draft, type DraftOp, QUERY } from '@cgis/shared';
 import type { QueryClient } from '@tanstack/react-query';
 import { isUnauthorized } from './api-client';
-import { applyDraftOp, type DraftOp } from './draft-sender';
 import type { IncomingEvent } from './ws';
 
 /** The `area:*` events, each patched into the areas cache. */

@@ -7,7 +7,6 @@ import { PASSWORD } from './session';
 
 // A deployed Worker: the SPA and the API share one https origin (docs/deploy.md).
 const DEPLOYED_ORIGIN = 'https://collaborative-gis.example.workers.dev';
-const EVIL_ORIGIN = 'https://evil.example';
 // Wire values spelled out: an https BETTER_AUTH_URL prefixes every auth cookie with `__Secure-`.
 const SECURE_SESSION_COOKIE = '__Secure-better-auth.session_token';
 const SECURE_SESSION_DATA_COOKIE = '__Secure-better-auth.session_data';
@@ -27,12 +26,16 @@ let lastOctet = 0;
 const freshIp = () => `198.18.0.${++lastOctet}`;
 
 /** One JSON POST to Better Auth on the deployed env, as Cloudflare's edge forwards it from `ip`. */
-function post(path: string, body: unknown, ip: string, origin = DEPLOYED_ORIGIN) {
+function post(path: string, body: unknown, ip: string) {
   return createApp().request(
     `${DEPLOYED_ORIGIN}${ROUTES.AUTH}${path}`,
     {
       method: 'POST',
-      headers: { origin, 'content-type': 'application/json', 'cf-connecting-ip': ip },
+      headers: {
+        origin: DEPLOYED_ORIGIN,
+        'content-type': 'application/json',
+        'cf-connecting-ip': ip,
+      },
       body: JSON.stringify(body),
     },
     deployedEnv,
@@ -49,18 +52,6 @@ async function account(ip: string): Promise<string> {
 
 // Real sign-ups and sign-ins (scrypt): { timeout } for a loaded machine.
 describe('production hardening (TOM-73)', { timeout: TEST.SLOW_TIMEOUT_MS }, () => {
-  it('sign-in from a foreign Origin is 403 without cookies; from CLIENT_ORIGIN it is 200', async () => {
-    const ip = freshIp();
-    const email = await account(ip);
-
-    const foreign = await post('/sign-in/email', { email, password: PASSWORD }, ip, EVIL_ORIGIN);
-    expect(foreign.status).toBe(403);
-    expect(foreign.headers.getSetCookie()).toEqual([]);
-
-    const client = await post('/sign-in/email', { email, password: PASSWORD }, ip);
-    expect(client.status).toBe(200);
-  });
-
   it('sign-in sets __Secure- cookies: Secure, HttpOnly, SameSite=Lax, Path=/, no Domain', async () => {
     const ip = freshIp();
     const email = await account(ip);

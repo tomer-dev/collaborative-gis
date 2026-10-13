@@ -1,5 +1,5 @@
-// Test support for the Room protocol tests (protocol.test.ts, protocol-lifecycle.test.ts): a fresh
-// Room per test and sockets that join it the way ws.ts does.
+// Test support for the Room tests (protocol.test.ts, protocol-lifecycle.test.ts,
+// degradation.test.ts): a fresh Room per test and sockets that join it the way ws.ts does.
 import { ROOM } from '@cgis/shared';
 import { evictDurableObject } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
@@ -20,15 +20,10 @@ const FrameSchema = z.object({
 });
 export type Frame = z.infer<typeof FrameSchema>;
 
-type Client = {
+/** A test socket whose frames are parsed as `F` (`of`, `waitFor`: see socket-client.ts). */
+export type Client<F extends { type: string } = Frame> = ReturnType<typeof socketClient<F>> & {
   userId: string;
   ws: WebSocket;
-  frames: Frame[];
-  /** Frames of one type, in arrival order. */
-  of: (type: string) => Frame[];
-  /** Resolves once `of(type)` has `count` frames, with the last of them. */
-  waitFor: (type: string, count?: number) => Promise<Frame>;
-  closed: Promise<CloseEvent>;
   send: (type: string, payload: unknown, seq?: number) => void;
 };
 
@@ -52,7 +47,7 @@ export const drawer = () => `drawer-${crypto.randomUUID()}`;
 // Each test gets its own Room (a fresh name): no drafts, counters or alarms leak between tests.
 /** The current test's Room: a live binding, set by `newRoom` (beforeEach). */
 export let stub: DurableObjectStub<Room>;
-let clients: Client[] = [];
+let clients: { closed: Promise<CloseEvent> }[] = [];
 
 /** beforeEach: a Room under a fresh name, no sockets yet. */
 export function newRoom(): void {
@@ -69,41 +64,64 @@ export async function closeRoom(): Promise<void> {
   await evictDurableObject(stub, { webSockets: 'close' });
 }
 
-/** Opens a socket the way ws.ts does: straight to the Room, the user in the hand-off headers. */
-export async function connect(userId: string, name = userId.toUpperCase()): Promise<Client> {
-  const upgrade = new Request('http://room/ws', { headers: { Upgrade: 'websocket' } });
-  const res = await stub.fetch(withRoomUser(upgrade, { id: userId, name }));
-  expect(res.status).toBe(101);
-  const ws = res.webSocket;
-  if (!ws) throw new Error('expected a webSocket on the 101 response');
+/** `connect` and `join` for sockets whose frames `parse` reads. */
+export function socketsParsedWith<F extends { type: string }>(parse: (data: string) => F) {
+  /** Opens a socket the way ws.ts does: straight to the Room, the user in the hand-off headers. */
+  async function connect(userId: string, name = userId.toUpperCase()): Promise<Client<F>> {
+    const upgrade = new Request('http://room/ws', { headers: { Upgrade: 'websocket' } });
+    const res = await stub.fetch(withRoomUser(upgrade, { id: userId, name }));
+    expect(res.status).toBe(101);
+    const ws = res.webSocket;
+    if (!ws) throw new Error('expected a webSocket on the 101 response');
 
-  let seq = 0;
-  const client: Client = {
-    userId,
-    ws,
-    ...socketClient(ws, (data) => FrameSchema.parse(JSON.parse(data))),
-    send(type, payload, explicitSeq) {
-      seq = explicitSeq ?? seq + 1;
-      ws.send(JSON.stringify({ type, seq, ts: Date.now(), payload }));
-    },
-  };
-  clients.push(client);
-  return client;
+    let seq = 0;
+    const client: Client<F> = {
+      userId,
+      ws,
+      ...socketClient(ws, parse),
+      send(type, payload, explicitSeq) {
+        seq = explicitSeq ?? seq + 1;
+        ws.send(JSON.stringify({ type, seq, ts: Date.now(), payload }));
+      },
+    };
+    clients.push(client);
+    return client;
+  }
+
+  /** Connects and joins; resolves once the joiner has its presence and draft:state replies. */
+  async function join(userId: string, name?: string): Promise<Client<F>> {
+    const client = await connect(userId, name);
+    client.send('join', { mapId: ROOM.DEFAULT_ROOM_ID });
+    await client.waitFor('draft:state');
+    return client;
+  }
+
+  return { connect, join };
 }
 
-/** Connects and joins; resolves once the joiner has its presence and draft:state replies. */
-export async function join(userId: string): Promise<Client> {
-  const client = await connect(userId);
-  client.send('join', { mapId: ROOM.DEFAULT_ROOM_ID });
-  await client.waitFor('draft:state');
-  return client;
+/** Sockets whose frames are any `Frame`, payloads checked with toEqual/toMatchObject. */
+export const { connect, join } = socketsParsedWith((data) => FrameSchema.parse(JSON.parse(data)));
+
+/**
+ * Kills the Room the way a crash or a deploy does: the instance is dropped and every socket is
+ * cut (the peers see 1006; the Room gets no close event). Storage stays.
+ */
+export async function kill(): Promise<void> {
+  const cut = clients.map((client) => client.closed);
+  await evictDurableObject(stub, { webSockets: 'close' });
+  await Promise.all(cut);
+  clients = [];
 }
 
 /**
  * Frames to one socket arrive in order. A `presence:set` round trip is a barrier: once `client`
  * has the presence it triggers, every frame the Room sent it earlier has arrived.
  */
-export async function barrier(client: Client): Promise<void> {
+export async function barrier(client: {
+  of: (type: 'presence') => unknown[];
+  waitFor: (type: 'presence', count: number) => Promise<unknown>;
+  send: (type: string, payload: unknown) => void;
+}): Promise<void> {
   const seen = client.of('presence').length;
   client.send('presence:set', { state: 'viewing' });
   await client.waitFor('presence', seen + 1);

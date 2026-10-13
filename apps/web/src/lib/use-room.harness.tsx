@@ -1,7 +1,9 @@
 // Test support for the useRoom tests: fixtures, a Leaflet map per test, and the hook rendered
 // over fake sockets (use-room.test.tsx, use-room.resync.test.tsx).
 import {
+  applyDraftOp,
   type Area,
+  type DraftOp,
   ERROR_CODES,
   type Position,
   QUERY,
@@ -13,7 +15,6 @@ import { act, cleanup, renderHook } from '@testing-library/react';
 import * as L from 'leaflet';
 import type { ReactNode } from 'react';
 import { vi } from 'vitest';
-import { applyDraftOp, type DraftOp } from './draft-sender';
 import { fakeSockets, serverFrame } from './fake-websocket';
 import { useRoom } from './use-room';
 
@@ -78,7 +79,7 @@ export function renderRoom() {
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
-  const view = renderHook(() => useRoom({ selfId: SELF, map, createSocket: fake.factory }), {
+  const view = renderHook(() => useRoom({ selfId: SELF, map }), {
     wrapper,
   });
   const socket = () => fake.latest();

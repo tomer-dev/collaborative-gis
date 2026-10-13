@@ -3,7 +3,7 @@ import { builtinModules } from 'node:module';
 import { DEV } from '@cgis/shared/constants';
 import { cloudflareTest } from '@cloudflare/vitest-plugin';
 import { configDefaults, defineConfig } from 'vitest/config';
-import { LANE_ENV, sanitizeLane } from './test/lane.ts';
+import { LANE_ENV } from './test/lane.ts';
 
 // Test-only values for wrangler.jsonc `secrets.required`; wrangler reads them from process.env.
 process.env.BETTER_AUTH_SECRET ??= 'test-only-better-auth-secret-0123456789abcdef';
@@ -21,10 +21,8 @@ function gitBranch(): string {
   }
 }
 
-// The lane names this run's databases (test/lane.ts). db/global-setup.ts reads it from the env;
-// workerd tests get it through `inject('testLane')`.
-const testLane = sanitizeLane(process.env[LANE_ENV] ?? gitBranch());
-process.env[LANE_ENV] = testLane;
+// The lane names this run's databases (test/lane.ts); the globalSetups read it from the env.
+process.env[LANE_ENV] ??= gitBranch();
 
 export default defineConfig({
   test: {
@@ -37,10 +35,11 @@ export default defineConfig({
         ],
         test: {
           name: 'workers',
-          provide: { testLane },
           include: ['test/**/*.test.ts'],
           // test/db runs in Node (its own project below).
           exclude: [...configDefaults.exclude, 'test/db/**'],
+          // The lane databases laneEnv() hands out (test/auth/lane-db.ts), made ready in Node.
+          globalSetup: ['./test/lane-setup.ts'],
           // Pre-bundle pg: the workerd runner can't load pg-protocol's mislabelled ESM build.
           deps: {
             optimizer: {

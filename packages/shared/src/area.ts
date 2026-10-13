@@ -28,7 +28,6 @@ export type AreaUpdate = z.infer<typeof AreaUpdateSchema>;
  * `details.current`, so a revert never silently undoes someone else's edit.
  */
 export const RevertRequestSchema = AreaUpdateSchema.pick({ version: true });
-export type RevertRequest = z.infer<typeof RevertRequestSchema>;
 
 /** `GET /api/areas?bbox=…` response body: the live areas in the viewport. */
 export const AreaListSchema = z.object({ areas: z.array(AreaSchema) });
