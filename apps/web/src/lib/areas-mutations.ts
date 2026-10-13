@@ -13,6 +13,7 @@ import {
 import { useMutation, useMutationState, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { api, ApiRequestError, expectStatus, readBody } from './api-client';
+import { authClient } from './auth-client';
 import {
   ALL_AREAS,
   areasKey,
@@ -24,7 +25,6 @@ import {
   versionsKey,
 } from './areas-query';
 import { ringAreaKm2 } from './geo/geodesic';
-import { useSession } from './session';
 
 // The area mutations (create, rename, delete, revert) and the helpers their forms use. The reads
 // and the areas-cache updaters are in ./areas-query.ts.
@@ -68,7 +68,7 @@ export function usePendingAreaIds(): ReadonlySet<string> {
  */
 export function useCreateArea(bbox: Bbox | null, zoom: number | null) {
   const queryClient = useQueryClient();
-  const userId = useSession().data?.id ?? '';
+  const userId = authClient.useSession().data?.user.id ?? '';
   return useMutation<Area, Error, AreaCreate, OptimisticEntry | undefined>({
     mutationKey: CREATE_AREA,
     mutationFn: async (input) =>
