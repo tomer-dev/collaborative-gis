@@ -38,12 +38,11 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 
 ## GEO
 
-`geo.ts`. Spatial reference of every stored geometry, and the sphere for client-side measurements.
+`geo.ts`. Spatial reference of every stored geometry.
 
 | Name | Value | Notes |
 |---|---|---|
 | `SRID` | `4326` | WGS 84 lng/lat: the `geometry(Polygon,4326)` columns, bbox envelopes, and GeoJSON's default. |
-| `EARTH_RADIUS_M` | `6371008.8` | WGS 84 mean radius R1 = (2a + b) / 3, in metres: the sphere `@turf/area` measures on. Against the server's spheroidal `ST_Area(geography)` it reads +0.13 % at 29°N, +0.07 % at 32°N, +0.03 % at 34°N (Israel), +0.45 % at the equator and −0.56 % at 60°N. |
 
 ## SEED
 
@@ -281,7 +280,7 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 | `HANDLE_HIT_PX` | `24` | Vertex handle hit box (Leaflet icon size): the WCAG 2.5.8 target size (≥ 24 CSS px) for dragging a vertex. The dot's radius, ring and colours are CSS (`.cgis-draw-handle` in map.css). |
 | `DRAFT_STYLE` | `{ weight: 2, dashArray: '8 4', fillOpacity: 0.12 }` | Leaflet path options for a sketch in progress (the own draft and other users' ghosts): dashed and faint, so it reads as unsaved next to solid saved areas. Design brief §4: 2 px, dashed 8/4, fill 12 %. Stroke and fill colours are CSS on `.cgis-draw-sketch`. |
 | `AREA_KM2_THRESHOLD` | `1` | Area readouts switch from m² to km² at this many km²: below it whole m² (`12,345 m²`), from it km² to 3 decimals (`1.234 km²`). Numbers use `Stat`'s user-locale formatter. |
-| `AREA_DIFF_WARN_RATIO` | `0.005` | After a save, a note shows the server's area and the client estimate when they differ by more than this share (0.5 %). The client's sphere and PostGIS's spheroid differ by about 0.03 % at Israel's latitude and 0.45–0.56 % at the equator or 60°N (`GEO.EARTH_RADIUS_M`). |
+| `AREA_DIFF_WARN_RATIO` | `0.005` | After a save, a note shows the server's area and the client estimate when they differ by more than this share (0.5 %). The client's sphere (`@turf/area`, WGS 84 mean radius) and PostGIS's spheroid differ by about 0.03 % at Israel's latitude and 0.45–0.56 % at the equator or 60°N. |
 
 ## DRAW
 
