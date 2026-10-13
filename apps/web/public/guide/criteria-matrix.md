@@ -169,10 +169,7 @@ Totals: 73 Met, 5 Partial, 0 Not met (78 rows), as audited at 1a581e7; the two r
 
 ## Numbers
 
-- Tests, counted statically from `it`/`test` declarations (not run; `it.each` counted once):
-  - `packages/shared`: 38 in 4 files.
-  - `apps/api`: 309 in 40 files (10 `it.each`).
-  - `apps/web` (Vitest): 268 in 38 files (7 `it.each`), plus 14 Storybook story files run as browser tests in CI (`test:storybook`).
+- Tests, vitest "Tests N passed" counts on `main` f16685f (the README commit, 2026-10-13): `packages/shared` 42, `apps/api` 348, `apps/web` 345 (735 in total), plus 14 Storybook story files run as browser tests in CI (`test:storybook`). The static count at 1a581e7 from `it`/`test` declarations (`it.each` counted once) was 38 in 4 files, 309 in 40 files and 268 in 38 files.
 - E2E: 2 spec files, 3 tests. `collaboration.spec.ts` (1) runs in CI. `layer-switch.spec.ts` (2) runs locally only.
 - Migrations: 6 SQL files (`0000`–`0005`) plus 2 Durable Object migration tags (`v1` Room, `v2` RateLimiter).
 - Seed: `SEED.COUNT` 50 by default, 10,000 for the benchmark (`BENCH.ROWS`). The seed test inserts 1,000 rows in under 10 s.

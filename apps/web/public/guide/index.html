@@ -872,11 +872,11 @@
           <div class="tiles">
             <div class="tile">
               <div class="label">Unit and component tests</div>
-              <div class="value">615</div>
+              <div class="value">735</div>
               <div class="src">
-                38 shared + 309 api + 268 web, counted from <code>it</code>/<code>test</code>
-                declarations on 2026-10-13; 3 Playwright e2e tests besides. CI green on
-                <code>main</code> (run on 9f072e6, 16:37 UTC).
+                42 shared + 348 api + 345 web: vitest "Tests N passed" counts on
+                <code>main</code> f16685f (the README commit, 2026-10-13); 3 Playwright e2e tests
+                besides. CI green on <code>main</code> (run on 9f072e6, 16:37 UTC).
               </div>
             </div>
             <div class="tile">
@@ -2955,83 +2955,82 @@ vary: Origin</pre>
             </div>
             <div class="chart">
               <h3>Tests per package</h3>
-              <p class="sub">
-                Unit and component tests, counted from <code>it</code>/<code>test</code>
-                declarations.
-              </p>
+              <p class="sub">Unit and component tests: vitest pass counts per package.</p>
               <svg
                 viewBox="0 0 640 120"
                 role="img"
-                aria-label="Bar chart of test counts: packages/shared 38 in 4 files, apps/api 309 in 40 files, apps/web 268 in 38 files."
+                aria-label="Bar chart of vitest pass counts on f16685f: packages/shared 42, apps/api 348, apps/web 345."
               >
                 <g class="grid">
-                  <line x1="277.5" y1="8" x2="277.5" y2="92" />
-                  <line x1="415" y1="8" x2="415" y2="92" />
-                  <line x1="552.5" y1="8" x2="552.5" y2="92" />
+                  <line x1="250" y1="8" x2="250" y2="92" />
+                  <line x1="360" y1="8" x2="360" y2="92" />
+                  <line x1="470" y1="8" x2="470" y2="92" />
+                  <line x1="580" y1="8" x2="580" y2="92" />
                 </g>
                 <line class="axis" x1="140" y1="8" x2="140" y2="92" />
                 <text x="132" y="27" text-anchor="end">shared</text>
                 <path
                   fill="var(--series-1)"
-                  d="M140,14 h48.3 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"
+                  d="M140,14 h42.2 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"
                 >
-                  <title>packages/shared: 38 tests in 4 files</title>
+                  <title>packages/shared: 42 passed (vitest, f16685f)</title>
                 </path>
-                <text class="val" x="200" y="27">38 · 4 files</text>
+                <text class="val" x="194" y="27">42</text>
                 <text x="132" y="57" text-anchor="end">api</text>
                 <path
                   fill="var(--series-1)"
-                  d="M140,44 h420.9 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"
+                  d="M140,44 h378.8 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"
                 >
-                  <title>apps/api: 309 tests in 40 files, run in workerd against PostGIS</title>
+                  <title>apps/api: 348 passed (vitest on workerd against PostGIS, f16685f)</title>
                 </path>
-                <text class="val" x="572" y="57">309</text>
+                <text class="val" x="531" y="57">348</text>
                 <text x="132" y="87" text-anchor="end">web</text>
                 <path
                   fill="var(--series-1)"
-                  d="M140,74 h364.5 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"
+                  d="M140,74 h375.5 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"
                 >
                   <title>
-                    apps/web: 268 tests in 38 files, plus 14 story files as browser tests
+                    apps/web: 345 passed (vitest, f16685f), plus 14 story files as browser tests
                   </title>
                 </path>
-                <text class="val" x="516" y="87">268</text>
+                <text class="val" x="527" y="87">345</text>
                 <g class="tick">
                   <text x="140" y="110" text-anchor="middle">0</text>
-                  <text x="277.5" y="110" text-anchor="middle">100</text>
-                  <text x="415" y="110" text-anchor="middle">200</text>
-                  <text x="552.5" y="110" text-anchor="middle">300</text>
+                  <text x="250" y="110" text-anchor="middle">100</text>
+                  <text x="360" y="110" text-anchor="middle">200</text>
+                  <text x="470" y="110" text-anchor="middle">300</text>
+                  <text x="580" y="110" text-anchor="middle">400</text>
                 </g>
               </svg>
               <p class="cap">
-                Source: the static count in
-                <a href="criteria-matrix.md">our audit of the brief against the repository</a>,
-                <code>main</code> 1a581e7, 2026-10-13 (<code>it.each</code> counted once). Besides:
-                3 Playwright e2e tests in 2 specs, and 14 Storybook story files run as browser tests
-                in CI.
+                Source: the "Tests N passed" line of each package's vitest run on
+                <code>main</code> f16685f (the README commit), 2026-10-13: shared 42, api 348, web
+                345, 735 in total. Besides: 3 Playwright e2e tests in 2 specs, and 14 Storybook
+                story files run as browser tests in CI. The audit's earlier figure (615) was a
+                static count of <code>it</code>/<code>test</code> declarations at 1a581e7.
               </p>
               <details>
                 <summary>Table</summary>
                 <table>
                   <tr>
                     <th>Package</th>
-                    <th class="n">tests</th>
-                    <th class="n">files</th>
+                    <th class="n">passed</th>
                   </tr>
                   <tr>
                     <td>packages/shared</td>
-                    <td class="n">38</td>
-                    <td class="n">4</td>
+                    <td class="n">42</td>
                   </tr>
                   <tr>
                     <td>apps/api</td>
-                    <td class="n">309</td>
-                    <td class="n">40</td>
+                    <td class="n">348</td>
                   </tr>
                   <tr>
                     <td>apps/web</td>
-                    <td class="n">268</td>
-                    <td class="n">38</td>
+                    <td class="n">345</td>
+                  </tr>
+                  <tr>
+                    <td>Total</td>
+                    <td class="n">735</td>
                   </tr>
                 </table>
               </details>
