@@ -1,40 +1,7 @@
-import {
-  type Draft,
-  DraftSchema,
-  LIMITS,
-  type Position,
-  WS,
-  type WsClientEvent,
-} from '@cgis/shared';
-
-/** The `payload` of a client `draft:update`: one edit to the sender's in-progress polygon. */
-export type DraftOp = Extract<WsClientEvent, { type: 'draft:update' }>['payload'];
+import { type Draft, DraftSchema, type Position, WS } from '@cgis/shared';
 
 const VerticesSchema = DraftSchema.shape.vertices;
 const MS_PER_SECOND = 1000;
-
-/**
- * `vertices` after `op`, or `undefined` when the op does not fit them: an index past the end, or
- * an `add` beyond `LIMITS.POLYGON_MAX_VERTICES`. `add` inserts at `index` (`index === length`
- * appends), `move` replaces, `remove` deletes, `clear` empties.
- */
-export function applyDraftOp(vertices: Position[], op: DraftOp): Position[] | undefined {
-  switch (op.op) {
-    case 'add':
-      if (op.index > vertices.length || vertices.length >= LIMITS.POLYGON_MAX_VERTICES) {
-        return undefined;
-      }
-      return [...vertices.slice(0, op.index), op.vertex, ...vertices.slice(op.index)];
-    case 'move':
-      if (op.index >= vertices.length) return undefined;
-      return vertices.map((vertex, i) => (i === op.index ? op.vertex : vertex));
-    case 'remove':
-      if (op.index >= vertices.length) return undefined;
-      return vertices.filter((_, i) => i !== op.index);
-    case 'clear':
-      return [];
-  }
-}
 
 /** A per-socket fixed one-second window, kept in the socket attachment so hibernation keeps it. */
 type DraftRate = { windowStart: number; frames: number };

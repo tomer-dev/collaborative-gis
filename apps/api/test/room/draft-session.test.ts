@@ -1,10 +1,10 @@
-import { type Area, RATE_LIMIT, ROOM, WS } from '@cgis/shared';
+import { type Area, type DraftOp, RATE_LIMIT, ROOM, WS } from '@cgis/shared';
 import { evictDurableObject, runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import type { Env } from '../../src/app';
-import { type DraftOp, DraftStore } from '../../src/do/drafts';
+import { DraftStore } from '../../src/do/drafts';
 import { draftUpdate, type RoomCtx } from '../../src/do/handlers';
 import { withRoomUser } from '../../src/do/handoff';
 import { attachmentOf } from '../../src/do/presence';
