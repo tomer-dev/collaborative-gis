@@ -174,6 +174,25 @@
         color: var(--ink);
       }
 
+      .skip {
+        position: absolute;
+        left: 1rem;
+        top: -4rem;
+        background: var(--ink);
+        color: var(--paper);
+        padding: 0.5rem 0.8rem;
+        border-radius: 6px;
+        z-index: 40;
+      }
+      .skip:focus {
+        top: 1rem;
+      }
+      .arch-hint {
+        display: none;
+      }
+      .card.met {
+        border-left-color: var(--good);
+      }
       #progress {
         position: fixed;
         top: 0;
@@ -312,7 +331,7 @@
         font-size: 1.05rem;
         font-weight: 500;
         color: var(--ink-2);
-        margin-left: 0.2rem;
+        margin-left: 0.35rem;
       }
       .tile .src {
         font-size: 0.76rem;
@@ -434,7 +453,7 @@
         padding: 0;
         margin: 0;
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
         gap: 1.4rem;
       }
       .path li {
@@ -529,11 +548,11 @@
       }
       .chart svg text {
         fill: var(--ink-2);
-        font-size: 12.5px;
+        font-size: 18px;
       }
       .chart svg .tick {
         fill: var(--muted);
-        font-size: 11.5px;
+        font-size: 16px;
         font-variant-numeric: tabular-nums;
       }
       .chart svg .val {
@@ -597,7 +616,7 @@
       }
       .charts {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr));
         gap: 1.2rem;
         margin: 1.3rem 0;
       }
@@ -618,7 +637,7 @@
         color: var(--ink);
       }
       .strip div.ok {
-        background: var(--good);
+        background: #0a7a0a;
         color: #fff;
       }
 
@@ -693,7 +712,21 @@
         margin: 1.4rem 0 0;
       }
 
+      @media (max-width: 760px) {
+        .arch {
+          overflow-x: auto;
+        }
+        .arch svg {
+          min-width: 760px;
+        }
+        .arch-hint {
+          display: block;
+        }
+      }
       @media (max-width: 1100px) {
+        html {
+          scroll-padding-bottom: 3.5rem;
+        }
         main {
           margin-left: 0;
           padding-bottom: 3.4rem;
@@ -748,7 +781,12 @@
           padding-right: 16px;
         }
         .toc a span:last-child {
-          display: none;
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          overflow: hidden;
+          clip-path: inset(50%);
+          white-space: nowrap;
         }
         .toc a {
           padding: 0.5rem 0.5rem;
@@ -757,6 +795,7 @@
     </style>
   </head>
   <body>
+    <a class="skip" href="#start">Skip to content</a>
     <div id="progress" aria-hidden="true"></div>
 
     <nav class="toc" aria-label="Sections">
@@ -811,7 +850,10 @@
       <!-- 01 -->
       <section class="slide" id="start" aria-labelledby="h-start">
         <div class="inner">
-          <p class="eyebrow">Reviewer guide · built 2026-10-13 from <code>main</code> at 1a581e7</p>
+          <p class="eyebrow">
+            Reviewer guide · audit of 2026-10-13 against <code>main</code> at 1a581e7 · page updated
+            after PRs #67 and #71 merged
+          </p>
           <h1 id="h-start">Collaborative GIS</h1>
           <p class="lede" style="margin-top: 1.2rem">
             Several people draw and measure areas on one map at the same time, on OpenStreetMap or
@@ -836,12 +878,12 @@
               <div class="value">49<small>ms</small></div>
               <div class="src">
                 Database time of <code>areas.list</code>, Analytics Engine
-                <code>db_query</code> datapoints, 31 points over the two days to 2026-10-13.
+                <code>db_query</code> datapoints, 31 points as of 2026-10-13 16:40 UTC.
               </div>
             </div>
             <div class="tile">
               <div class="label">Draft frames delivered within 1 s</div>
-              <div class="value">6000<small>of 6000</small></div>
+              <div class="value">6000<small>/ 6000</small></div>
               <div class="src">
                 k6 WebSocket run, 5 sockets × 300 frames at 10/s, echo p95 8 ms (<a
                   href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/benchmarks-load.md"
@@ -852,8 +894,13 @@
           </div>
           <p>
             Against the product brief's requirement lines:
-            <strong>73 of 78 met, 5 partial, 0 not met</strong> (criteria matrix, 2026-10-13). The
-            five partial rows have their own section: <a href="#limitations">12 · Limitations</a>.
+            <strong>74 of 78 met, 4 partial, 0 not met</strong>. Our line-by-line audit of the brief
+            against the repository (<a href="criteria-matrix.md">criteria-matrix.md</a>, 2026-10-13)
+            counted 73 and 5; the docker-compose row became met the same day, when PR #67 merged and
+            the container was verified. The other 31 lines it counts (overview, stack, "focus on",
+            evaluation criteria, submission) are all met; the submission items map to README
+            headings (<a href="#docs">section 14</a>). The partial rows have their own section:
+            <a href="#limitations">12 · Limitations</a>.
           </p>
           <p class="stack">
             Hono on Cloudflare Workers + Durable Objects · PostGIS 3.6 on Neon via Hyperdrive ·
@@ -873,6 +920,13 @@
               (local, seeded with 50 areas).
             </p>
           </div>
+          <p class="small">
+            To run it yourself:
+            <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/README.md#setup"
+              >README › Setup</a
+            >
+            (Docker PostGIS, <code>pnpm install</code>, migrate, <code>pnpm dev</code>).
+          </p>
           <ol class="path">
             <li>
               <div>
@@ -880,13 +934,15 @@
                   <strong>Register.</strong> Name, email, a password of 8 characters or more. You
                   land on the map, signed in.
                 </p>
-                <img
-                  src="img/01-register.png"
-                  width="360"
-                  height="490"
-                  alt="The Create an account form with name, a covered email field, password and the hint At least 8 characters."
-                  loading="lazy"
-                />
+                <a href="img/01-register.png"
+                  ><img
+                    src="img/01-register.png"
+                    width="360"
+                    height="490"
+                    style="max-width: 260px"
+                    alt="The Create an account form with name, a covered email field, password and the hint At least 8 characters."
+                    loading="lazy"
+                /></a>
               </div>
             </li>
             <li>
@@ -895,13 +951,14 @@
                   <strong>Draw.</strong> Press the polygon button, click vertices. The New area
                   panel shows the area in km² and the vertex count as you go.
                 </p>
-                <img
-                  src="img/05-drawing-live-area.png"
-                  width="1440"
-                  height="900"
-                  alt="A dashed orange polygon with five vertices being drawn over Mount Carmel; the New area panel reads Area 32.997 km², Vertices 5 of 999; the presence list marks Alice Demo as Drawing."
-                  loading="lazy"
-                />
+                <a href="img/05-drawing-live-area.png"
+                  ><img
+                    src="img/05-drawing-live-area.png"
+                    width="1440"
+                    height="900"
+                    alt="A dashed orange polygon with five vertices being drawn over Mount Carmel; the New area panel reads Area 32.997 km², Vertices 5 of 999; the presence list marks Alice Demo as Drawing."
+                    loading="lazy"
+                /></a>
               </div>
             </li>
             <li>
@@ -911,13 +968,14 @@
                   draft appears there as a dashed ghost in their colour, and the presence list says
                   who is drawing.
                 </p>
-                <img
-                  src="img/06-realtime-ghost.png"
-                  width="1440"
-                  height="900"
-                  alt="Bob's view: Alice's unfinished polygon drawn as a dashed blue ghost over the same area; the presence list shows Alice Demo marked Drawing and Bob Demo marked you."
-                  loading="lazy"
-                />
+                <a href="img/06-realtime-ghost.png"
+                  ><img
+                    src="img/06-realtime-ghost.png"
+                    width="1440"
+                    height="900"
+                    alt="Bob's view: Alice's unfinished polygon drawn as a dashed blue ghost over the same area; the presence list shows Alice Demo marked Drawing and Bob Demo marked you."
+                    loading="lazy"
+                /></a>
               </div>
             </li>
             <li>
@@ -926,13 +984,14 @@
                   <strong>Save.</strong> Finish, give it a name. The dialog shows the client
                   estimate; the server measures with PostGIS and both windows get the saved polygon.
                 </p>
-                <img
-                  src="img/07-save-dialog.png"
-                  width="1440"
-                  height="900"
-                  alt="The Save area dialog with the name Carmel survey block and Area (estimate) 32.997 km², over a dimmed map."
-                  loading="lazy"
-                />
+                <a href="img/07-save-dialog.png"
+                  ><img
+                    src="img/07-save-dialog.png"
+                    width="1440"
+                    height="900"
+                    alt="The Save area dialog with the name Carmel survey block and Area (estimate) 32.997 km², over a dimmed map."
+                    loading="lazy"
+                /></a>
               </div>
             </li>
             <li>
@@ -941,13 +1000,14 @@
                   <strong>Rename, then revert.</strong> History lists every version. Reverting to
                   version 1 creates version 3 with version 1's content; nothing is deleted.
                 </p>
-                <img
-                  src="img/10-revert.png"
-                  width="1440"
-                  height="900"
-                  alt="The area panel after a revert: Area 32.979 km², History with Version 3 marked Current carrying the original name and Version 2 below it with a Revert to this version button; author ids are covered."
-                  loading="lazy"
-                />
+                <a href="img/10-revert.png"
+                  ><img
+                    src="img/10-revert.png"
+                    width="1440"
+                    height="900"
+                    alt="The area panel after a revert: Area 32.979 km², History with Version 3 marked Current carrying the original name and Version 2 below it with a Revert to this version button; each version is by Alice Demo."
+                    loading="lazy"
+                /></a>
               </div>
             </li>
             <li>
@@ -956,13 +1016,14 @@
                   <strong>Switch to aerial imagery.</strong> The polygon stays on the same ground.
                   govmap has no imagery over the sea, which renders black.
                 </p>
-                <img
-                  src="img/04-map-satellite.png"
-                  width="1120"
-                  height="700"
-                  alt="The same Haifa and Galilee viewport on govmap aerial imagery, with the seeded polygons at the same screen positions and the Areas in view list unchanged."
-                  loading="lazy"
-                />
+                <a href="img/04-map-satellite.png"
+                  ><img
+                    src="img/04-map-satellite.png"
+                    width="1120"
+                    height="700"
+                    alt="The same Haifa and Galilee viewport on govmap aerial imagery, with the seeded polygons at the same screen positions and the Areas in view list unchanged."
+                    loading="lazy"
+                /></a>
               </div>
             </li>
           </ol>
@@ -980,8 +1041,10 @@
           <div class="head">
             <h2 id="h-backend">Backend core</h2>
             <p>
-              One Worker serves the API, the static app, the WebSocket upgrade and two Durable
-              Objects. Areas live in PostGIS; the room state lives in a Durable Object.
+              One Worker serves the API, the static app and the WebSocket upgrade. Live
+              collaboration runs in the Room: a single Cloudflare Durable Object (one stateful
+              instance with its own storage) that holds every open socket, each user's draft and the
+              presence list. Areas live in PostGIS.
             </p>
           </div>
           <ul class="checks">
@@ -1009,13 +1072,14 @@
           </ul>
           <div class="shots">
             <figure>
-              <img
-                src="img/08-area-panel.png"
-                width="1440"
-                height="900"
-                alt="A saved area selected: the panel shows Area 32.979 km², the name field, Delete and Rename buttons, and History with Version 1 marked Current; the author id is covered."
-                loading="lazy"
-              />
+              <a href="img/08-area-panel.png"
+                ><img
+                  src="img/08-area-panel.png"
+                  width="1440"
+                  height="900"
+                  alt="A saved area selected: the panel shows Area 32.979 km², the name field, Delete and Rename buttons, and History with Version 1 by Alice Demo, marked Current."
+                  loading="lazy"
+              /></a>
               <figcaption>
                 The server-measured size (32.979 km², <code>ST_Area(geom::geography)/1e6</code>)
                 next to the client estimate from the previous step (32.997 km²): a 0.05 %
@@ -1023,13 +1087,14 @@
               </figcaption>
             </figure>
             <figure>
-              <img
-                src="img/09-history-versions.png"
-                width="1440"
-                height="900"
-                alt="History after one rename: Version 2 marked Current with the new name, Version 1 with the old name, and a Revert to this version button; author ids are covered."
-                loading="lazy"
-              />
+              <a href="img/09-history-versions.png"
+                ><img
+                  src="img/09-history-versions.png"
+                  width="1440"
+                  height="900"
+                  alt="History after one rename: Version 2 marked Current with the new name, Version 1 with the old name, each by Alice Demo, and a Revert to this version button."
+                  loading="lazy"
+              /></a>
               <figcaption>
                 Every write inserts an <code>area_versions</code> row in the same statement. Revert
                 is a new version, not a rollback.
@@ -1277,54 +1342,59 @@
           </ul>
           <div class="shots">
             <figure>
-              <img
-                src="img/12-rate-limit.png"
-                width="1440"
-                height="900"
-                alt="The Save area dialog showing the error Could not save the area: Too many changes in a short time. Try again in 55 s."
-                loading="lazy"
-              />
+              <a href="img/12-rate-limit.png"
+                ><img
+                  src="img/12-rate-limit.png"
+                  width="1440"
+                  height="900"
+                  alt="The Save area dialog showing the error Could not save the area: Too many changes in a short time. Try again in 55 s."
+                  loading="lazy"
+              /></a>
               <figcaption>
                 The 51st action in a minute. 50 saves went through <code>POST /api/areas</code> with
                 the same session (all 201); the next save from the UI got 429 with
                 <code>Retry-After</code>. One sliding window per user, shared by REST writes and
-                draft sessions.
+                draft sessions (one polygon drawn from first vertex to save or cancel spends one
+                action, however many frames it sends).
               </figcaption>
             </figure>
             <figure>
-              <img
-                src="img/11-conflict-dialog.png"
-                width="1440"
-                height="900"
-                alt="A dialog titled Someone else changed this area, showing Yours: Carmel block - B edit and Theirs: Carmel block - A edit, with Load theirs and Overwrite with mine buttons."
-                loading="lazy"
-              />
+              <a href="img/11-conflict-dialog.png"
+                ><img
+                  src="img/11-conflict-dialog.png"
+                  width="1440"
+                  height="900"
+                  alt="A dialog titled Someone else changed this area, showing Yours: Carmel block - B edit and Theirs: Carmel block - A edit, with Load theirs and Overwrite with mine buttons."
+                  loading="lazy"
+              /></a>
               <figcaption>
                 Both users opened version 3. B's rename arrived after A's and carried the stale
                 version: the server answered 409 with the current copy, and B chooses.
               </figcaption>
             </figure>
             <figure>
-              <img
-                src="img/13-degraded-banner.png"
-                width="1440"
-                height="900"
-                alt="The map with a warning banner: Reconnecting… Live updates are paused. Your drawing is kept. The map and the Areas in view list stay on screen."
-                loading="lazy"
-              />
+              <a href="img/13-degraded-banner.png"
+                ><img
+                  src="img/13-degraded-banner.png"
+                  width="1440"
+                  height="900"
+                  alt="The map with a warning banner: Reconnecting… Live updates are paused. Your drawing is kept. The map and the Areas in view list stay on screen."
+                  loading="lazy"
+              /></a>
               <figcaption>
                 The room socket blocked. After two failed connects the client is degraded: the map
                 stays, the banner says so, and the draft is kept.
               </figcaption>
             </figure>
             <figure>
-              <img
-                src="img/13b-offline-polling.png"
-                width="1440"
-                height="900"
-                alt="The map with a red banner: Offline. Showing the last saved areas; polling every 10 s. Your drawing is kept. A Retry button. A new area saved by the other user appears in the list."
-                loading="lazy"
-              />
+              <a href="img/13b-offline-polling.png"
+                ><img
+                  src="img/13b-offline-polling.png"
+                  width="1440"
+                  height="900"
+                  alt="The map with a red banner: Offline. Showing the last saved areas; polling every 10 s. Your drawing is kept. A Retry button. A new area saved by the other user appears in the list."
+                  loading="lazy"
+              /></a>
               <figcaption>
                 After five failed connects: offline, polling <code>GET /api/areas</code> every 10 s.
                 The other user saved an area over REST and it arrived by polling alone.
@@ -1349,7 +1419,8 @@
                 Two identical viewport reads: <code>x-cache: MISS</code> then <code>HIT</code> with
                 the same ETag (<a href="#backend">section 03</a>). The key is the quantised tile
                 plus the Room's map version, so a write retires the entry before its response
-                returns; when the Room is late the read bypasses the cache rather than wait.
+                returns; when the Room does not answer within its deadline the read bypasses the
+                cache rather than wait.
               </p>
             </div>
           </div>
@@ -1393,7 +1464,7 @@
                 </dt>
                 <dd>
                   Workers Cache API keyed by tile and map version; ETag and 304;
-                  <code>BYPASS</code> when the Room is late.
+                  <code>BYPASS</code> when the Room does not answer within its deadline.
                 </dd>
                 <dt>
                   <a
@@ -1428,8 +1499,9 @@
                   >
                 </dt>
                 <dd>
-                  Audit rows for sign-in, sign-up, sign-out, failed sign-in, every 422 and 429;
-                  writes audit in their own transaction.
+                  Audit rows for sign-in, sign-up, sign-out, failed sign-in and every 422 and 429.
+                  Area writes add their audit row inside the write's own transaction
+                  (services/areas.ts).
                 </dd>
                 <dt>
                   <a
@@ -1586,7 +1658,7 @@
                 <text class="val" x="212" y="27">0.22 ms</text>
                 <text x="132" y="61" text-anchor="end">Seq scan</text>
                 <path
-                  fill="var(--grey-mark)"
+                  fill="var(--muted)"
                   d="M140,48 h386.1 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"
                 >
                   <title>Sequential scan with index scans off: p95 1.33 ms (p50 1.18 ms)</title>
@@ -1635,9 +1707,10 @@
                created_at, updated_at, deleted_at
                GiST(geom) WHERE deleted_at IS NULL
 <b>area_versions</b>  PK (area_id, version): name, geom,
-               area_km2, author, created_at
-<b>audit_log</b>      actor, action, entity, ip, user agent,
-               request id, details (redacted)
+               area_km2, changed_by, changed_at
+<b>audit_log</b>      user_id, action, entity, entity_id,
+               version, ip, user_agent, request_id,
+               at, details (redacted)
 <b>+ Better Auth</b>  user, session, account, verification
 <b>migrations</b>     0000_postgis … 0005_audit_request_id</pre>
               <p class="small" style="margin-top: 0.6rem">
@@ -1776,7 +1849,7 @@
           </ul>
           <div class="two">
             <div>
-              <h3>Response headers, as captured</h3>
+              <h3>Response headers, as captured (excerpt)</h3>
               <pre><b>GET /healthz</b>  200
 strict-transport-security: max-age=15552000; includeSubDomains
 x-frame-options: SAMEORIGIN
@@ -1802,16 +1875,17 @@ vary: Origin</pre>
                 <code>SameSite=Lax</code> once deployed; the socket is <code>wss:</code>.
               </p>
               <figure class="narrow">
-                <img
-                  src="img/02-login.png"
-                  width="360"
-                  height="380"
-                  alt="The Sign in form with a covered email field, a password field and a Sign in button."
-                  loading="lazy"
-                />
+                <a href="img/02-login.png"
+                  ><img
+                    src="img/02-login.png"
+                    width="360"
+                    height="380"
+                    alt="The Sign in form with a covered email field, a password field and a Sign in button."
+                    loading="lazy"
+                /></a>
                 <figcaption>
-                  Email and password sign-in. The sign-in route is rate limited per isolate and
-                  audited, including failures.
+                  Email and password sign-in. The sign-in route is rate limited per Worker instance
+                  (isolate), so not globally, and audited, including failures.
                 </figcaption>
               </figure>
             </div>
@@ -1987,51 +2061,56 @@ vary: Origin</pre>
           </ul>
           <div class="shots">
             <figure>
-              <img
-                src="img/03-map-osm.png"
-                width="1440"
-                height="900"
-                alt="The map over Haifa and the Galilee on OpenStreetMap at zoom 11, with several small seeded polygons, the Areas in view list naming four of them with their sizes, and one user in the presence list."
-                loading="lazy"
-              />
+              <a href="img/03-map-osm.png"
+                ><img
+                  src="img/03-map-osm.png"
+                  width="1440"
+                  height="900"
+                  alt="The map over Haifa and the Galilee on OpenStreetMap at zoom 11, with several small seeded polygons, the Areas in view list naming four of them with their sizes, and one user in the presence list."
+                  loading="lazy"
+              /></a>
               <figcaption>
                 OSM, the default. Areas in view are listed with their sizes; the list and the
                 polygons come from one bounds read.
               </figcaption>
             </figure>
             <figure>
-              <img
-                src="img/04-map-satellite.png"
-                width="1120"
-                height="700"
-                alt="The same viewport on govmap aerial imagery: the polygons sit at the same screen positions; the sea renders black where govmap has no imagery."
-                loading="lazy"
-              />
+              <a href="img/04-map-satellite.png"
+                ><img
+                  src="img/04-map-satellite.png"
+                  width="1120"
+                  height="700"
+                  alt="The same viewport on govmap aerial imagery: the polygons sit at the same screen positions; the sea renders black where govmap has no imagery."
+                  loading="lazy"
+              /></a>
               <figcaption>
                 The same viewport on aerial imagery (govmap level 3). Polygons stay in place. A 300
                 ms crossfade over a still copy of the old tiles, skipped under reduced motion.
               </figcaption>
             </figure>
             <figure>
-              <img
-                src="img/19-dark-map.png"
-                width="1440"
-                height="900"
-                alt="The map in dark mode: dark app chrome and panels, OSM tiles unchanged, the area panel showing History with versions 4 and 3; author ids are covered."
-                loading="lazy"
-              />
+              <a href="img/19-dark-map.png"
+                ><img
+                  src="img/19-dark-map.png"
+                  width="1440"
+                  height="900"
+                  alt="The map in dark mode: dark app chrome and panels, OSM tiles unchanged, the area panel showing History with versions 4 and 3; author ids are covered."
+                  loading="lazy"
+              /></a>
               <figcaption>
-                Dark mode follows <code>prefers-color-scheme</code>; tiles stay as published.
+                Dark mode follows <code>prefers-color-scheme</code>; tiles stay as published. Author
+                names were added after this capture (PR #71), so the author ids here are covered.
               </figcaption>
             </figure>
             <figure class="narrow">
-              <img
-                src="img/18-mobile-map.png"
-                width="390"
-                height="844"
-                alt="The map at phone width: the Areas in view list folded behind a chevron, the presence list visible, a saved polygon on the map."
-                loading="lazy"
-              />
+              <a href="img/18-mobile-map.png"
+                ><img
+                  src="img/18-mobile-map.png"
+                  width="390"
+                  height="844"
+                  alt="The map at phone width: the Areas in view list folded behind a chevron, the presence list visible, a saved polygon on the map."
+                  loading="lazy"
+              /></a>
               <figcaption>390 px wide: the area list folds, the map stays free.</figcaption>
             </figure>
           </div>
@@ -2159,41 +2238,32 @@ vary: Origin</pre>
           </ul>
           <div class="shots">
             <figure>
-              <img
-                src="img/05-drawing-live-area.png"
-                width="1440"
-                height="900"
-                alt="Drawing in progress: five orange vertices with a dashed outline over Mount Carmel; the New area panel shows Area 32.997 km² and Vertices 5 of 999 with Undo, Cancel and Finish."
-                loading="lazy"
-              />
+              <a href="img/05-drawing-live-area.png"
+                ><img
+                  src="img/05-drawing-live-area.png"
+                  width="1440"
+                  height="900"
+                  alt="Drawing in progress: five orange vertices with a dashed outline over Mount Carmel; the New area panel shows Area 32.997 km² and Vertices 5 of 999 with Undo, Cancel and Finish."
+                  loading="lazy"
+              /></a>
               <figcaption>
                 Live area on every edit, computed on the client by spherical excess; the server's
                 geodesic value replaces it after the save.
               </figcaption>
             </figure>
             <figure>
-              <img
-                src="img/06-realtime-ghost.png"
-                width="1440"
-                height="900"
-                alt="The other user's view of the same draft: a dashed blue ghost polygon; the presence list shows Alice Demo as Drawing."
-                loading="lazy"
-              />
+              <a href="img/06-realtime-ghost.png"
+                ><img
+                  src="img/06-realtime-ghost.png"
+                  width="1440"
+                  height="900"
+                  alt="The other user's view of the same draft: a dashed blue ghost polygon; the presence list shows Alice Demo as Drawing."
+                  loading="lazy"
+              /></a>
               <figcaption>
-                The same draft in the other window, as a ghost in the author's colour.
-              </figcaption>
-            </figure>
-            <figure>
-              <img
-                src="img/20-presence-two-users.png"
-                width="1440"
-                height="900"
-                alt="The map with the On this map panel listing Alice Demo (you) with a blue avatar and Bob Demo with a green avatar."
-                loading="lazy"
-              />
-              <figcaption>
-                Presence comes from the socket attachments, so it survives the Room hibernating. The
-                colour is assigned by the server.
+                The same draft in the other window, as a ghost in the author's colour. Presence (who
+                is viewing, who is drawing) comes from the socket attachments, so it survives the
+                Room hibernating; the colour is assigned by the server.
               </figcaption>
             </figure>
           </div>
@@ -2371,8 +2441,8 @@ vary: Origin</pre>
               </div>
             </div>
             <div class="tile">
-              <div class="label">Frames per draft message</div>
-              <div class="value">1<small>op</small></div>
+              <div class="label">Operations per draft frame</div>
+              <div class="value">1</div>
               <div class="src">
                 <code>add</code>, <code>move</code>, <code>remove</code> or <code>clear</code> with
                 a sequence number, never the whole ring; stale sequences dropped by the Room.
@@ -2550,7 +2620,8 @@ vary: Origin</pre>
             <h2 id="h-numbers">Numbers</h2>
             <p>
               Every chart names its source file and date. Production figures come from Analytics
-              Engine over two days of light use, so the point counts are small and are shown.
+              Engine under light use, as of 2026-10-13 16:40 UTC, so the point counts are small and
+              are shown; each caption links the raw query result.
             </p>
           </div>
           <div class="charts">
@@ -2613,9 +2684,10 @@ vary: Origin</pre>
               </svg>
               <p class="cap">
                 Source: Analytics Engine SQL over the <code>db_query</code> dataset, captured
-                2026-10-13 16:40 UTC (handoff evidence <code>analytics-db-latency.json</code>); 31
-                points for <code>areas.list</code>, 2 for <code>areas.write</code>. The query is in
-                the README, Performance considerations.
+                2026-10-13 16:40 UTC (<a href="evidence/analytics-db-latency.json"
+                  >evidence/analytics-db-latency.json</a
+                >); 31 points for <code>areas.list</code>, 2 for <code>areas.write</code>. The query
+                is in the README, Performance considerations.
               </p>
               <details>
                 <summary>Table</summary>
@@ -2646,7 +2718,7 @@ vary: Origin</pre>
             </div>
             <div class="chart">
               <h3>Production datapoints per event</h3>
-              <p class="sub">Analytics Engine points written, two days.</p>
+              <p class="sub">Analytics Engine points written, as of 2026-10-13 16:40 UTC.</p>
               <svg
                 viewBox="0 0 640 150"
                 role="img"
@@ -2700,8 +2772,10 @@ vary: Origin</pre>
                 </g>
               </svg>
               <p class="cap">
-                Source: Analytics Engine SQL, captured 2026-10-13 16:40 UTC (handoff evidence
-                <code>analytics-engine-queries.json</code>). Light traffic: a handful of sessions.
+                Source: Analytics Engine SQL, captured 2026-10-13 16:40 UTC (<a
+                  href="evidence/analytics-engine-queries.json"
+                  >evidence/analytics-engine-queries.json</a
+                >). Light traffic: a handful of sessions.
               </p>
               <details>
                 <summary>Table</summary>
@@ -2867,7 +2941,7 @@ vary: Origin</pre>
                   <line x1="552.5" y1="8" x2="552.5" y2="92" />
                 </g>
                 <line class="axis" x1="140" y1="8" x2="140" y2="92" />
-                <text x="132" y="27" text-anchor="end">packages/shared</text>
+                <text x="132" y="27" text-anchor="end">shared</text>
                 <path
                   fill="var(--series-1)"
                   d="M140,14 h48.3 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"
@@ -2875,7 +2949,7 @@ vary: Origin</pre>
                   <title>packages/shared: 38 tests in 4 files</title>
                 </path>
                 <text class="val" x="200" y="27">38 · 4 files</text>
-                <text x="132" y="57" text-anchor="end">apps/api</text>
+                <text x="132" y="57" text-anchor="end">api</text>
                 <path
                   fill="var(--series-1)"
                   d="M140,44 h420.9 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"
@@ -2883,7 +2957,7 @@ vary: Origin</pre>
                   <title>apps/api: 309 tests in 40 files, run in workerd against PostGIS</title>
                 </path>
                 <text class="val" x="572" y="57">309</text>
-                <text x="132" y="87" text-anchor="end">apps/web</text>
+                <text x="132" y="87" text-anchor="end">web</text>
                 <path
                   fill="var(--series-1)"
                   d="M140,74 h364.5 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"
@@ -2901,9 +2975,11 @@ vary: Origin</pre>
                 </g>
               </svg>
               <p class="cap">
-                Source: the criteria matrix's static count on <code>main</code> 1a581e7, 2026-10-13
-                (<code>it.each</code> counted once). Besides: 3 Playwright e2e tests in 2 specs, and
-                14 Storybook story files run as browser tests in CI.
+                Source: the static count in
+                <a href="criteria-matrix.md">our audit of the brief against the repository</a>,
+                <code>main</code> 1a581e7, 2026-10-13 (<code>it.each</code> counted once). Besides:
+                3 Playwright e2e tests in 2 specs, and 14 Storybook story files run as browser tests
+                in CI.
               </p>
               <details>
                 <summary>Table</summary>
@@ -2959,9 +3035,13 @@ vary: Origin</pre>
                 </div>
               </div>
               <p class="cap">
-                Source: <code>gh run list</code> captured 2026-10-13 16:40 UTC (handoff evidence
-                <code>ci-runs.txt</code>). Production <code>/readyz</code> answered
-                <code>ready</code> at 16:40:52 UTC.
+                Source: <code>gh run list</code> captured 2026-10-13 16:40 UTC (<a
+                  href="evidence/ci-runs.txt"
+                  >evidence/ci-runs.txt</a
+                >). Production <code>/readyz</code> answered <code>ready</code> at 16:40:52 UTC (<a
+                  href="evidence/prod-readyz.txt"
+                  >evidence/prod-readyz.txt</a
+                >).
               </p>
               <details>
                 <summary>Table</summary>
@@ -3038,6 +3118,7 @@ vary: Origin</pre>
               cache sits between them. Numbers in blue are the decision records.
             </p>
           </div>
+          <p class="small arch-hint">Scroll sideways to see the whole diagram.</p>
           <div class="arch">
             <svg
               viewBox="0 0 960 444"
@@ -3060,9 +3141,7 @@ vary: Origin</pre>
               <!-- tiles -->
               <rect class="box" x="20" y="24" width="190" height="56" />
               <text class="t" x="115" y="47" text-anchor="middle">Tile CDNs</text>
-              <text class="s" x="115" y="66" text-anchor="middle">
-                OpenStreetMap · govmap (EPSG:2039)
-              </text>
+              <text class="s" x="115" y="66" text-anchor="middle">OSM · govmap (EPSG:2039)</text>
               <path class="edge dash" d="M115,80 V150" marker-end="url(#arr)" />
               <text class="el" x="122" y="120">tiles</text>
               <!-- browser -->
@@ -3078,9 +3157,7 @@ vary: Origin</pre>
               <!-- github -->
               <rect class="box" x="20" y="334" width="190" height="70" />
               <text class="t" x="115" y="361" text-anchor="middle">GitHub Actions</text>
-              <text class="s" x="115" y="380" text-anchor="middle">
-                ci → migrate Neon → wrangler deploy
-              </text>
+              <text class="s" x="115" y="380" text-anchor="middle">ci → migrate → deploy</text>
               <!-- worker -->
               <rect class="box hot" x="300" y="150" width="220" height="116" />
               <text class="t" x="410" y="176" text-anchor="middle">Cloudflare Worker</text>
@@ -3120,11 +3197,11 @@ vary: Origin</pre>
                 viewport reads: tile + map version
               </text>
               <!-- hyperdrive -->
-              <rect class="box" x="610" y="296" width="150" height="56" />
-              <text class="t" x="685" y="319" text-anchor="middle">Hyperdrive</text>
-              <text class="s" x="685" y="338" text-anchor="middle">connection pool</text>
+              <rect class="box" x="610" y="296" width="140" height="56" />
+              <text class="t" x="680" y="319" text-anchor="middle">Hyperdrive</text>
+              <text class="s" x="680" y="338" text-anchor="middle">connection pool</text>
               <!-- neon -->
-              <rect class="box hot" x="790" y="296" width="150" height="56" />
+              <rect class="box hot" x="780" y="296" width="170" height="56" />
               <text class="t" x="865" y="319" text-anchor="middle">Neon PostGIS</text>
               <text class="s" x="865" y="338" text-anchor="middle">
                 PostgreSQL 18 · PostGIS 3.6
@@ -3136,7 +3213,8 @@ vary: Origin</pre>
                 marker-end="url(#arr)"
                 marker-start="url(#arr)"
               />
-              <text class="el" x="255" y="200" text-anchor="middle">HTTPS · WebSocket</text>
+              <text class="el" x="255" y="199" text-anchor="middle">HTTPS</text>
+              <text class="el" x="255" y="224" text-anchor="middle">WebSocket</text>
               <path
                 class="edge"
                 d="M470,150 V72 H610"
@@ -3153,14 +3231,14 @@ vary: Origin</pre>
                 marker-start="url(#arr)"
               />
               <path class="edge" d="M520,240 C570,240 560,324 610,324" marker-end="url(#arr)" />
-              <text class="el" x="560" y="300" text-anchor="middle">
+              <text class="el" x="680" y="368" text-anchor="middle">
                 one short-lived client per call
               </text>
-              <path class="edge" d="M760,324 H790" marker-end="url(#arr)" />
+              <path class="edge" d="M750,324 H780" marker-end="url(#arr)" />
               <path class="edge" d="M410,266 V334" marker-end="url(#arr)" />
               <text class="el" x="418" y="306">logs · metrics</text>
               <path class="edge dash" d="M210,369 H260 V266 H300" marker-end="url(#arr)" />
-              <text class="el" x="268" y="330" text-anchor="middle">deploy</text>
+              <text class="el" x="240" y="330" text-anchor="middle">deploy</text>
               <path class="edge dash" d="M115,404 V432 H880 V352" marker-end="url(#arr)" />
               <text class="el" x="560" y="426" text-anchor="middle">
                 migrations run from CI over the direct URL, never through Hyperdrive
@@ -3205,12 +3283,15 @@ vary: Origin</pre>
       <!-- 12 -->
       <section class="slide" id="limitations" aria-labelledby="h-limitations">
         <div class="inner">
-          <p class="eyebrow">12 / 14 · the five partial rows, and what was deferred</p>
+          <p class="eyebrow">12 / 14 · the partial rows, and what was deferred</p>
           <div class="head">
             <h2 id="h-limitations">Honest limitations</h2>
             <p>
-              The criteria matrix marks 5 of 78 requirement lines as partial. One card each: the
-              brief's line, what is delivered, what is missing, and where to look.
+              Our audit of the brief against the repository (<a href="criteria-matrix.md"
+                >criteria-matrix.md</a
+              >, 2026-10-13) marked 5 of 78 requirement lines as partial; one of them,
+              docker-compose, became met the same day. One card each: the brief's line, what is
+              delivered, what is missing, and where to look.
             </p>
           </div>
           <div class="cards">
@@ -3338,19 +3419,21 @@ vary: Origin</pre>
                 </dd>
               </dl>
             </div>
-            <div class="card">
-              <h3>“Docker containerization with docker-compose” (bonus)</h3>
+            <div class="card met">
+              <h3>“Docker containerization with docker-compose” (bonus): met since PR #67</h3>
               <dl>
                 <dt>Delivered</dt>
                 <dd>
                   <code>docker-compose.yml</code> runs PostGIS 18 / 3.6 on a loopback port with a
-                  health check; the Worker runs on the host under <code>wrangler dev</code>.
+                  health check and, since PR #67 (merged 2026-10-13), an <code>api</code> service
+                  that runs the Worker under <code>wrangler dev</code> in a container
+                  (<code>apps/api/Dockerfile.dev</code>). Verified on 2026-10-13 with a real Docker
+                  run: build, migrate, <code>/readyz</code> ready, container healthy.
                 </dd>
-                <dt>Missing</dt>
+                <dt>Was missing at audit time</dt>
                 <dd>
-                  On <code>main</code> the application itself is not containerised. PR #67, “run the
-                  API with wrangler dev in a container”, was open and not merged when this page was
-                  built (2026-10-13).
+                  The audit at 1a581e7 predates PR #67, when the Worker ran only on the host; that
+                  is why it counted this row as partial.
                 </dd>
                 <dt>Where</dt>
                 <dd>
@@ -3360,9 +3443,14 @@ vary: Origin</pre>
                   >
                   ·
                   <a
-                    href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/process-log.md"
-                    ><code>docs/process-log.md</code></a
-                  >, “Deferred to M5” · roadmap ticket 6.4
+                    href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/Dockerfile.dev"
+                    ><code>apps/api/Dockerfile.dev</code></a
+                  >
+                  ·
+                  <a
+                    href="https://github.com/tomer-dev/collaborative-gis/blob/main/README.md#api-in-a-container"
+                    >README › Setup › API in a container</a
+                  >
                 </dd>
               </dl>
             </div>
@@ -3373,8 +3461,10 @@ vary: Origin</pre>
             style="max-width: none; columns: 2; column-gap: 2.5rem; column-width: 300px"
           >
             <li>
-              The 50-per-minute limit counts REST writes and draft sessions, not frames (D5): one
-              tab can send up to 600 frames a minute under the separate 10/s cap.
+              The 50-per-minute limit counts REST writes and draft sessions, not frames (D5;
+              D-numbers are entries in the design spec's decision log,
+              <a href="#docs">section 14</a>): one tab can send up to 600 frames a minute under the
+              separate 10/s cap.
             </li>
             <li>
               Aerial imagery depends on govmap's legacy tile cache (newest tiles 2024-01), which can
@@ -3402,7 +3492,7 @@ vary: Origin</pre>
             <li>
               A session revoked elsewhere keeps working for up to 5 minutes where its cookie cache
               is still valid (D24). Deploying needs Workers Paid (D21). The sign-in limiter counts
-              per isolate.
+              per Worker instance (isolate), so it is not global.
             </li>
             <li>
               The WAF rule and the Cloudflare health check with its alert are dashboard steps (<a
@@ -3411,8 +3501,7 @@ vary: Origin</pre>
               >); the repository cannot show them. Cross-region Room placement is untested.
             </li>
             <li>
-              Not built from the roadmap: a Neon branch and preview URL per pull request (7.3), and
-              the workerd container (6.4, PR #67 above).
+              Not built from the roadmap: a Neon branch and preview URL per pull request (7.3).
             </li>
           </ul>
         </div>
@@ -3427,11 +3516,12 @@ vary: Origin</pre>
             <p>Coverage only, one line each.</p>
           </div>
           <ul class="checks">
-            <li class="partial">
-              <b class="st partial">Partial</b
+            <li>
+              <b class="st">Met</b
               ><span
-                >Docker containerization with docker-compose: PostGIS only on <code>main</code>; the
-                API container is PR #67, open at build time.</span
+                >Docker containerization with docker-compose: PostGIS and, since PR #67 (merged
+                2026-10-13), the API under <code>wrangler dev</code> in a container; verified with a
+                real run (build, migrate, <code>/readyz</code> ready, healthy).</span
               >
             </li>
             <li>
@@ -3481,23 +3571,25 @@ vary: Origin</pre>
           </ul>
           <div class="shots">
             <figure>
-              <img
-                src="img/14-docs-scalar.png"
-                width="1440"
-                height="900"
-                alt="The Scalar API reference page titled Collaborative GIS API, v0.1.0, OpenAPI 3.1, listing Liveness, Readiness, Create an area, Areas in a viewport, Update, Delete, Versions and Revert, with a curl example for GET /healthz."
-                loading="lazy"
-              />
+              <a href="img/14-docs-scalar.png"
+                ><img
+                  src="img/14-docs-scalar.png"
+                  width="1440"
+                  height="900"
+                  alt="The Scalar API reference page titled Collaborative GIS API, v0.1.0, OpenAPI 3.1, listing Liveness, Readiness, Create an area, Areas in a viewport, Update, Delete, Versions and Revert, with a curl example for GET /healthz."
+                  loading="lazy"
+              /></a>
               <figcaption><code>/docs</code>: the OpenAPI document rendered by Scalar.</figcaption>
             </figure>
             <figure>
-              <img
-                src="img/17-storybook.png"
-                width="1440"
-                height="900"
-                alt="Storybook showing the PresenceList List story with three users and the Accessibility panel reading Violations 0, Passes 11, Inconclusive 0."
-                loading="lazy"
-              />
+              <a href="img/17-storybook.png"
+                ><img
+                  src="img/17-storybook.png"
+                  width="1140"
+                  height="900"
+                  alt="Storybook's PresenceList List story with three users, beside the Accessibility panel reading Violations 0, Passes 11, Inconclusive 0."
+                  loading="lazy"
+              /></a>
               <figcaption>
                 Beyond the list: Storybook 10 with axe on every component; the stories run as
                 browser tests in CI.
@@ -3606,8 +3698,11 @@ vary: Origin</pre>
           <p class="small" style="margin-top: 2rem">
             This page: <code>apps/web/public/guide/index.html</code>, one file with its images in
             <code>apps/web/public/guide/img/</code>; the deployed app serves it at
-            <code>/guide/</code>. Emails and author ids in the screenshots are covered. Built
-            2026-10-13 from <code>main</code> at 1a581e7.
+            <code>/guide/</code>; the audit it cites is
+            <a href="criteria-matrix.md">criteria-matrix.md</a> and the production query results are
+            under <code>evidence/</code>. Emails in the screenshots are covered. The audit is from
+            2026-10-13 at <code>main</code> 1a581e7; the page was updated after PRs #67 and #71
+            merged.
           </p>
         </div>
       </section>
@@ -3620,9 +3715,23 @@ vary: Origin</pre>
         var bar = document.getElementById('progress');
         var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         var ticking = false;
-        function progress() {
+        function current() {
+          var y = window.scrollY + window.innerHeight * 0.35,
+            i = 0;
+          for (var k = 0; k < sections.length; k++) if (sections[k].offsetTop <= y) i = k;
+          return i;
+        }
+        function tick() {
           var max = document.documentElement.scrollHeight - window.innerHeight;
           bar.style.transform = 'scaleX(' + (max > 0 ? window.scrollY / max : 0) + ')';
+          var i = current();
+          links.forEach(function (a, k) {
+            if (k === i) a.setAttribute('aria-current', 'true');
+            else a.removeAttribute('aria-current');
+          });
+          var active = links[i];
+          if (active && window.innerWidth <= 1100)
+            active.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'auto' });
           ticking = false;
         }
         window.addEventListener(
@@ -3630,30 +3739,12 @@ vary: Origin</pre>
           function () {
             if (!ticking) {
               ticking = true;
-              requestAnimationFrame(progress);
+              requestAnimationFrame(tick);
             }
           },
           { passive: true },
         );
-        progress();
-        function current() {
-          var y = window.scrollY + window.innerHeight * 0.35,
-            i = 0;
-          for (var k = 0; k < sections.length; k++) if (sections[k].offsetTop <= y) i = k;
-          return i;
-        }
-        function mark() {
-          var i = current();
-          links.forEach(function (a, k) {
-            if (k === i) a.setAttribute('aria-current', 'true');
-            else a.removeAttribute('aria-current');
-          });
-          var active = links[i];
-          if (active && active.scrollIntoView && window.innerWidth <= 1100)
-            active.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'auto' });
-        }
-        window.addEventListener('scroll', mark, { passive: true });
-        mark();
+        tick();
         function go(delta) {
           var i = Math.min(sections.length - 1, Math.max(0, current() + delta));
           sections[i].scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
@@ -3661,6 +3752,12 @@ vary: Origin</pre>
         }
         document.addEventListener('keydown', function (e) {
           if (e.altKey || e.ctrlKey || e.metaKey) return;
+          if (
+            e.target &&
+            e.target.closest &&
+            e.target.closest('input,textarea,select,summary,pre,.toc')
+          )
+            return;
           if (e.key === 'ArrowRight') {
             e.preventDefault();
             go(1);
