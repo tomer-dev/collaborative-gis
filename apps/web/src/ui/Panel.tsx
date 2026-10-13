@@ -22,7 +22,7 @@ export interface PanelProps extends Omit<HTMLAttributes<HTMLElement>, 'title'> {
   /** `aside` (complementary landmark, default) or `section` (region). */
   as?: 'aside' | 'section';
   /** Extra classes for the scrolling body, e.g. `max-sm:hidden` to fold it on a phone. */
-  bodyClassName?: string;
+  bodyClassName?: string | undefined;
 }
 
 /** Side panel shell: titled header, scrolling body, optional footer. */
