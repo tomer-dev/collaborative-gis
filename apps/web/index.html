@@ -5,8 +5,9 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Collaborative GIS</title>
-    <!-- pre-mount skeleton; replaced by AppFrame. Paints before any JS, so the colours are the
-         tokens' values (tokens.css) written out, not the Tailwind classes. -->
+    <!-- pre-mount skeleton; replaced by AppFrame. Paints before any JS, so it re-declares the four
+         tokens it uses (--color-bg-raised, --color-line, --color-fg, --color-map-bg) with their
+         tokens.css values for both colour schemes; styles/tokens.test.ts fails when they drift. -->
     <style>
       html,
       body,
@@ -15,6 +16,10 @@
         margin: 0;
       }
       #skeleton {
+        --color-bg-raised: oklch(100% 0 0);
+        --color-line: oklch(91.5% 0.005 97);
+        --color-fg: oklch(15% 0 0);
+        --color-map-bg: oklch(91.5% 0.005 97);
         display: flex;
         flex-direction: column;
         height: 100%;
@@ -30,19 +35,19 @@
         flex-shrink: 0;
         height: 3rem;
         padding: 0 1rem;
-        border-bottom: 1px solid oklch(91.5% 0.005 97);
-        background: oklch(100% 0 0);
-        color: oklch(15% 0 0);
+        border-bottom: 1px solid var(--color-line);
+        background: var(--color-bg-raised);
+        color: var(--color-fg);
       }
       #skeleton main {
         flex: 1;
-        background: oklch(91.5% 0.005 97);
+        background: var(--color-map-bg);
       }
       @media (prefers-color-scheme: dark) {
-        #skeleton header {
-          border-color: oklch(28.9% 0.006 97);
-          background: oklch(21.7% 0.004 97);
-          color: oklch(97.9% 0.001 97);
+        #skeleton {
+          --color-bg-raised: oklch(21.7% 0.004 97);
+          --color-line: oklch(28.9% 0.006 97);
+          --color-fg: oklch(97.9% 0.001 97);
         }
       }
     </style>

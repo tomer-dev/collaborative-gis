@@ -82,7 +82,7 @@ it('redirects a signed-out visitor from /map to /login', async () => {
   expect(await screen.findByRole('heading', { name: /sign in/i })).toBeTruthy();
   expect(router.state.location.pathname).toBe('/login');
   expect(screen.queryByTestId('map-root')).toBeNull();
-  // /login has the minimal header: the app name, no user chip.
+  // /login has the minimal header: the app name and the guide link, no user chip.
   expect(screen.getByRole('heading', { name: /collaborative gis/i })).toBeTruthy();
   expect(screen.queryByRole('button', { name: /sign out/i })).toBeNull();
 });

@@ -10,6 +10,14 @@ const tokensCss = readFileSync(join(import.meta.dirname, 'tokens.css'), 'utf8');
 
 const decls = parseTokens(tokensCss);
 const themeValue = (name: string) => decls.find((d) => d.name === name)?.value;
+const darkDecls = parseTokens(tokensCss.slice(tokensCss.indexOf('@variant dark {')));
+
+/** A token's literal value, following `var(--other)` through the given declarations first. */
+function resolve(name: string, first: typeof decls = decls): string | undefined {
+  const value = first.find((d) => d.name === name)?.value ?? themeValue(name);
+  const ref = value && /^var\((--[\w-]+)\)$/.exec(value);
+  return ref ? resolve(ref[1]!, first) : value;
+}
 
 describe('tokens.css', () => {
   it('resets Tailwind defaults so only Grid 4 tokens generate utilities', () => {
@@ -43,6 +51,23 @@ describe('tokens.css', () => {
       expect(lineHeight, size).toMatch(/rem$/);
       expect((parseFloat(lineHeight!) * 16) % 4, size).toBe(0);
     }
+  });
+
+  it('matches the four tokens the pre-mount skeleton in index.html re-declares', () => {
+    const html = readFileSync(join(import.meta.dirname, '../../index.html'), 'utf8');
+    const style = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
+    const darkAt = style.indexOf('@media (prefers-color-scheme: dark)');
+    const light = parseTokens(style.slice(0, darkAt));
+    const dark = parseTokens(style.slice(darkAt));
+    expect(light.map((d) => d.name)).toEqual([
+      '--color-bg-raised',
+      '--color-line',
+      '--color-fg',
+      '--color-map-bg',
+    ]);
+    for (const d of light) expect(d.value, d.name).toBe(resolve(d.name));
+    for (const d of dark) expect(d.value, `dark ${d.name}`).toBe(resolve(d.name, darkDecls));
+    expect(dark.map((d) => d.name)).toEqual(['--color-bg-raised', '--color-line', '--color-fg']);
   });
 
   it('mirrors the map pane z-indexes from MAP', () => {
