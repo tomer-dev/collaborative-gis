@@ -5,7 +5,6 @@ import {
   ERROR_CODES,
   ERROR_MESSAGES,
   RATE_LIMIT,
-  ROUTES,
   WS,
 } from '@cgis/shared';
 import { DurableObject } from 'cloudflare:workers';
@@ -14,21 +13,19 @@ import type { Env } from '../app';
 import { apiErrorResponse } from '../errors';
 import { log } from '../log';
 import { DraftStore } from './drafts';
-import { ensureEpoch } from './epoch';
 import { parseClientFrame, SWITCHING_PROTOCOLS } from './frames';
 import {
   departed,
   draftUpdate,
   join,
   leave,
-  outlivedState,
   type RoomCtx,
   sessionSaved,
   setPresence,
   strike,
   sweepIdle,
 } from './handlers';
-import { isWebSocketUpgrade, readRoomUser } from './handoff';
+import { readRoomUser } from './handoff';
 import { attachmentOf, newAttachment } from './presence';
 import { bump, createSeqCounter, sendAll, sendError, sockets } from './sockets';
 
@@ -36,9 +33,8 @@ import { bump, createSeqCounter, sendAll, sendError, sockets } from './sockets';
  * The single map room (id `ROOM.DEFAULT_ROOM_ID`). Sockets use the WebSocket Hibernation API:
  * the runtime keeps them open while the object is evicted, so per-socket state lives in
  * attachments and nothing presence-related is kept in instance memory. Drafts (with their draw
- * sessions, D5), the outgoing `seq` counter and the map version (`mapVersion`) live in SQLite,
- * the storage epoch (epoch.ts) in the synchronous KV. This class holds only the entry points;
- * handlers.ts does the work.
+ * sessions, D5), the outgoing `seq` counter and the map version (`mapVersion`) live in SQLite.
+ * This class holds only the entry points; handlers.ts does the work.
  */
 export class Room extends DurableObject<Env> {
   private readonly room: RoomCtx;
@@ -60,28 +56,18 @@ export class Room extends DurableObject<Env> {
   }
 
   /**
-   * Inbound surface: exactly one thing, a `GET ROUTES.WS` WebSocket upgrade from `wsUpgrade`.
-   * Only this Worker holds the `ROOM` binding, so the user headers come from an authenticated
-   * session; they are still validated, and every other request gets a 4xx. Never throws.
-   * 404 NOT_FOUND: other method or path · 426 UPGRADE_REQUIRED: no `Upgrade: websocket` ·
-   * 400 BAD_REQUEST: missing or invalid user headers · 500 INTERNAL: logged, no socket kept.
+   * Inbound surface: the `GET ROUTES.WS` upgrade `wsUpgrade` hands over, after it checked the
+   * method, path and `Upgrade` header. Only this Worker holds the `ROOM` binding, so the user
+   * headers come from an authenticated session; they are still validated (400 BAD_REQUEST when
+   * missing or invalid). A throw (a failed attach) rejects the stub call, which the Worker's
+   * `app.onError` answers with a logged 500; no socket is kept.
    */
   override async fetch(request: Request): Promise<Response> {
-    try {
-      if (request.method !== 'GET' || new URL(request.url).pathname !== ROUTES.WS) {
-        return apiErrorResponse(ERROR_CODES.NOT_FOUND);
-      }
-      if (!isWebSocketUpgrade(request)) return apiErrorResponse(ERROR_CODES.UPGRADE_REQUIRED);
-      const user = readRoomUser(request);
-      if (!user.success) {
-        return apiErrorResponse(ERROR_CODES.BAD_REQUEST, undefined, user.error.issues);
-      }
-      return await this.accept(user.data);
-    } catch (err) {
-      const stack = err instanceof Error ? err.stack : String(err);
-      log('error', 'room fetch failed', { stack });
-      return apiErrorResponse(ERROR_CODES.INTERNAL);
+    const user = readRoomUser(request);
+    if (!user.success) {
+      return apiErrorResponse(ERROR_CODES.BAD_REQUEST, undefined, user.error.issues);
     }
+    return this.accept(user.data);
   }
 
   /**
@@ -108,15 +94,13 @@ export class Room extends DurableObject<Env> {
 
   /**
    * RPC: the map version, 0 until the first area change, then one more per `broadcast`. Kept in
-   * the SQLite `counters` table, so it survives eviction (D6: the viewport cache keys on it). A
-   * Room that lost its storage counts from 0 again, so `epoch` (epoch.ts; written here when there
-   * is none yet) names the run: `(epoch, version)` never repeats.
+   * the SQLite `counters` table, so it survives eviction (D6: the viewport cache keys on it).
    */
-  async getVersion(): Promise<{ epoch: string; version: number }> {
+  async getVersion(): Promise<number> {
     const [row] = this.ctx.storage.sql
       .exec<{ value: number }>(`SELECT value FROM counters WHERE name = 'mapVersion'`)
       .toArray();
-    return { epoch: ensureEpoch(this.ctx.storage), version: row?.value ?? 0 };
+    return row?.value ?? 0;
   }
 
   /**
@@ -142,7 +126,7 @@ export class Room extends DurableObject<Env> {
       return;
     }
     const { userId } = attachment;
-    // Taken on arrival, not when the frame's turn comes: the socket's draft bucket and lastSeen
+    // Taken on arrival, not when the frame's turn comes: the socket's draft window and lastSeen
     // measure what the client sent, not how long the limiter took to answer earlier frames.
     const receivedAt = Date.now();
     const run = (this.queues.get(userId) ?? Promise.resolve()).then(() =>
@@ -161,8 +145,7 @@ export class Room extends DurableObject<Env> {
   /**
    * Unparseable → `error BAD_REQUEST` and a strike (the socket is closed with
    * `WS.CLOSE_POLICY_VIOLATION` at `WS.BAD_FRAME_STRIKES`); otherwise `join`, `leave`,
-   * `presence:set` or `draft:update`. The last two are dropped with `error CONFLICT` + `resync`
-   * from a socket that outlived the state it joined (`outlivedState`). A handler that throws (a
+   * `presence:set` or `draft:update`. A handler that throws (a
    * storage failure) is logged and answered `error INTERNAL` + `resync`; the socket stays open
    * (§6). Every path stores the updated attachment, read here (not at enqueue time) so it includes
    * the frames handled before this one. `now` is the arrival time.
@@ -190,10 +173,8 @@ export class Room extends DurableObject<Env> {
         case 'leave':
           return leave(this.room, socket);
         case 'presence:set':
-          if (outlivedState(this.room, socket)) return;
           return setPresence(this.room, socket, event.payload.state);
         case 'draft:update':
-          if (outlivedState(this.room, socket)) return;
           return await draftUpdate(this.room, socket, event.seq, event.payload, now);
       }
     } catch (err) {
