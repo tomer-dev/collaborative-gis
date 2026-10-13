@@ -1,10 +1,11 @@
 # Dev-only image: runs the Worker on workerd with `wrangler dev` (D9: no Node server).
 # Build context is the repo root (pnpm workspace); see docker-compose.yml `api`.
 # Tag matches .node-version. Debian slim, not alpine: workerd needs glibc.
-FROM node:24.21.0-slim
+FROM node:26.11.1-slim
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
     WRANGLER_SEND_METRICS=false
-RUN corepack enable
+# Node 25+ images no longer bundle corepack; install it so the `packageManager` pin picks pnpm.
+RUN npm install -g corepack && corepack enable
 USER node
 WORKDIR /app
 # Manifests first so the install layer is cached until a dependency changes.
