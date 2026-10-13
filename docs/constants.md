@@ -131,7 +131,7 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 
 | Name | Value | Notes |
 |---|---|---|
-| `DRAFT_RATE_PER_SEC` | `10` | D13: drafts ≤ 10 msg/s, enforced per socket (a token bucket in the Room). The burst guard on draft frames, which spend no drawing actions: D5 charges a draft session once. |
+| `DRAFT_RATE_PER_SEC` | `10` | D13: drafts ≤ 10 msg/s, enforced per socket (a fixed one-second window in the Room). The burst guard on draft frames, which spend no drawing actions: D5 charges a draft session once. |
 | `PRESENCE_IDLE_MS` | `60_000` | D13: a draft not edited for 60 s is dropped by the Room's idle sweep; D5: its session ends. |
 | `SOCKET_IDLE_MS` | `3 * PING_INTERVAL_MS` | The idle sweep closes a socket with no frame and no ping for this long (`CLOSE_IDLE`): three ping intervals, so a hidden tab whose timers the browser throttles to one per minute stays. |
 | `ALARM_INTERVAL_MS` | `30_000` | Sweeps idle state twice per idle window. |
@@ -505,4 +505,3 @@ Saved areas on /map: the save dialog, the area panel (the areas in view, the sel
 |---|---|---|
 | `NOT_JSON` | `'frames must be JSON text'` | Says what the Room accepts; a schema failure sends Zod's issue text instead. |
 | `NOT_JOINED` | `'send join first'` | Drafts come only from users in presence. |
-| `ROOM_STATE_LOST` | `'room state lost; join again'` | `error CONFLICT` with `resync: true`: the socket joined state the Room has since lost (its storage went while the socket stayed attached); every frame but `join`/`leave` is dropped until it joins again. |

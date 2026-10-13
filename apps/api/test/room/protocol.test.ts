@@ -114,7 +114,7 @@ describe('draft:update', () => {
   });
 
   it(`${WS.DRAFT_RATE_PER_SEC + 1} updates at one instant: the last gets error RATE_LIMITED on A only; B received ${WS.DRAFT_RATE_PER_SEC}`, async () => {
-    // Frozen clock: every frame arrives at T0, so the socket's bucket cannot refill mid-burst
+    // Frozen clock: every frame arrives at T0, so the socket's window cannot roll over mid-burst
     // however long the Room (or a loaded machine) takes to handle them.
     vi.setSystemTime(T0);
     const a = await join(drawer());
@@ -125,8 +125,8 @@ describe('draft:update', () => {
     expect(error.payload).toEqual({
       code: 'RATE_LIMITED',
       message: 'Too many requests',
-      // One token's worth of time: 1 s / DRAFT_RATE_PER_SEC.
-      retryAfter: 1000 / WS.DRAFT_RATE_PER_SEC,
+      // The rest of the window: every frame arrived at T0, so the whole second.
+      retryAfter: 1000,
       // The refused frame's own seq: the client takes that op back and sends it again.
       frameSeq: REFUSED_SEQ,
     });

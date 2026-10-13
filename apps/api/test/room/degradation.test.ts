@@ -4,7 +4,6 @@ import { env } from 'cloudflare:workers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DraftStore } from '../../src/do/drafts';
 import { withRoomUser } from '../../src/do/handoff';
-import type { RateLimiter } from '../../src/do/rate-limiter';
 import type { Room } from '../../src/do/room';
 import { socketClient } from './socket-client';
 
@@ -110,14 +109,6 @@ const draftRows = () =>
     state.storage.sql.exec('SELECT user_id FROM drafts').toArray(),
   );
 const alarmOf = () => runInDurableObject(stub, (_room, state) => state.storage.getAlarm());
-const actionsOf = (userId: string) =>
-  runInDurableObject(
-    env.RATE_LIMITER.get(env.RATE_LIMITER.idFromName(userId)),
-    (_limiter: RateLimiter, state) =>
-      state.storage.sql.exec<{ n: number }>('SELECT COUNT(*) AS n FROM actions').one().n,
-  );
-
-const STATE_LOST = { code: 'CONFLICT', message: 'room state lost; join again', resync: true };
 
 describe('join after a reconnect', () => {
   it('a second join on a new socket of the same user receives the full draft:state and the current presence, each user once', async () => {
@@ -233,57 +224,21 @@ describe('chaos: the Room is killed mid-draft', () => {
   });
 });
 
-describe('error events carry resync: true when the Room lost state', () => {
-  it('storage lost under attached sockets: each joined socket’s next frame gets error CONFLICT resync and is dropped (not relayed, stored or charged)', async () => {
-    const A = user('A');
-    const B = user('B');
-    const a = await join(A);
-    const b = await join(B);
+describe('a Room that lost its storage under attached sockets', () => {
+  it('a join on the same socket re-arms the sweep and gets the (now empty) draft:state', async () => {
+    const a = await join(user('A'));
     a.send('draft:update', add(0));
-    await b.waitFor('draft:update');
-
-    await loseState();
-    a.send('draft:update', add(1));
-    expect((await a.waitFor('error')).payload).toEqual(STATE_LOST);
-    b.send('presence:set', { state: 'drawing' });
-    expect((await b.waitFor('error')).payload).toEqual(STATE_LOST);
-
-    expect(b.of('draft:update')).toHaveLength(1);
-    expect(b.of('presence')).toHaveLength(1);
-    expect(await draftRows()).toEqual([]);
-    expect(await actionsOf(A.id)).toBe(1);
-  });
-
-  it('join again on the same socket: presence and the (now empty) draft:state, the sweep re-armed, frames accepted; a socket that has not re-joined is still told', async () => {
-    const A = user('A');
-    const B = user('B');
-    const a = await join(A);
-    const b = await join(B);
-    b.send('draft:update', add(0, 5));
-    await a.waitFor('draft:update');
+    await barrier(a);
     await loseState();
     expect(await alarmOf()).toBeNull(); // deleteAll took the alarm too
 
-    a.send('presence:set', { state: 'drawing' });
-    await a.waitFor('error');
     a.send('join', { mapId: ROOM.DEFAULT_ROOM_ID });
     expect((await a.waitFor('draft:state', 2)).payload).toEqual({ drafts: [] });
-    expect(userIds(a, 'presence', a.of('presence').length)).toEqual([A.id, B.id]);
     expect(await alarmOf()).toEqual(expect.any(Number));
-
-    a.send('draft:update', add(0));
-    expect((await b.waitFor('draft:update')).payload).toEqual({ ...add(0), userId: A.id });
-    await barrier(a);
-    expect(a.of('error')).toHaveLength(1);
-
-    b.send('draft:update', add(1, 6));
-    expect((await b.waitFor('error')).payload).toEqual(STATE_LOST);
-    b.send('join', { mapId: ROOM.DEFAULT_ROOM_ID });
-    expect((await b.waitFor('draft:state', 2)).payload).toEqual({
-      drafts: [{ userId: A.id, vertices: [vertex(0)] }],
-    });
   });
+});
 
+describe('error events carry resync: true when the Room lost state', () => {
   it('a draft:update on a draft the Room no longer has (dropped by the 60 s sweep): DRAFT_OP_MISFIT with resync: true', async () => {
     vi.setSystemTime(T0);
     const a = await join(user('A'));
