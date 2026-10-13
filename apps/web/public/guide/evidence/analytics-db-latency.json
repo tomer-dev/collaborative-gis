@@ -1,0 +1,45 @@
+{
+  "meta": [
+    {
+      "name": "path",
+      "type": "String"
+    },
+    {
+      "name": "p50_ms",
+      "type": "Float64"
+    },
+    {
+      "name": "p95_ms",
+      "type": "Float64"
+    },
+    {
+      "name": "max_ms",
+      "type": "Float64"
+    },
+    {
+      "name": "points",
+      "type": "UInt64"
+    }
+  ],
+
+  "data": [
+    {
+      "path": "areas.list",
+      "p50_ms": 21,
+      "p95_ms": 49,
+      "max_ms": 90,
+      "points": "31"
+    },
+    {
+      "path": "areas.write",
+      "p50_ms": 92,
+      "p95_ms": 168,
+      "max_ms": 168,
+      "points": "2"
+    }
+  ],
+
+  "rows": 2,
+
+  "rows_before_limit_at_least": 33
+}

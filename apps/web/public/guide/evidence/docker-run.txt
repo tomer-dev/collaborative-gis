@@ -1,0 +1,68 @@
+Captured 2026-10-13 on a Linux host (compose project cgistest), with the repository's docker-compose.yml plus a port override: API on host port 20000, PostGIS on 15433. The image came from an earlier cold build (67 s) of the Dockerfile as of dd2b21b, before dd3560d copied tsconfig.base.json into the image, so the two tsconfig warnings below are from that older Dockerfile and dd3560d fixes them.
+Sequence: plain `up` (postgis only) -> `--profile api up --build` -> /readyz -> health -> api logs (first 40 lines, secrets filtered) -> LAN exposure (listening sockets) -> `down -v`.
+The image was already built, so this run's build step shows 6 s; ANSI colour codes were stripped, nothing else changed.
+
+== plain up (postgis only)
+ Container cgistest-postgis-1 Created 
+ Container cgistest-postgis-1 Starting 
+ Container cgistest-postgis-1 Started 
+postgis running
+== profile api up --build
+ Container cgistest-api-1 Created 
+ Container cgistest-postgis-1 Waiting 
+ Container cgistest-postgis-1 Healthy 
+ Container cgistest-api-1 Starting 
+ Container cgistest-api-1 Started 
+build+up took 6 s
+== readyz after 10 s: 200 {"status":"ready","db":"up","room":"up","config":"up"}
+healthz 200
+api running healthy
+postgis running healthy
+== api logs (first 40, secrets filtered)
+api-1  | $ node src/db/migrate.ts
+api-1  | migrations applied
+api-1  | 
+api-1  |  ⛅️ wrangler 4.149.0
+api-1  | ────────────────────
+api-1  | Found a non-empty CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE variable for binding. Hyperdrive will connect to this database during local development.
+api-1  | Your Worker has access to the following bindings:
+api-1  | Binding                                                        Resource                      Mode
+api-1  | env.ROOM (Room)                                                Durable Object                local
+api-1  | env.RATE_LIMITER (RateLimiter)                                 Durable Object                local
+api-1  | env.HYPERDRIVE (ffdceaec4c3b4c70a324ebf9da6cb7a9)              Hyperdrive Config             local
+api-1  | env.METRICS (cgis_metrics)                                     Analytics Engine Dataset      local
+api-1  | env.CLIENT_ORIGIN ("http://localhost:5173")                    Environment Variable          local
+api-1  | env.BETTER_AUTH_URL ("(hidden)")                               Environment Variable          local
+api-1  | 
+api-1  | ▲ [WARNING] Scheduled Workers are not automatically triggered during local development.
+api-1  | 
+api-1  |   To manually trigger a scheduled event, run:
+api-1  |     curl "http://127.0.0.1:8787/cdn-cgi/local/scheduled"
+api-1  |   For more details, see https://developers.cloudflare.com/workers/configuration/cron-triggers/#test-cron-triggers-locally
+api-1  | 
+api-1  | 
+api-1  | ▲ [WARNING] Cannot find base config file "../../tsconfig.base.json" [tsconfig.json]
+api-1  | 
+api-1  |     tsconfig.json:2:13:
+api-1  |       2 │   "extends": "../../tsconfig.base.json",
+api-1  |         ╵              ~~~~~~~~~~~~~~~~~~~~~~~~~~
+api-1  | 
+api-1  | 
+api-1  | ▲ [WARNING] Cannot find base config file "../../tsconfig.base.json" [tsconfig.json]
+api-1  | 
+api-1  |     ../../packages/shared/tsconfig.json:1:13:
+api-1  |       1 │ { "extends": "../../tsconfig.base.json", "include": ["src"] }
+api-1  |         ╵              ~~~~~~~~~~~~~~~~~~~~~~~~~~
+api-1  | 
+api-1  | 
+api-1  | ⎔ Starting local server...
+api-1  | [wrangler:info] Ready on http://0.0.0.0:8787
+api-1  | [wrangler:info] - http://127.0.0.1:8787
+api-1  | [wrangler:info] - http://10.0.2.3:8787
+== LAN exposure
+LISTEN 0      4096                     127.0.0.1:20000      0.0.0.0:*   
+LISTEN 0      4096                     127.0.0.1:15433      0.0.0.0:*   
+== down timing
+ Volume cgistest_postgis-data Removed 
+ Network cgistest_default Removed 
+down took 2 s
