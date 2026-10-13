@@ -23,7 +23,7 @@ import {
   type StubRequest,
   ZOOM,
 } from '../test/api-stub';
-import { AreaPanel, type AreaPanelProps, type AreasListState } from './AreaPanel';
+import { AreaPanel, type AreaPanelProps } from './AreaPanel';
 
 afterEach(() => {
   cleanup();
@@ -50,7 +50,7 @@ const berlin = makeArea(OTHER_ID, {
 });
 const NO_PENDING: ReadonlySet<string> = new Set();
 /** The viewport query has answered. */
-const LOADED: AreasListState = {
+const LOADED: AreaPanelProps['list'] = {
   isPending: false,
   isLoadingError: false,
   refetch: () => {},
@@ -289,6 +289,26 @@ it('asks for a name instead of sending one made of spaces; Close closes', () => 
 
   fireEvent.click(within(panel).getByRole('button', { name: COPY.AREAS.CLOSE }));
   expect(onClose).toHaveBeenCalledTimes(1);
+});
+
+it('keeps the list unfolded across a pick and a Close (the fold is for phone width)', () => {
+  const props = {
+    areas: [orchard],
+    list: LOADED,
+    bbox: ISRAEL,
+    pendingIds: NO_PENDING,
+    onSelect: vi.fn(),
+    onClose: vi.fn(),
+    onConflict: vi.fn(),
+    onDeleted: vi.fn(),
+  };
+  const { rerender } = renderPanel(() => jsonResponse(500, {}), { selectedId: null });
+  fireEvent.click(within(listPanel()).getByRole('button', { name: COPY.AREAS.LIST_SHOW }));
+
+  rerender(<AreaPanel {...props} selectedId={AREA_ID} />);
+  rerender(<AreaPanel {...props} selectedId={null} />);
+
+  expect(within(listPanel()).getByRole('button', { name: COPY.AREAS.LIST_HIDE })).toBeTruthy();
 });
 
 it("refills the name field when the area's name changes (a revert, another user's rename)", () => {

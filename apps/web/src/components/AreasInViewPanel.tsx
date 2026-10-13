@@ -1,6 +1,6 @@
 import { COPY, type Area, type Bbox } from '@cgis/shared';
 import * as L from 'leaflet';
-import { useState, type RefObject } from 'react';
+import type { RefObject } from 'react';
 import { formatArea } from '../lib/area-readout';
 import { areaBounds } from '../lib/map';
 import { Banner, Button, IconChevronDown, IconChevronUp, Panel } from '../ui';
@@ -12,19 +12,6 @@ import { Banner, Button, IconChevronDown, IconChevronUp, Panel } from '../ui';
  */
 export const PANEL_SIZE = 'max-h-panel shrink-4';
 
-/** The card's section, for AreaPanel's focus moves. */
-export type CardRef = { cardRef: RefObject<HTMLElement | null> };
-
-/** What the list needs from the viewport query (`useAreasInBounds`) besides its areas. */
-export type AreasListState = {
-  /** No answer yet for this viewport (and no last one to show meanwhile). */
-  isPending: boolean;
-  /** The first load failed (no areas to show); a failed refetch keeps the areas it has. */
-  isLoadingError: boolean;
-  /** The error's Retry. */
-  refetch: () => unknown;
-};
-
 /** The areas whose bounds meet `bbox`, the same test as the server's `&&` on the bounds query. */
 export function inView(areas: readonly Area[], bbox: Bbox | null): Area[] {
   if (bbox === null) return [];
@@ -33,9 +20,22 @@ export function inView(areas: readonly Area[], bbox: Bbox | null): Area[] {
   return areas.filter((area) => areaBounds(area).intersects(view));
 }
 
-type AreasInViewPanelProps = CardRef & {
+type AreasInViewPanelProps = {
+  /** The card's section, for AreaPanel's focus moves. */
+  cardRef: RefObject<HTMLElement | null>;
   areas: readonly Area[];
-  list: AreasListState;
+  /** What the list needs from the viewport query (`useAreasInBounds`) besides its areas. */
+  list: {
+    /** No answer yet for this viewport (and no last one to show meanwhile). */
+    isPending: boolean;
+    /** The first load failed (no areas to show); a failed refetch keeps the areas it has. */
+    isLoadingError: boolean;
+    /** The error's Retry. */
+    refetch: () => unknown;
+  };
+  /** Below `sm`: the list is shown (AreaPanel keeps it, so a pick and a Close do not refold it). */
+  unfolded: boolean;
+  onToggleFold: () => void;
   onSelect: (area: Area) => void;
 };
 
@@ -44,8 +44,14 @@ type AreasInViewPanelProps = CardRef & {
  * On a phone (below `sm`) the list starts folded behind a header button, so the map stays free.
  * Each row carries `data-area-id`, where AreaPanel puts focus back after a Close.
  */
-export function AreasInViewPanel({ cardRef, areas, list, onSelect }: AreasInViewPanelProps) {
-  const [unfolded, setUnfolded] = useState(false);
+export function AreasInViewPanel({
+  cardRef,
+  areas,
+  list,
+  unfolded,
+  onToggleFold,
+  onSelect,
+}: AreasInViewPanelProps) {
   // Retry's banner gives way to "Loading…": focus waits on the card (not a tab stop) meanwhile.
   const retry = () => {
     cardRef.current?.focus();
@@ -67,7 +73,7 @@ export function AreasInViewPanel({ cardRef, areas, list, onSelect }: AreasInView
           className="sm:hidden"
           icon={unfolded ? IconChevronDown : IconChevronUp}
           aria-label={unfolded ? COPY.AREAS.LIST_HIDE : COPY.AREAS.LIST_SHOW}
-          onClick={() => setUnfolded(!unfolded)}
+          onClick={onToggleFold}
         />
       }
     >
@@ -76,7 +82,9 @@ export function AreasInViewPanel({ cardRef, areas, list, onSelect }: AreasInView
   );
 }
 
-type AreaListProps = Omit<AreasInViewPanelProps, 'cardRef'> & { onRetry: () => void };
+type AreaListProps = Pick<AreasInViewPanelProps, 'areas' | 'list' | 'onSelect'> & {
+  onRetry: () => void;
+};
 
 /** Loading, a failed first load (with Retry), no areas in view, or the areas. */
 function AreaList({ areas, list, onSelect, onRetry }: AreaListProps) {
