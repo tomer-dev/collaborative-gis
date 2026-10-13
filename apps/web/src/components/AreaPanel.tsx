@@ -37,12 +37,24 @@ type SelectedAreaProps = {
   onDeleted: () => void;
 };
 
+/** What the list needs from the viewport query (`useAreasInBounds`) besides its areas. */
+export type AreasListState = {
+  /** No answer yet for this viewport (and no last one to show meanwhile). */
+  isPending: boolean;
+  /** The first load failed (no areas to show); a failed refetch keeps the areas it has. */
+  isLoadingError: boolean;
+  /** The error's Retry. */
+  refetch: () => unknown;
+};
+
 export type AreaPanelProps = SelectedAreaProps & {
   /**
    * The viewport query's areas. They can reach past `bbox`: the WebSocket adds an area to every
    * cached list, and the last viewport's list stays while the next one loads.
    */
   areas: readonly Area[];
+  /** The viewport query's state: loading and a failed load each say so, rather than "none". */
+  list: AreasListState;
   /** The current viewport; the list shows the areas whose bounds meet it. */
   bbox: Bbox | null;
   /** Optimistic areas whose create is in flight (`usePendingAreaIds`): never listed or opened. */
@@ -60,6 +72,7 @@ export type AreaPanelProps = SelectedAreaProps & {
  */
 export function AreaPanel({
   areas,
+  list,
   bbox,
   pendingIds,
   selectedId,
@@ -69,7 +82,7 @@ export function AreaPanel({
   const saved = areas.filter((area) => !pendingIds.has(area.id));
   const selected = saved.find((area) => area.id === selectedId);
   if (selected) return <SelectedAreaPanel key={selected.id} area={selected} {...selectedProps} />;
-  return <AreasInViewPanel areas={inView(saved, bbox)} onSelect={onSelect} />;
+  return <AreasInViewPanel areas={inView(saved, bbox)} list={list} onSelect={onSelect} />;
 }
 
 /** The areas whose bounds meet `bbox`, the same test as the server's `&&` on the bounds query. */
@@ -84,13 +97,17 @@ function inView(areas: readonly Area[], bbox: Bbox | null): Area[] {
   );
 }
 
-type AreasInViewPanelProps = { areas: readonly Area[]; onSelect: (area: Area) => void };
+type AreasInViewPanelProps = {
+  areas: readonly Area[];
+  list: AreasListState;
+  onSelect: (area: Area) => void;
+};
 
 /**
  * The areas in view with their size; the panel body scrolls (the server caps a viewport's areas).
  * On a phone (below `sm`) the list starts folded behind a header button, so the map stays free.
  */
-function AreasInViewPanel({ areas, onSelect }: AreasInViewPanelProps) {
+function AreasInViewPanel({ areas, list, onSelect }: AreasInViewPanelProps) {
   const [unfolded, setUnfolded] = useState(false);
   return (
     <Panel
@@ -110,12 +127,26 @@ function AreasInViewPanel({ areas, onSelect }: AreasInViewPanelProps) {
         />
       }
     >
-      <AreaList areas={areas} onSelect={onSelect} />
+      <AreaList areas={areas} list={list} onSelect={onSelect} />
     </Panel>
   );
 }
 
-function AreaList({ areas, onSelect }: AreasInViewPanelProps) {
+/** Loading, a failed first load (with Retry), no areas in view, or the areas. */
+function AreaList({ areas, list, onSelect }: AreasInViewPanelProps) {
+  if (list.isPending) return <p className="text-sm text-fg-muted">{COPY.AREAS.LIST_LOADING}</p>;
+  if (list.isLoadingError) {
+    const retry = (
+      <Button variant="secondary" size="sm" onClick={() => list.refetch()}>
+        {COPY.AREAS.LIST_RETRY}
+      </Button>
+    );
+    return (
+      <Banner tone="danger" title={COPY.AREAS.LIST_ERROR_TITLE} action={retry}>
+        {COPY.AREAS.ERROR_GENERIC}
+      </Banner>
+    );
+  }
   if (areas.length === 0) return <p className="text-sm text-fg-muted">{COPY.AREAS.LIST_EMPTY}</p>;
   return (
     <ul className="-mx-2 flex flex-col">

@@ -96,6 +96,12 @@ export const COPY = {
     ERROR_GENERIC: 'Something went wrong. Try again.',
     /** The area panel: its title, also the name of the list of the areas in the viewport. */
     LIST_TITLE: 'Areas in view',
+    /** While the viewport's first answer is on its way (not "no areas"). */
+    LIST_LOADING: 'Loading areas…',
+    /** The viewport's first load failed: the list cannot say whether there are areas. */
+    LIST_ERROR_TITLE: 'Could not load the areas',
+    /** Loads the viewport's areas again. */
+    LIST_RETRY: 'Retry',
     LIST_EMPTY: 'No saved areas in view.',
     /** Phone width only: the area panel's header button that unfolds the list (it starts folded). */
     LIST_SHOW: 'Show the list',

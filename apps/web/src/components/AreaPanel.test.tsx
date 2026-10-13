@@ -23,7 +23,7 @@ import {
   type StubRequest,
   ZOOM,
 } from '../test/api-stub';
-import { AreaPanel, type AreaPanelProps } from './AreaPanel';
+import { AreaPanel, type AreaPanelProps, type AreasListState } from './AreaPanel';
 
 afterEach(() => {
   cleanup();
@@ -49,6 +49,12 @@ const berlin = makeArea(OTHER_ID, {
   },
 });
 const NO_PENDING: ReadonlySet<string> = new Set();
+/** The viewport query has answered. */
+const LOADED: AreasListState = {
+  isPending: false,
+  isLoadingError: false,
+  refetch: () => {},
+};
 
 const isVersionsGet = ({ method, path }: StubRequest) =>
   method === 'GET' && path.endsWith('/versions');
@@ -72,6 +78,7 @@ function renderPanel(handler: StubHandler, props: Partial<AreaPanelProps> = {}) 
   const view = render(
     <AreaPanel
       areas={[orchard]}
+      list={LOADED}
       bbox={ISRAEL}
       pendingIds={NO_PENDING}
       selectedId={AREA_ID}
@@ -112,6 +119,29 @@ it('says when no saved area is in view', () => {
   expect(within(listPanel()).queryByRole('listitem')).toBeNull();
 });
 
+it('tells a loading list and a failed one from an empty view; Retry loads it again', () => {
+  const refetch = vi.fn();
+  renderPanel(() => jsonResponse(500, {}), {
+    areas: [],
+    selectedId: null,
+    list: { ...LOADED, isPending: true },
+  });
+  expect(within(listPanel()).getByText(COPY.AREAS.LIST_LOADING)).toBeTruthy();
+  expect(within(listPanel()).queryByText(COPY.AREAS.LIST_EMPTY)).toBeNull();
+  cleanup();
+
+  renderPanel(() => jsonResponse(500, {}), {
+    areas: [],
+    selectedId: null,
+    list: { ...LOADED, isLoadingError: true, refetch },
+  });
+  const alert = within(listPanel()).getByRole('alert');
+  expect(alert.textContent).toContain(COPY.AREAS.LIST_ERROR_TITLE);
+  expect(within(listPanel()).queryByText(COPY.AREAS.LIST_EMPTY)).toBeNull();
+  fireEvent.click(within(alert).getByRole('button', { name: COPY.AREAS.LIST_RETRY }));
+  expect(refetch).toHaveBeenCalledTimes(1);
+});
+
 it('selects a listed area through onSelect; the selected area replaces the list', () => {
   const vineyard = makeArea('area-v', { name: 'Vineyard' });
   const { onSelect, rerender } = renderPanel(() => jsonResponse(500, {}), {
@@ -125,6 +155,7 @@ it('selects a listed area through onSelect; the selected area replaces the list'
   rerender(
     <AreaPanel
       areas={[orchard, vineyard]}
+      list={LOADED}
       bbox={ISRAEL}
       pendingIds={NO_PENDING}
       selectedId={vineyard.id}
@@ -228,6 +259,7 @@ it('asks for a name instead of sending one made of spaces; Close closes', () => 
 
 it("refills the name field when the area's name changes (a revert, another user's rename)", () => {
   const props = {
+    list: LOADED,
     bbox: ISRAEL,
     pendingIds: NO_PENDING,
     selectedId: AREA_ID,
