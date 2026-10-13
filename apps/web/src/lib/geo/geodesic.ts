@@ -14,8 +14,8 @@ export function closeRing(ring: readonly LngLat[]): LngLat[] {
 
 /**
  * Area of a ring in m², via `@turf/area`: spherical excess (Chamberlain & Duquette 2007) on
- * the WGS84 mean-radius sphere, R = 6371008.8 m (= `GEO.EARTH_RADIUS_M`). Open or closed
- * rings, either orientation; fewer than 3 vertices gives 0.
+ * the WGS84 mean-radius sphere, R = 6371008.8 m. Open or closed rings, either orientation; fewer
+ * than 3 vertices gives 0.
  */
 export function ringAreaM2(ring: readonly LngLat[]): number {
   return area({ type: 'Polygon', coordinates: [closeRing(ring)] });

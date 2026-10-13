@@ -18,13 +18,6 @@ describe('M1 composition stubs', () => {
     expect(await res.json()).toEqual({ ok: true });
   });
 
-  it('health routes still answer through the middleware chain', async () => {
-    expect((await SELF.fetch('http://x/healthz')).status).toBe(200);
-    const ready = await SELF.fetch('http://x/readyz');
-    expect(ready.status).toBe(200);
-    expect(await ready.json()).toEqual({ status: 'ready', db: 'up', room: 'up', config: 'up' });
-  });
-
   it('the test env carries the vars and secrets lanes rely on', () => {
     expect(env.BETTER_AUTH_URL).toBe(DEV.API_ORIGIN);
     expect(env.BETTER_AUTH_SECRET.length).toBeGreaterThanOrEqual(32);

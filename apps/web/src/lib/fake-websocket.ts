@@ -1,8 +1,8 @@
 // Test support: an in-memory stand-in for the browser WebSocket, driven by the test.
 import { parseWsClientMessage, WS, type WsClientEvent } from '@cgis/shared';
-import type { SocketFactory, SocketLike } from './ws';
+import { vi } from 'vitest';
 
-export class FakeSocket implements SocketLike {
+export class FakeSocket {
   onopen: ((event: Event) => void) | null = null;
   onclose: ((event: CloseEvent) => void) | null = null;
   onmessage: ((event: MessageEvent) => void) | null = null;
@@ -50,20 +50,24 @@ export class FakeSocket implements SocketLike {
   }
 }
 
-/** A factory that records every socket it creates. */
+/** Replaces the browser `WebSocket` with `FakeSocket`, recording every socket created. */
 export function fakeSockets() {
   const sockets: FakeSocket[] = [];
-  const factory: SocketFactory = (url) => {
-    const socket = new FakeSocket(url);
-    sockets.push(socket);
-    return socket;
-  };
+  vi.stubGlobal(
+    'WebSocket',
+    class extends FakeSocket {
+      constructor(url: string) {
+        super(url);
+        sockets.push(this);
+      }
+    },
+  );
   const latest = (): FakeSocket => {
     const socket = sockets.at(-1);
     if (!socket) throw new Error('no socket was created');
     return socket;
   };
-  return { sockets, factory, latest };
+  return { sockets, latest };
 }
 
 /** A server frame with the envelope stamps the Room adds. */

@@ -2,8 +2,8 @@ import { DRAW } from '@cgis/shared';
 import * as L from 'leaflet';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ZodError } from 'zod';
-import { closeRing, invalidReason, onDraw, toLngLat, type DrawEvent } from './draw-events';
-import type { LngLat } from './geodesic';
+import { invalidReason, onDraw, toLngLat, type DrawEvent } from './draw-events';
+import { closeRing, type LngLat } from './geodesic';
 
 describe('onDraw', () => {
   let map: L.Map;

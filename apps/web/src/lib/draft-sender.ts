@@ -1,35 +1,10 @@
-import { LIMITS, type Position, WS } from '@cgis/shared';
-import type { OutgoingEvent } from './ws';
+import { applyDraftOp, type DraftOp, type Position, WS } from '@cgis/shared';
 
 const MS_PER_SECOND = 1000;
 /** Spacing between `draft:update` frames: exactly the Room's per-socket budget. */
 export const DRAFT_INTERVAL_MS = MS_PER_SECOND / WS.DRAFT_RATE_PER_SEC;
 
-/** One edit to a draft as `draft:update` carries it (`userId` is the author, set by the Room). */
-export type DraftOp = Extract<OutgoingEvent, { type: 'draft:update' }>['payload'];
-
 const CLEAR: DraftOp = { op: 'clear' };
-
-/**
- * `vertices` after `op`, or `undefined` when it does not fit (index past the end, or an `add`
- * beyond `LIMITS.POLYGON_MAX_VERTICES`). The Room's rule (apps/api/src/do/drafts.ts): `add`
- * inserts at `index`, `move` replaces, `remove` deletes, `clear` empties.
- */
-export function applyDraftOp(vertices: readonly Position[], op: DraftOp): Position[] | undefined {
-  switch (op.op) {
-    case 'add':
-      if (op.index > vertices.length || vertices.length >= LIMITS.POLYGON_MAX_VERTICES) return;
-      return [...vertices.slice(0, op.index), op.vertex, ...vertices.slice(op.index)];
-    case 'move':
-      if (op.index >= vertices.length) return;
-      return vertices.map((vertex, i) => (i === op.index ? op.vertex : vertex));
-    case 'remove':
-      if (op.index >= vertices.length) return;
-      return vertices.filter((_, i) => i !== op.index);
-    case 'clear':
-      return [];
-  }
-}
 
 const same = (a: Position | undefined, b: Position | undefined) =>
   a !== undefined && b !== undefined && a[0] === b[0] && a[1] === b[1];

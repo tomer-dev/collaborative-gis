@@ -35,7 +35,7 @@ export default async function setup(project: TestProject) {
   project.provide('seedDatabaseUrl', seedUrl);
 }
 
-async function freshDatabase(name: string): Promise<string> {
+export async function freshDatabase(name: string): Promise<string> {
   const url = execFileSync('bash', [dbLane, name], { encoding: 'utf8' }).trim();
 
   const client = new pg.Client({ connectionString: url });

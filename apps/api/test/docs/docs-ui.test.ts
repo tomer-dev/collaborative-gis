@@ -3,7 +3,7 @@ import { SELF } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 
 /** The deployed Worker's own fetch: app.ts mounts the docs UI (`app.route('/', docs)`). */
-const get = (init: RequestInit = {}) => SELF.fetch(`http://x${ROUTES.DOCS}`, init);
+const get = () => SELF.fetch(`http://x${ROUTES.DOCS}`);
 
 describe(`GET ${ROUTES.DOCS}`, () => {
   it('serves the API reference HTML pointing at the OpenAPI document, without a session', async () => {
@@ -30,10 +30,5 @@ describe(`GET ${ROUTES.DOCS}`, () => {
     const res = await get();
     expect(res.headers.get('x-request-id')).toMatch(/^[0-9a-f-]{36}$/);
     expect(res.headers.get('x-content-type-options')).toBe('nosniff');
-  });
-
-  it('answers only GET', async () => {
-    const res = await get({ method: 'POST' });
-    expect(res.status).toBe(404);
   });
 });

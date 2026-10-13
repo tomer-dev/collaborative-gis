@@ -3,7 +3,8 @@ import { useMutation } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import type { FormEvent, InputHTMLAttributes } from 'react';
 import { z } from 'zod';
-import { authErrorMessage, signIn, signUp } from '../../lib/auth';
+import { authErrorMessage } from '../../lib/auth';
+import { authClient } from '../../lib/auth-client';
 import { Banner, Button, Field, Input, Panel } from '../../ui';
 import { focusRing } from '../../ui/focus';
 
@@ -63,7 +64,7 @@ type ModeSpec = {
   pendingLabel: string;
   errorTitle: string;
   /** Parses the form's entries and makes the call; a parse failure rejects like a failed call. */
-  submit: (form: FormData) => Promise<void>;
+  submit: (form: FormData) => Promise<unknown>;
   switchPrompt: string;
   switchLabel: string;
   switchTo: typeof ROUTES.APP.LOGIN | typeof ROUTES.APP.REGISTER;
@@ -76,7 +77,7 @@ const MODES: Record<AuthMode, ModeSpec> = {
     submitLabel: COPY.AUTH.LOGIN_SUBMIT,
     pendingLabel: COPY.AUTH.LOGIN_PENDING,
     errorTitle: COPY.AUTH.LOGIN_ERROR_TITLE,
-    submit: (form) => signIn(SignInForm.parse(Object.fromEntries(form))),
+    submit: (form) => authClient.signIn.email(SignInForm.parse(Object.fromEntries(form))),
     switchPrompt: COPY.AUTH.LOGIN_SWITCH_PROMPT,
     switchLabel: COPY.AUTH.LOGIN_SWITCH_LINK,
     switchTo: ROUTES.APP.REGISTER,
@@ -87,7 +88,7 @@ const MODES: Record<AuthMode, ModeSpec> = {
     submitLabel: COPY.AUTH.REGISTER_SUBMIT,
     pendingLabel: COPY.AUTH.REGISTER_PENDING,
     errorTitle: COPY.AUTH.REGISTER_ERROR_TITLE,
-    submit: (form) => signUp(SignUpForm.parse(Object.fromEntries(form))),
+    submit: (form) => authClient.signUp.email(SignUpForm.parse(Object.fromEntries(form))),
     switchPrompt: COPY.AUTH.REGISTER_SWITCH_PROMPT,
     switchLabel: COPY.AUTH.REGISTER_SWITCH_LINK,
     switchTo: ROUTES.APP.LOGIN,
