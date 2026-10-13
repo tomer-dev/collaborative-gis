@@ -13,15 +13,14 @@ import { describeRoute } from 'hono-openapi';
 import { z } from 'zod';
 import type { AppEnv } from '../app';
 import { apiError } from '../errors';
-import { mutationGuards, requireUser } from '../middleware';
+import { mutationGuards } from '../middleware';
 import { listAreaVersions, revertAreaToVersion } from '../services/areas';
 import { IdParamSchema, validate } from '../validate';
 import { actor, error, json, publish, RATE_LIMITED, UNAUTHORIZED } from './common';
 
-// An area's saved versions, and the revert to one of them; routes/areas.ts mounts both. Same
-// guards as the area routes: a session first (401); the revert, like every mutation, mounts
-// `mutationGuards()` (session, then the user's D5 budget (429) and the body cap (413)) before
-// validation (422). A revert names the version it is based on and meets the same 409 as a `PUT`
+// An area's saved versions, and the revert to one of them; routes/areas.ts mounts both behind its
+// `requireUser()` (401 first); the revert, like every mutation, mounts `mutationGuards()` (the
+// user's D5 budget (429) and the body cap (413)) before validation (422). A revert names the version it is based on and meets the same 409 as a `PUT`
 // when the area moved on (D4). services/areas.ts owns the transaction and the audit row; a
 // committed revert bumps the map version before the response and is broadcast after it.
 
@@ -43,7 +42,7 @@ const RevertConflictSchema = z.union([
 const UNPROCESSABLE = error('Invalid path parameter (`UNPROCESSABLE`): `details.issues`');
 
 /** Mounted at `ROUTES.AREA_VERSIONS` (`/api/areas/:id/versions`). */
-export const versions = new Hono<AppEnv>().use(requireUser()).get(
+export const versions = new Hono<AppEnv>().get(
   '/',
   describeRoute({
     summary: 'Versions of an area',
