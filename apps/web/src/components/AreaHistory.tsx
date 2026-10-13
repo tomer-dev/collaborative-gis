@@ -14,10 +14,10 @@ import { formatArea } from '../lib/area-readout';
 import {
   AreaConflictError,
   areaErrorMessage,
-  useAreaVersions,
   useRevertArea,
   type AreaEdit,
-} from '../lib/areas-query';
+} from '../lib/areas-mutations';
+import { useAreaVersions } from '../lib/areas-query';
 import { Banner, Button } from '../ui';
 
 /** The tooltip: the exact date and time in the user's locale. */

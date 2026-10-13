@@ -24,15 +24,17 @@ import {
 import { ApiRequestError } from './api-client';
 import {
   AreaConflictError,
-  areasKey,
-  replaceArea,
-  useAreasInBounds,
-  useAreaVersions,
   useCreateArea,
   useDeleteArea,
   usePendingAreaIds,
   useRevertArea,
   useUpdateArea,
+} from './areas-mutations';
+import {
+  areasKey,
+  replaceArea,
+  useAreasInBounds,
+  useAreaVersions,
   versionsKey,
 } from './areas-query';
 import { ringAreaKm2 } from './geo/geodesic';

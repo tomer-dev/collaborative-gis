@@ -3,10 +3,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   AreaConflictError,
   areaErrorMessage,
-  replaceArea,
   useUpdateArea,
   type AreaEdit,
-} from '../lib/areas-query';
+} from '../lib/areas-mutations';
+import { replaceArea } from '../lib/areas-query';
 import { Banner, Button, Dialog } from '../ui';
 
 export type ConflictDialogProps = {

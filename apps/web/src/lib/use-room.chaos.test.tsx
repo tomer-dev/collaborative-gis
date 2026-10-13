@@ -14,8 +14,9 @@ import { act, cleanup, renderHook } from '@testing-library/react';
 import * as L from 'leaflet';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { applyDraftOp, DRAFT_INTERVAL_MS, type DraftOp } from './draft-sender';
 import { type FakeSocket, fakeSockets, serverFrame } from './fake-websocket';
-import { applyDraftOp, DRAFT_INTERVAL_MS, type DraftOp, useRoom } from './use-room';
+import { useRoom } from './use-room';
 import { backoffDelay } from './ws';
 
 const SELF = 'me';

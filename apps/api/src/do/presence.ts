@@ -1,5 +1,6 @@
-import { LIMITS, MAP, type PresenceUser, PresenceStateSchema } from '@cgis/shared';
+import { type AuthUser, LIMITS, MAP, type PresenceUser, PresenceStateSchema } from '@cgis/shared';
 import { z } from 'zod';
+import { fullDraftBucket } from './drafts';
 
 /**
  * Per-socket state, kept with `ws.serializeAttachment()` so it survives hibernation. Presence is
@@ -31,6 +32,25 @@ export const PresenceAttachmentSchema = z.object({
 });
 export type PresenceAttachment = z.infer<typeof PresenceAttachmentSchema>;
 type PresenceColor = PresenceAttachment['color'];
+
+/**
+ * The attachment a new socket starts with: `viewing`, not joined, no strikes, a full draft bucket,
+ * no accepted `seq` and no epoch (its first `join` sets one).
+ */
+export async function newAttachment(user: AuthUser, now: number): Promise<PresenceAttachment> {
+  return {
+    userId: user.id,
+    name: user.name,
+    color: await presenceColor(user.id),
+    state: PresenceStateSchema.enum.viewing,
+    lastSeen: now,
+    joined: false,
+    strikes: 0,
+    ...fullDraftBucket(now),
+    lastSeq: null,
+    epoch: null,
+  };
+}
 
 /** The attachment `Room` stored on `ws`, or `undefined` when it is missing or invalid. */
 export function attachmentOf(ws: WebSocket): PresenceAttachment | undefined {
