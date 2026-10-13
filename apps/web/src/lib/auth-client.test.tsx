@@ -16,12 +16,12 @@ it('useSession reads the session through the Better Auth client at same-origin /
   );
   // Better Auth captures fetch when the client is created, so stub it before importing.
   vi.stubGlobal('fetch', fetchMock);
-  const { useSession } = await import('./session');
+  const { authClient } = await import('./auth-client');
 
-  const { result } = renderHook(() => useSession());
+  const { result } = renderHook(() => authClient.useSession());
   await waitFor(() => expect(result.current.isPending).toBe(false));
 
-  expect(result.current.data).toMatchObject({ id: 'user_1', name: 'Ada Lovelace' });
+  expect(result.current.data?.user).toMatchObject({ id: 'user_1', name: 'Ada Lovelace' });
   const input = fetchMock.mock.calls[0]?.[0];
   const url = new URL(input instanceof Request ? input.url : String(input));
   expect(url.origin).toBe(window.location.origin);

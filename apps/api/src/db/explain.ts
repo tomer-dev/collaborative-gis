@@ -12,7 +12,7 @@ import pg from 'pg';
 import { z } from 'zod';
 import { db } from './index.ts';
 import { seedAreas } from './seed.ts';
-import { areasInBoundsSql } from './spatial-read.ts';
+import { boundsQuery } from './spatial-read.ts';
 
 const OUTPUT = new URL('../../../../docs/benchmarks.md', import.meta.url);
 const START = '<!-- bounds-explain:start -->';
@@ -47,7 +47,7 @@ function percentile(values: number[], p: number): number {
  * switched off (`SET LOCAL`, inside a transaction that is rolled back).
  */
 async function measure(client: pg.Client, label: string, off: string[]): Promise<Measurement> {
-  const query = sql`EXPLAIN (ANALYZE, FORMAT JSON) ${areasInBoundsSql(BENCH.VIEWPORT, { limit: LIMITS.BOUNDS_LIMIT })}`;
+  const query = sql`EXPLAIN (ANALYZE, FORMAT JSON) ${boundsQuery(client, BENCH.VIEWPORT)}`;
   await client.query('begin');
   try {
     for (const setting of off) await client.query(`set local ${setting} = off`);
@@ -119,15 +119,12 @@ function section(live: number, machine: string, results: Measurement[]): string 
   return lines.join('\n');
 }
 
-/** Replaces the marked section of docs/benchmarks.md, or appends it (creating the file). */
+/** Replaces the marked section of docs/benchmarks.md; throws when a marker is missing. */
 async function write(text: string): Promise<void> {
-  const current = await readFile(OUTPUT, 'utf8').catch(() => '# Benchmarks\n');
+  const current = await readFile(OUTPUT, 'utf8');
   const [start, end] = [current.indexOf(START), current.indexOf(END)];
-  const next =
-    start >= 0 && end > start
-      ? `${current.slice(0, start)}${text}${current.slice(end + END.length)}`
-      : `${current.trimEnd()}\n\n${text}\n`;
-  await writeFile(OUTPUT, next);
+  if (start < 0 || end < start) throw new Error(`docs/benchmarks.md lacks ${START} or ${END}`);
+  await writeFile(OUTPUT, `${current.slice(0, start)}${text}${current.slice(end + END.length)}`);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

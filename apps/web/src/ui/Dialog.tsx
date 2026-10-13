@@ -39,8 +39,8 @@ export interface DialogProps extends Omit<
 
 /**
  * Modal dialog on the native `<dialog>` element (WAI-APG dialog pattern): focus moves in on open and
- * returns to the opener on close, Tab stays inside (the rest of the page is inert), Escape closes,
- * the title labels it and the description describes it.
+ * the browser returns it to the opener on `close()`, Tab stays inside (the rest of the page is
+ * inert), Escape closes, the title labels it and the description describes it.
  */
 export function Dialog({
   open,
@@ -56,7 +56,6 @@ export function Dialog({
   ...rest
 }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
-  const returnFocusRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
   const descriptionId = useId();
   const hasDescription = description !== undefined && description !== null && description !== false;
@@ -65,15 +64,10 @@ export function Dialog({
     const dialog = ref.current;
     if (!dialog) return;
     if (open && !dialog.open) {
-      returnFocusRef.current =
-        document.activeElement instanceof HTMLElement ? document.activeElement : null;
       dialog.showModal();
       initialFocusRef?.current?.focus();
     } else if (!open && dialog.open) {
       dialog.close();
-      const opener = returnFocusRef.current;
-      returnFocusRef.current = null;
-      if (opener?.isConnected) opener.focus();
     }
   }, [open, initialFocusRef]);
 

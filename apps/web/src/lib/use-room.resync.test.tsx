@@ -40,7 +40,6 @@ describe('useRoom resync (an error with resync: true)', () => {
     const before = room.socket().frames().length;
 
     room.receive(stateLost);
-    expect(room.result.current.state).toBe('resyncing');
     room.advance(DRAFT_INTERVAL_MS * (vertices.length + 1));
 
     const resent = room.socket().frames().slice(before);
@@ -126,39 +125,20 @@ describe('useRoom resync (an error with resync: true)', () => {
     expect(room.joins()).toBe(3);
     room.advance(1);
     expect(room.joins()).toBe(4);
-    expect(room.result.current.state).toBe('resyncing');
 
     room.receive(draftState([]));
-    expect(room.result.current.state).toBe('open');
     room.advance(WS.RECONNECT_BACKOFF_MS.max * 2);
     expect(room.joins()).toBe(4);
   });
 
-  it("a failed first join (error + resync before its draft:state): 'resyncing', joined again after the backoff", () => {
+  it('a failed first join (error + resync before its draft:state): joined again after the backoff', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0);
     const room = renderRoom();
     room.open();
     room.receive(errorFrame(ERROR_CODES.INTERNAL, ERROR_MESSAGES.INTERNAL, { resync: true }));
-    expect(room.result.current.state).toBe('resyncing');
     expect(room.joins()).toBe(1);
     room.advance(backoffDelay(1, () => 0));
     expect(room.joins()).toBe(2);
-    room.receive(draftState([]));
-    expect(room.result.current.state).toBe('open');
-  });
-
-  it("is 'resyncing' from a reopen until the join's draft:state, never on the first open", () => {
-    const room = renderRoom();
-    room.open();
-    expect(room.result.current.state).toBe('open');
-    room.receive(draftState([]));
-
-    act(() => room.socket().drop(WS.CLOSE_IDLE));
-    room.advance(backoffDelay(1, () => 0));
-    room.open();
-    expect(room.result.current.state).toBe('resyncing');
-    room.receive(serverFrame({ type: 'presence', payload: { users: [] } }));
-    expect(room.result.current.state).toBe('resyncing');
     room.receive(draftState([]));
     expect(room.result.current.state).toBe('open');
   });

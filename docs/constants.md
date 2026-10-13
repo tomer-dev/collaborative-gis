@@ -21,7 +21,6 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 | `BODY_MAX_BYTES` | `64 * 1024` | Request body cap on mutations (64 KiB): 413 `PAYLOAD_TOO_LARGE` before JSON parsing. A ring at POLYGON_MAX_VERTICES with full-precision coordinates and a maximal name is about 41 KB. |
 | `VERSION_MAX` | `2_147_483_647` | Largest `version` a PUT body may carry: Postgres `integer` max, the type of `areas.version` and `area_versions.version`. A larger value would fail the query (22003) as a 500, not a 422. |
 | `VERSIONS_PAGE` | `200` | Most versions `GET /api/areas/:id/versions` returns: the newest ones. Bounds the payload of a long-edited area (each version carries its geometry). |
-| `PANEL_LIST_MAX` | `50` | Rows in the area panel's list of the areas in view; the rest show as one "+N more" line. |
 | `USER_ID_PREFIX` | `8` | Leading characters of a user id that name the editor in an area's history (the versions payload carries ids, not names). |
 | `PASSWORD_MIN` | `8` | Better Auth's default `minPasswordLength`; the register form's `minlength`. |
 
@@ -38,12 +37,11 @@ Visual design tokens (spacing, type, colour ramps and semantic colours, map styl
 
 ## GEO
 
-`geo.ts`. Spatial reference of every stored geometry, and the sphere for client-side measurements.
+`geo.ts`. Spatial reference of every stored geometry.
 
 | Name | Value | Notes |
 |---|---|---|
 | `SRID` | `4326` | WGS 84 lng/lat: the `geometry(Polygon,4326)` columns, bbox envelopes, and GeoJSON's default. |
-| `EARTH_RADIUS_M` | `6371008.8` | WGS 84 mean radius R1 = (2a + b) / 3, in metres: the sphere `@turf/area` measures on. Against the server's spheroidal `ST_Area(geography)` it reads +0.13 % at 29°N, +0.07 % at 32°N, +0.03 % at 34°N (Israel), +0.45 % at the equator and −0.56 % at 60°N. |
 
 ## SEED
 
@@ -131,7 +129,7 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 
 | Name | Value | Notes |
 |---|---|---|
-| `DRAFT_RATE_PER_SEC` | `10` | D13: drafts ≤ 10 msg/s, enforced per socket (a token bucket in the Room). The burst guard on draft frames, which spend no drawing actions: D5 charges a draft session once. |
+| `DRAFT_RATE_PER_SEC` | `10` | D13: drafts ≤ 10 msg/s, enforced per socket (a fixed one-second window in the Room). The burst guard on draft frames, which spend no drawing actions: D5 charges a draft session once. |
 | `PRESENCE_IDLE_MS` | `60_000` | D13: a draft not edited for 60 s is dropped by the Room's idle sweep; D5: its session ends. |
 | `SOCKET_IDLE_MS` | `3 * PING_INTERVAL_MS` | The idle sweep closes a socket with no frame and no ping for this long (`CLOSE_IDLE`): three ping intervals, so a hidden tab whose timers the browser throttles to one per minute stays. |
 | `ALARM_INTERVAL_MS` | `30_000` | Sweeps idle state twice per idle window. |
@@ -234,7 +232,7 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 |---|---|---|
 | `TITLE` | `'Collaborative GIS API'` | Names the `/openapi.json` document and the `/docs` page. |
 | `VERSION` | `'0.1.0'` | Document version; bump with breaking contract changes. |
-| `UI_BUNDLE` | `'https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.73.1/dist/browser/standalone.js'` | The `/docs` page's Scalar script: the single-file browser build of a pinned release (no code-split chunks, so one integrity hash covers all of it), never the CDN's moving latest, since it runs on the API origin. Bump with `@scalar/hono-api-reference`, and `UI_BUNDLE_INTEGRITY` with it. |
+| `UI_BUNDLE` | `'https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.73.1/dist/browser/standalone.js'` | The `/docs` page's Scalar script: the single-file browser build of a pinned release (no code-split chunks, so one integrity hash covers all of it), never the CDN's moving latest, since it runs on the API origin. Bump the version here and `UI_BUNDLE_INTEGRITY` with it. |
 | `UI_BUNDLE_INTEGRITY` | `'sha384-kYDGzV91Jnn3TbHINV3nt54riK2uMJDfN5Al8dAkz4FssELTBWbD8rgw32sTKfOi'` | Subresource Integrity of `UI_BUNDLE`: the browser refuses the script if the CDN serves other bytes. `curl -sS -o f <UI_BUNDLE> && openssl dgst -sha384 -binary f \| openssl base64 -A` (matches `dist/browser/standalone.js` in the npm tarball). |
 
 ## READINESS
@@ -281,7 +279,7 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 | `HANDLE_HIT_PX` | `24` | Vertex handle hit box (Leaflet icon size): the WCAG 2.5.8 target size (≥ 24 CSS px) for dragging a vertex. The dot's radius, ring and colours are CSS (`.cgis-draw-handle` in map.css). |
 | `DRAFT_STYLE` | `{ weight: 2, dashArray: '8 4', fillOpacity: 0.12 }` | Leaflet path options for a sketch in progress (the own draft and other users' ghosts): dashed and faint, so it reads as unsaved next to solid saved areas. Design brief §4: 2 px, dashed 8/4, fill 12 %. Stroke and fill colours are CSS on `.cgis-draw-sketch`. |
 | `AREA_KM2_THRESHOLD` | `1` | Area readouts switch from m² to km² at this many km²: below it whole m² (`12,345 m²`), from it km² to 3 decimals (`1.234 km²`). Numbers use `Stat`'s user-locale formatter. |
-| `AREA_DIFF_WARN_RATIO` | `0.005` | After a save, a note shows the server's area and the client estimate when they differ by more than this share (0.5 %). The client's sphere and PostGIS's spheroid differ by about 0.03 % at Israel's latitude and 0.45–0.56 % at the equator or 60°N (`GEO.EARTH_RADIUS_M`). |
+| `AREA_DIFF_WARN_RATIO` | `0.005` | After a save, a note shows the server's area and the client estimate when they differ by more than this share (0.5 %). The client's sphere (`@turf/area`, WGS 84 mean radius) and PostGIS's spheroid differ by about 0.03 % at Israel's latitude and 0.45–0.56 % at the equator or 60°N. |
 
 ## DRAW
 
@@ -314,7 +312,7 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 | `RESOLUTIONS` | `[793.751587503175, 264.583862501058, 132.291931250529, 66.1459656252646, 26.4583862501058, 13.2291931250529, 6.61459656252646, 2.64583862501058, 1.32291931250529, 0.661459656252646, 0.330729828126323, 0.13229193125052918]` | Metres per pixel for levels L00–L11 (1:3,000,000 to 1:500 at 96 dpi). Adjacent levels step ×3, ×2.5 or ×2, not a power of two. |
 | `ITM_BOUNDS` | `[[100000, 350000], [300000, 820000]]` | Projected extent [[minX, minY], [maxX, maxY]] in EPSG:2039 metres: epsg.io's area of use padded to take in Mt Hermon. Leaflet clips the tile range to it. |
 | `TILE_HOST` | `'https://cdn.govmap.gov.il'` | Legacy tile CDN: no Referer or Origin check, no CORS headers, missing tiles answer 403. |
-| `CACHES` | `['B0BZ1ORTO23', 'M2023ORT3TS', '020522B0B20R']` | Aerial caches on `TILE_HOST`, newest first by tile `Last-Modified`: 2024-01 (the newest that answers), 2023-03 (govmap's published national orthophoto config), 2022-05 (the 2021 national orthophoto). The layer uses the first; the others are documented alternatives, not a runtime fallback. |
+| `CACHE` | `'B0BZ1ORTO23'` | Aerial cache on `TILE_HOST`: 2024-01, the newest that answers by tile `Last-Modified`. Older ones: `M2023ORT3TS` (2023-03, govmap's published config), `020522B0B20R` (2021 orthophoto). |
 | `TILE_LEVEL_DIGITS` | `2` | Tile path level `L08`: decimal, zero-padded to this many digits. |
 | `TILE_INDEX_HEX_DIGITS` | `8` | Tile path row `R…` and column `C…`: lowercase hex (uppercase answers 403), zero-padded. |
 | `ATTRIBUTION` | `'Aerial imagery &copy; Survey of Israel, via <a href="https://www.govmap.gov.il/">govmap</a>'` | The terms require crediting the Survey of Israel; fair use credits the portal too. |
@@ -348,8 +346,6 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 | `DEGRADED_DETAIL` | `'Live updates are paused. Your drawing is kept.'` | The local draft stays in memory and is resent after the next join. |
 | `OFFLINE_TITLE` | `'Offline'` | Banner while `offline`: the saved areas are polled every `WS.OFFLINE_POLL_MS`. |
 | `OFFLINE_DETAIL` | `` `Showing the last saved areas; polling every ${WS.OFFLINE_POLL_MS / MS_PER_SECOND} s. Your drawing is kept.` `` | States the poll interval from `WS.OFFLINE_POLL_MS`. |
-| `RESYNC_TITLE` | `'Resyncing…'` | Banner while a re-join waits for the Room's state (after a reconnect or a `resync` error); brief. |
-| `RESYNC_DETAIL` | `'Catching up with the live map.'` | Ghosts and presence are replaced by the Room's answer; the draft is resent. |
 | `RETRY` | `'Retry'` | The offline banner's button: connect now. |
 
 ### COPY.MAP
@@ -430,7 +426,6 @@ Saved areas on /map: the save dialog, the area panel (the areas in view, the sel
 | `ERROR_GENERIC` | `'Something went wrong. Try again.'` | A failure without an API error body (network error, proxy page). |
 | `LIST_TITLE` | `'Areas in view'` | The area panel: its title, also the name of the list of the areas in the viewport. |
 | `LIST_EMPTY` | `'No saved areas in view.'` |  |
-| `LIST_MORE` | `` (count: number) => `+${count} more` `` | Under the list when more than `LIMITS.PANEL_LIST_MAX` areas are in view. |
 | `HISTORY_TITLE` | `'History'` |  |
 | `HISTORY_LOADING` | `'Loading history…'` |  |
 | `HISTORY_ERROR_TITLE` | `'Could not load the history'` |  |

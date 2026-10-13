@@ -2,7 +2,6 @@ import {
   type AreaList,
   type Draft,
   ERROR_CODES,
-  type Position,
   type PresenceState,
   type PresenceUser,
   QUERY,
@@ -21,7 +20,6 @@ import {
   roomUrl,
   type ConnectionState,
   type RoomConnection,
-  type SocketFactory,
 } from './ws';
 
 export type UseRoomOptions = {
@@ -29,25 +27,15 @@ export type UseRoomOptions = {
   selfId: string;
   /** The map whose draw events become `draft:update`s; null until it exists. */
   map: L.Map | null;
-  /** Read once, on mount. Default: the browser `WebSocket`. */
-  createSocket?: SocketFactory | undefined;
 };
 
-/**
- * The connection's state, or `resyncing` while it is open and a re-join (after a reopen, or an
- * `error` with `resync`) waits for the Room's `draft:state`. The first join of a healthy
- * connection is not a resync.
- */
-export type RoomState = ConnectionState | 'resyncing';
-
 export type Room = {
-  state: RoomState;
+  /** The connection's state (spec §5: connecting → open → degraded → offline). */
+  state: ConnectionState;
   /** Everyone in the room (you included), each with the colour the Room assigned. Empty unless open. */
   users: PresenceUser[];
   /** The other users' drafts. Empty unless open. */
   drafts: Draft[];
-  /** Your draft's current vertices, streamed as throttled deltas; `[]` ends it with `clear`. */
-  sendDraft: (vertices: Position[]) => void;
   /** Connect now (the offline banner's Retry). */
   reconnect: () => void;
 };
@@ -61,11 +49,9 @@ export type Room = {
  * are invalidated every `WS.OFFLINE_POLL_MS`. The map's draw events stream your draft and
  * presence state; the draft stays in memory across reconnects and is sent again after each join.
  */
-export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
+export function useRoom({ selfId, map }: UseRoomOptions): Room {
   const queryClient = useQueryClient();
-  const [socketFactory] = useState(() => createSocket);
   const [state, setState] = useState<ConnectionState>('connecting');
-  const [resyncing, setResyncing] = useState(false);
   const [users, setUsers] = useState<PresenceUser[]>([]);
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const connectionRef = useRef<RoomConnection | null>(null);
@@ -75,7 +61,6 @@ export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
   useEffect(() => {
     const connection = createRoomConnection({
       url: roomUrl(window.location),
-      createSocket: socketFactory,
       // A 401 on the upgrade reaches the page as a plain close. Once the API has answered 401,
       // every retry would get one too, so they stop (the query client sends the visitor to sign in).
       shouldRetry: () => !sessionEnded(queryClient),
@@ -124,7 +109,6 @@ export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
       cancelRejoin();
       joinPending = false;
       rejoins = 0;
-      setResyncing(false);
     };
     const join = () => {
       cancelRejoin();
@@ -136,7 +120,6 @@ export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
       sender.restart();
     };
     const resync = () => {
-      setResyncing(true);
       if (!joinPending) join();
       else if (rejoinTimer === undefined) {
         rejoins += 1;
@@ -155,10 +138,7 @@ export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
         setDrafts([]);
       }),
       connection.onOpen(() => {
-        if (resyncOnOpen) {
-          void queryClient.invalidateQueries(areasKey);
-          setResyncing(true);
-        }
+        if (resyncOnOpen) void queryClient.invalidateQueries(areasKey);
         resyncOnOpen = true;
         join();
       }),
@@ -190,11 +170,10 @@ export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
       connectionRef.current = null;
       senderRef.current = null;
       setState('connecting');
-      setResyncing(false);
       setUsers([]);
       setDrafts([]);
     };
-  }, [queryClient, selfId, socketFactory]);
+  }, [queryClient, selfId]);
 
   // Degraded or offline: no area events arrive, so the viewport lists are refetched on a timer
   // instead, from the first failed reconnects on. The poll stops once the API answers 401:
@@ -208,7 +187,6 @@ export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
     return () => clearInterval(timer);
   }, [state, queryClient]);
 
-  const sendDraft = useCallback((vertices: Position[]) => senderRef.current?.update(vertices), []);
   const reconnect = useCallback(() => connectionRef.current?.reconnect(), []);
 
   useEffect(() => {
@@ -223,13 +201,13 @@ export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
       }
     };
     const end = () => {
-      sendDraft([]);
+      senderRef.current?.update([]);
       setPresence('viewing');
     };
     const unsubscribe = [
       onDraw(map, 'draw:change', ({ vertices }) => {
         setPresence('drawing');
-        sendDraft(vertices);
+        senderRef.current?.update(vertices);
       }),
       onDraw(map, 'draw:done', end),
       onDraw(map, 'draw:cancel', end),
@@ -239,8 +217,7 @@ export function useRoom({ selfId, map, createSocket }: UseRoomOptions): Room {
       // The sketch on this map is gone (the draw control is keyed on the map).
       end();
     };
-  }, [map, sendDraft]);
+  }, [map]);
 
-  const roomState: RoomState = state === 'open' && resyncing ? 'resyncing' : state;
-  return { state: roomState, users, drafts, sendDraft, reconnect };
+  return { state, users, drafts, reconnect };
 }

@@ -1,22 +1,14 @@
 import { DRAW, LIMITS, MAP } from '@cgis/shared';
 import * as L from 'leaflet';
 import 'leaflet-editable';
-import { closeRing, invalidReason, toLngLat } from './draw-events';
-import { ringAreaKm2, type LngLat } from './geodesic';
+import { invalidReason, toLngLat } from './draw-events';
+import { closeRing, type LngLat } from './geodesic';
 
-/** `pane`: the sketch's pane, created if missing; `maxPlacedVertices`: default `LIMITS.POLYGON_MAX_PLACED_VERTICES`. */
-export type PolygonDrawOptions = { pane?: string; maxPlacedVertices?: number };
+/** `pane`: the sketch's pane, created if missing. */
+export type PolygonDrawOptions = { pane?: string };
 
-export interface PolygonDraw {
-  enable(): void;
-  disable(): void;
-  enabled(): boolean;
-  getVertices(): LngLat[];
-  getAreaKm2(): number;
-  undo(): void;
-  finish(): boolean;
-  cancel(): void;
-}
+/** The draw tool `createPolygonDraw` returns. */
+export type PolygonDraw = ReturnType<typeof createPolygonDraw>;
 
 const isEditableClass = (value: unknown): value is L.EditableStatic => typeof value === 'function';
 const isLatLng = (value: unknown): value is L.LatLng => value instanceof L.LatLng;
@@ -48,8 +40,7 @@ function editTools(map: L.Map): L.Editable {
 }
 
 /** Polygon drawing on Leaflet.Editable, reported through the `draw:*` map events (draw-events.ts). */
-export function createPolygonDraw(map: L.Map, options: PolygonDrawOptions = {}): PolygonDraw {
-  const cap = options.maxPlacedVertices ?? LIMITS.POLYGON_MAX_PLACED_VERTICES;
+export function createPolygonDraw(map: L.Map, options: PolygonDrawOptions = {}) {
   let layer: L.Polygon | null = null;
   let editor: L.PolygonEditor | null = null;
   let committed = false;
@@ -67,14 +58,13 @@ export function createPolygonDraw(map: L.Map, options: PolygonDrawOptions = {}):
 
   const events: L.LeafletEventHandlerFnMap = {
     'editable:drawing:click': (e) => {
-      if (('vertex' in e && e.vertex) || getVertices().length < cap) return; // a handle may commit
+      const placed = getVertices().length;
+      if (('vertex' in e && e.vertex) || placed < LIMITS.POLYGON_MAX_PLACED_VERTICES) return; // a handle may commit
       e.cancel();
       map.fire('draw:invalid', { reason: DRAW.MAX_VERTICES_REASON });
     },
     'editable:vertex:new': (e) => {
-      const index = e.vertex.getIndex();
-      if (index === 0) e.vertex.setIcon(handleIcon(true));
-      map.fire('draw:vertex', { vertex: toLngLat(e.vertex.getLatLng()), index });
+      if (e.vertex.getIndex() === 0) e.vertex.setIcon(handleIcon(true));
       changed();
     },
     'editable:vertex:dragend': changed,
@@ -114,7 +104,6 @@ export function createPolygonDraw(map: L.Map, options: PolygonDrawOptions = {}):
     disable,
     enabled: () => layer !== null,
     getVertices,
-    getAreaKm2: () => ringAreaKm2(getVertices()),
     undo: () => {
       if (editor?.drawing()) editor.pop(); // pop() keeps the first vertex
     },

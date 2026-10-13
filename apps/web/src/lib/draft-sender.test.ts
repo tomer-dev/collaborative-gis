@@ -1,5 +1,6 @@
+import { applyDraftOp } from '@cgis/shared';
 import { describe, expect, it } from 'vitest';
-import { applyDraftOp, nextDraftOp } from './draft-sender';
+import { nextDraftOp } from './draft-sender';
 import { line, point } from './use-room.harness';
 
 describe('nextDraftOp', () => {

@@ -16,4 +16,3 @@ export { areaPathOptions, draftPathOptions, ghostPathOptions, MAP_CLASS } from '
 export { Panel, type PanelProps } from './Panel';
 export { PresenceList, type PresenceListProps } from './PresenceList';
 export { formatStatValue, Stat, type StatProps } from './Stat';
-export { DARK_CLASS, syncColorScheme } from './theme';

@@ -13,6 +13,16 @@ import worker from '../../src/index';
 import { scheduled } from '../../src/scheduled';
 import { laneEnv } from '../auth/lane-db';
 
+declare global {
+  interface ImportMeta {
+    // Vite's glob import; vitest inlines the file before workerd runs the test (no vite/client types here).
+    glob<T>(
+      pattern: string,
+      options: { query: '?raw'; import: 'default'; eager: true },
+    ): Record<string, T>;
+  }
+}
+
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 /** The run's clock: a fixed instant, so cutoffs are exact. */
 const NOW = new Date('2026-10-12T03:00:00.000Z');
@@ -80,8 +90,7 @@ async function counts(id: string) {
   return row;
 }
 
-const purge = (now = NOW, days?: number) =>
-  withClient(env, (client) => purgeDeleted(client, now, days));
+const purge = () => withClient(env, (client) => purgeDeleted(client, NOW));
 
 describe('purgeDeleted', () => {
   it('removes areas soft-deleted before the cutoff and their versions, nothing else', async () => {
@@ -105,13 +114,6 @@ describe('purgeDeleted', () => {
 
     expect(await purge()).toEqual({ areas: 1, versions: 2 });
     expect(await purge()).toEqual({ areas: 0, versions: 0 });
-  });
-
-  it('takes the retention period as `days`', async () => {
-    const twoDaysOld = await seedArea(daysBefore(2), 1);
-
-    expect(await purge(NOW, 1)).toEqual({ areas: 1, versions: 1 });
-    expect(await counts(twoDaysOld)).toEqual({ areas: 0, versions: 0 });
   });
 
   it('writes one audit row per batch (one for a small run), without a user, with the counts in details', async () => {

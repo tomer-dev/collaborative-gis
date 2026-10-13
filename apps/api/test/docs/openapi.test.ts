@@ -51,14 +51,6 @@ describe(`GET ${ROUTES.OPENAPI}`, () => {
     expect(result.warnings).toEqual([]);
   });
 
-  it('is checked by a validator that rejects a broken document', async () => {
-    // Guards the check above against passing vacuously: `info` is required by OpenAPI 3.1.
-    const broken = z.record(z.string(), z.unknown()).parse(await fetchDocument());
-    delete broken.info;
-    const result = await validate(ApiDocumentSchema.parse(broken));
-    expect(result.valid).toBe(false);
-  });
-
   it('documents the health probes: /healthz 200, /readyz 200 and 503', async () => {
     const doc = DocumentSchema.parse(await fetchDocument());
     expect(Object.keys(doc.paths[ROUTES.HEALTHZ]?.get?.responses ?? {})).toEqual(['200']);

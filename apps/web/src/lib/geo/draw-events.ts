@@ -4,11 +4,8 @@ import { z } from 'zod';
 import { closeRing, type LngLat } from './geodesic';
 import { hasSelfIntersection } from './self-intersection';
 
-export { closeRing };
-
 /** Payload schemas of the draw tool's map events; positions are GeoJSON `[lng, lat]`. */
 const drawEventSchemas = {
-  'draw:vertex': z.object({ vertex: PositionSchema, index: z.number().int().nonnegative() }),
   'draw:change': z.object({ vertices: z.array(PositionSchema) }),
   'draw:done': z.object({ ring: z.array(PositionSchema) }),
   'draw:cancel': z.object({}),

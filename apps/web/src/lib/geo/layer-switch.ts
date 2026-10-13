@@ -109,7 +109,7 @@ export async function switchBaseLayer(
 }
 
 /** The map's tile layers: every one of them is a base layer (overlays are paths). */
-function baseLayers(map: L.Map): L.GridLayer[] {
+export function baseLayers(map: L.Map): L.GridLayer[] {
   const layers: L.GridLayer[] = [];
   map.eachLayer((layer) => {
     if (layer instanceof L.GridLayer) layers.push(layer);
