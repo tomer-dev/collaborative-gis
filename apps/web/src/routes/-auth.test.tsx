@@ -360,6 +360,12 @@ describe('cold load', () => {
 
   it('remembered as signed in: shows the app frame at once instead of the status, then the map', async () => {
     localStorage.setItem(AUTH.SIGNED_IN_HINT_KEY, AUTH.SIGNED_IN_HINT_VALUE);
+    // Every commit, not just the settled states: the app name must never leave the DOM once there.
+    let h1Gone = 0;
+    const observer = new MutationObserver(() => {
+      if (!document.querySelector('h1')) h1Gone += 1;
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
     const { router, resolved, visited } = renderAppAt(ROUTES.APP.MAP, {
       data: null,
       isPending: true,
@@ -375,6 +381,8 @@ describe('cold load', () => {
     // The hand-off never blanks the screen: the frame is there the moment the router takes over.
     expect(screen.getByRole('heading', { name: COPY.APP.NAME })).toBeTruthy();
     expect(await screen.findByTestId('map-root')).toBeTruthy();
+    observer.disconnect();
+    expect(h1Gone).toBe(0);
     expect(visited).not.toContain(ROUTES.APP.LOGIN);
     expect(resolved).toEqual([ROUTES.APP.MAP]);
     expect(router.state.location.pathname).toBe(ROUTES.APP.MAP);
@@ -412,6 +420,29 @@ describe('sign-out', () => {
     expect(await screen.findByRole('heading', { name: COPY.AUTH.LOGIN_TITLE })).toBeTruthy();
     expect(router.state.location.pathname).toBe(ROUTES.APP.LOGIN);
     expect(screen.queryByText(ada.name)).toBeNull();
+  });
+
+  it('sign in, sign out, sign in again in one tab: the guards re-run each time', async () => {
+    auth.signInEmail.mockResolvedValue({ redirect: false, token: 'tok_1', user: ada });
+    auth.signOut.mockResolvedValue({ success: true });
+    const { router } = renderAppAt(ROUTES.APP.LOGIN, signedOut);
+    const signIn = async () => {
+      await screen.findByRole('heading', { name: COPY.AUTH.LOGIN_TITLE });
+      fill(COPY.AUTH.EMAIL_LABEL, 'ada@example.com');
+      fill(COPY.AUTH.PASSWORD_LABEL, 'correct horse');
+      fireEvent.click(screen.getByRole('button', { name: COPY.AUTH.LOGIN_SUBMIT }));
+      await waitFor(() => expect(auth.signInEmail).toHaveBeenCalled());
+      await betterAuthRefetch(signedIn.data);
+      await screen.findByTestId('map-root');
+      expect(router.state.location.pathname).toBe(ROUTES.APP.MAP);
+    };
+
+    await signIn();
+    fireEvent.click(screen.getByRole('button', { name: COPY.AUTH.SIGN_OUT }));
+    await betterAuthRefetch(null);
+    await screen.findByRole('heading', { name: COPY.AUTH.LOGIN_TITLE });
+    expect(router.state.location.pathname).toBe(ROUTES.APP.LOGIN);
+    await signIn();
   });
 
   it('keeps the user on /map with an alert when sign-out fails', async () => {
