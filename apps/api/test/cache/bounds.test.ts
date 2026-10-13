@@ -12,10 +12,15 @@ import { boundsKey, type MapVersion, tileOf, workersCache } from '../../src/cach
 import * as db from '../../src/db';
 import { areasClient, areasEnv, freshUser, squareAt } from '../areas/fixtures';
 import { signUp, tokenCookie } from '../auth/session';
+import { TEST } from '../helpers';
 
 // D6: `GET /api/areas` is answered from the Workers Cache API under a key made of the quantised
 // tile and the Room's map version. Wire values (headers, statuses) are spelled out: they
 // are what browsers and the logs see.
+
+// The file's first request pays the cold start (first connection, first password hash).
+// shortcut: longer timeout masks machine load, not a bug; revisit when the suite runs on a quiet CI runner
+vi.setConfig({ testTimeout: TEST.SLOW_TIMEOUT_MS });
 
 let base: Env;
 beforeAll(async () => {

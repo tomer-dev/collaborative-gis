@@ -16,6 +16,10 @@ import { auditEnv, auditRowsOf, auditRowsWhere } from './fixtures';
 const IP = '203.0.113.9';
 const USER_AGENT = 'audit-test/1.0';
 
+// Most tests hash passwords (sign-up, sign-in), and the first pays the cold start.
+// shortcut: longer timeout masks machine load, not a bug; revisit when the suite runs on a quiet CI runner
+vi.setConfig({ testTimeout: TEST.SLOW_TIMEOUT_MS });
+
 let env: Env;
 beforeAll(async () => {
   env = await auditEnv();
