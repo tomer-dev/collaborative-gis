@@ -60,7 +60,7 @@ export function attachmentOf(ws: WebSocket): PresenceAttachment | undefined {
 
 /**
  * A colour from `MAP.PRESENCE_COLORS`, picked by the SHA-256 of `userId`, so one user keeps one
- * colour across sockets, reconnects and hibernation without any stored assignment.
+ * colour across sockets, reconnects and hibernation without storing it.
  */
 export async function presenceColor(userId: string): Promise<PresenceColor> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(userId));
