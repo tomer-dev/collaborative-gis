@@ -41,6 +41,19 @@ describe('itmToWgs84', () => {
   });
 });
 
+describe('WGS 84 → ITM → WGS 84 round trip', () => {
+  // A 0.5° grid over Israel's extent (29.5–33.5°N, 34.25–35.75°E), beyond the control points.
+  const grid = [29.5, 30, 30.5, 31, 31.5, 32, 32.5, 33, 33.5].flatMap((lat) =>
+    [34.25, 34.75, 35.25, 35.75].map((lng): [number, number] => [lng, lat]),
+  );
+
+  it.each(grid)('returns [%f, %f] to itself within 1e-8°', (lng, lat) => {
+    const [backLng, backLat] = itmToWgs84(wgs84ToItm([lng, lat]));
+    expect(Math.abs(backLng - lng)).toBeLessThan(TOLERANCE_DEG);
+    expect(Math.abs(backLat - lat)).toBeLessThan(TOLERANCE_DEG);
+  });
+});
+
 describe('GOVMAP.ITM_PROJ4', () => {
   it('carries the EPSG:9676 datum shift in position-vector signs', () => {
     // Missing, it moves positions by about 78 m; with coordinate-frame signs, by about 155 m.
