@@ -196,9 +196,6 @@ export function formAreaName(form: FormData): string | null {
   return name.success ? name.data : null;
 }
 
-/** Milliseconds per second, for the wait a 429 states in whole seconds. */
-const MS_PER_SECOND = 1000;
-
 /**
  * Text for a failed area call: the wait a 429 asks for (its `retryAfterMs`, else the whole
  * `RATE_LIMIT.WINDOW_MS`), PostGIS's `reason` (422), else the server's message, else generic.
@@ -206,8 +203,7 @@ const MS_PER_SECOND = 1000;
 export function areaErrorMessage(error: unknown): string {
   if (!(error instanceof ApiRequestError)) return COPY.AREAS.ERROR_GENERIC;
   if (error.code === ERROR_CODES.RATE_LIMITED) {
-    const waitMs = error.retryAfterMs ?? RATE_LIMIT.WINDOW_MS;
-    return COPY.AREAS.RATE_LIMITED(Math.max(1, Math.ceil(waitMs / MS_PER_SECOND)));
+    return COPY.AREAS.RATE_LIMITED(error.retryAfterMs ?? RATE_LIMIT.WINDOW_MS);
   }
   return error.reason ?? error.message;
 }
