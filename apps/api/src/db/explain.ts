@@ -12,7 +12,7 @@ import pg from 'pg';
 import { z } from 'zod';
 import { db } from './index.ts';
 import { seedAreas } from './seed.ts';
-import { areasInBoundsSql } from './spatial.ts';
+import { areasInBoundsSql } from './spatial-read.ts';
 
 const OUTPUT = new URL('../../../../docs/benchmarks.md', import.meta.url);
 const START = '<!-- bounds-explain:start -->';

@@ -26,7 +26,7 @@ const DRAFT_GAP_MS = 1000 / WS.DRAFT_RATE_PER_SEC;
 const SESSION_FRAMES = DRAW_LIMIT + 10;
 /** An explicit `seq` for a frame the Room will refuse, so its `error` can be matched to it. */
 const REFUSED_SEQ = 1000;
-// Frozen-clock tests: see protocol.test.ts. Far ahead of the real clock, so an alarm armed at a
+// Frozen-clock tests: see protocol-harness.ts. Far ahead of the real clock, so an alarm armed at a
 // mocked instant never fires on its own; the tests run alarms with runDurableObjectAlarm.
 const T0 = Date.UTC(2100, 0, 1);
 

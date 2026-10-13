@@ -1,7 +1,7 @@
 import { type Bbox, COPY, LIMITS, type Area } from '@cgis/shared';
 import { useEffect, useEffectEvent, useState, type FormEvent } from 'react';
 import { areaDiffers, areaReadout, formatArea } from '../lib/area-readout';
-import { areaErrorMessage, formAreaName, useCreateArea } from '../lib/areas-query';
+import { areaErrorMessage, formAreaName, useCreateArea } from '../lib/areas-mutations';
 import { ringAreaKm2, type LngLat } from '../lib/geo/geodesic';
 import { Banner, Button, Dialog, Field, Input, Stat } from '../ui';
 

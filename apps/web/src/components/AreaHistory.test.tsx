@@ -10,7 +10,8 @@ import {
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { formatArea } from '../lib/area-readout';
-import { areasKey, type AreaEdit } from '../lib/areas-query';
+import type { AreaEdit } from '../lib/areas-mutations';
+import { areasKey } from '../lib/areas-query';
 import {
   AREA_ID,
   deferred,

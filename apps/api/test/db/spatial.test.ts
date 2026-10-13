@@ -5,15 +5,14 @@ import { afterAll, afterEach, beforeAll, describe, expect, inject, it, vi } from
 import { db } from '../../src/db';
 import { seedAreas } from '../../src/db/seed';
 import {
-  areasInBoundsSql,
   InvalidGeometryError,
   insertArea,
   revertArea,
-  selectAreasInBounds,
   softDeleteArea,
   updateAreaIfVersion,
   writeAudit,
 } from '../../src/db/spatial';
+import { areasInBoundsSql, selectAreasInBounds } from '../../src/db/spatial-read';
 
 // Runs in the `db` project on cgis_db, next to schema.test.ts and geometry.test.ts (files run in
 // parallel). Rows that a test asserts on exactly sit outside Israel, where the other files and the

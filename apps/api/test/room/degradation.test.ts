@@ -19,7 +19,7 @@ type Client = ReturnType<typeof socketClient<WsEvent>> & {
   send: (type: string, payload: unknown) => void;
 };
 
-// Frozen-clock tests: see protocol.test.ts. T0 is far ahead of the real clock so that an alarm
+// Frozen-clock tests: see protocol-harness.ts. T0 is far ahead of the real clock so that an alarm
 // armed at a mocked instant never fires on its own; the tests run alarms with runDurableObjectAlarm.
 const T0 = Date.UTC(2100, 0, 1);
 const SECOND = 1000;
