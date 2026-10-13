@@ -16,6 +16,7 @@ export const api = hc<AppType>('/', { init: { credentials: 'same-origin' } });
 type ApiResponse = { status: number; json(): Promise<unknown> };
 
 const ReasonDetailsSchema = z.object({ reason: z.string() });
+const RetryDetailsSchema = z.object({ retryAfterMs: z.number() });
 
 /** An API answer with a status the caller did not expect, carrying the parsed `ApiError` body. */
 export class ApiRequestError extends Error {
@@ -23,6 +24,8 @@ export class ApiRequestError extends Error {
   readonly code: string;
   /** `details.reason`: why PostGIS rejected a polygon (422), when the server sent one. */
   readonly reason: string | undefined;
+  /** `details.retryAfterMs`: how long a 429 (`RATE_LIMITED`) asks the client to wait. */
+  readonly retryAfterMs: number | undefined;
 
   constructor(status: number, { code, message, details }: ApiError) {
     super(message);
@@ -30,6 +33,7 @@ export class ApiRequestError extends Error {
     this.status = status;
     this.code = code;
     this.reason = ReasonDetailsSchema.safeParse(details).data?.reason;
+    this.retryAfterMs = RetryDetailsSchema.safeParse(details).data?.retryAfterMs;
   }
 }
 
