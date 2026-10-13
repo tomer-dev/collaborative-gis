@@ -275,6 +275,7 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 | `DRAFTS_PANE` | `'drafts'` | Live drafts' pane: above the saved areas. |
 | `DRAFTS_PANE_Z` | `460` | `DRAFTS_PANE`'s z-index; tokens.css `--z-index-map-drafts` mirrors it (drift-tested). |
 | `MOVEEND_DEBOUNCE_MS` | `250` | One fetch per pan gesture. |
+| `FIT_PADDING_PX` | `48` | An area picked in the panel's list: the map fits its bounds with this much room on each side (px). |
 | `PRESENCE_COLORS` | `['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948']` | The 8-hue CVD-checked presence palette from the design-system brief (Grid 4). |
 | `HANDLE_HIT_PX` | `24` | Vertex handle hit box (Leaflet icon size): the WCAG 2.5.8 target size (≥ 24 CSS px) for dragging a vertex. The dot's radius, ring and colours are CSS (`.cgis-draw-handle` in map.css). |
 | `DRAFT_STYLE` | `{ weight: 2, dashArray: '8 4', fillOpacity: 0.12 }` | Leaflet path options for a sketch in progress (the own draft and other users' ghosts): dashed and faint, so it reads as unsaved next to solid saved areas. Design brief §4: 2 px, dashed 8/4, fill 12 %. Stroke and fill colours are CSS on `.cgis-draw-sketch`. |

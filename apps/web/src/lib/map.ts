@@ -1,5 +1,5 @@
-import type { Bbox } from '@cgis/shared';
-import type L from 'leaflet';
+import type { Area, Bbox } from '@cgis/shared';
+import L from 'leaflet';
 
 /**
  * The map's visible bounds as a `Bbox` the API accepts. `map.getBounds()` is unbounded: on a
@@ -19,4 +19,9 @@ export function boundsToBbox(map: L.Map): Bbox {
     Math.min(maxLng, bounds.getEast()),
     bounds.getNorth(),
   ];
+}
+
+/** An area's bounding box in Leaflet's `[lat, lng]` order (GeoJSON rings are `[lng, lat]`). */
+export function areaBounds(area: Area): L.LatLngBounds {
+  return L.latLngBounds(area.geometry.coordinates[0].map(([lng, lat]) => L.latLng(lat, lng)));
 }

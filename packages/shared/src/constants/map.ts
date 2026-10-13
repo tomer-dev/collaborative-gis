@@ -33,6 +33,8 @@ export const MAP = {
   DRAFTS_PANE_Z: 460,
   /** One fetch per pan gesture. */
   MOVEEND_DEBOUNCE_MS: 250,
+  /** An area picked in the panel's list: the map fits its bounds with this much room on each side (px). */
+  FIT_PADDING_PX: 48,
   /** The 8-hue CVD-checked presence palette from the design-system brief (Grid 4). */
   PRESENCE_COLORS: [
     '#2a78d6',

@@ -2,6 +2,7 @@ import { COPY, LIMITS, type Area, type Bbox } from '@cgis/shared';
 import * as L from 'leaflet';
 import { useState, type FormEvent } from 'react';
 import { areaReadout, formatArea } from '../lib/area-readout';
+import { areaBounds } from '../lib/map';
 import {
   AreaConflictError,
   areaErrorMessage,
@@ -90,11 +91,7 @@ function inView(areas: readonly Area[], bbox: Bbox | null): Area[] {
   if (bbox === null) return [];
   const [west, south, east, north] = bbox;
   const view = L.latLngBounds([south, west], [north, east]);
-  return areas.filter((area) =>
-    L.latLngBounds(area.geometry.coordinates[0].map(([lng, lat]) => L.latLng(lat, lng))).intersects(
-      view,
-    ),
-  );
+  return areas.filter((area) => areaBounds(area).intersects(view));
 }
 
 type AreasInViewPanelProps = {
