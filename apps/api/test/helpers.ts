@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import { type AppEnv, createApp } from '../src/app';
 
-type User = NonNullable<AppEnv['Variables']['user']>;
+/** A signed-in user as `c.get('user')` holds it. */
+export type User = NonNullable<AppEnv['Variables']['user']>;
 
 /**
  * The real app with `user` already signed in: sets `c.get('user')` at the composition layer, where
