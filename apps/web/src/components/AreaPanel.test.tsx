@@ -94,6 +94,12 @@ function renderPanel(handler: StubHandler, props: Partial<AreaPanelProps> = {}) 
 const selectedPanel = (name = 'Orchard') => screen.getByRole('region', { name });
 const listPanel = () => screen.getByRole('region', { name: COPY.AREAS.LIST_TITLE });
 
+/** Delete, then Yes in the inline confirm. */
+function confirmDelete(panel: HTMLElement) {
+  fireEvent.click(within(panel).getByRole('button', { name: COPY.AREAS.DELETE }));
+  fireEvent.click(within(panel).getByRole('button', { name: COPY.AREAS.DELETE_YES }));
+}
+
 function rename(panel: HTMLElement, name: string) {
   fireEvent.change(within(panel).getByRole('textbox'), { target: { value: name } });
   fireEvent.click(within(panel).getByRole('button', { name: COPY.AREAS.RENAME_SUBMIT }));
@@ -224,9 +230,32 @@ it('hands a 409 to the parent instead of showing it', async () => {
   expect(screen.queryByRole('alert')).toBeNull();
 });
 
-it('deletes the area and reports it; a failed delete shows an alert', async () => {
+it('asks before deleting: No keeps the area, sends nothing and puts focus back on Delete', () => {
+  const { requests } = renderPanel(() => emptyResponse(204));
+  const panel = selectedPanel();
+
+  fireEvent.click(within(panel).getByRole('button', { name: COPY.AREAS.DELETE }));
+  expect(within(panel).getByRole('group', { name: COPY.AREAS.DELETE_CONFIRM })).toBeTruthy();
+  fireEvent.click(within(panel).getByRole('button', { name: COPY.AREAS.DELETE_NO }));
+
+  expect(writes(requests)).toEqual([]);
+  expect(document.activeElement).toBe(
+    within(panel).getByRole('button', { name: COPY.AREAS.DELETE }),
+  );
+});
+
+it('sends nothing for a rename that keeps the name (no new version)', async () => {
+  const { requests } = renderPanel(() => jsonResponse(500, {}));
+
+  rename(selectedPanel(), '  Orchard ');
+  await Promise.resolve();
+
+  expect(writes(requests)).toEqual([]);
+});
+
+it('deletes the area after the confirm and reports it; a failed delete shows an alert', async () => {
   const ok = renderPanel(() => emptyResponse(204));
-  fireEvent.click(within(selectedPanel()).getByRole('button', { name: COPY.AREAS.DELETE }));
+  confirmDelete(selectedPanel());
   await waitFor(() => expect(ok.onDeleted).toHaveBeenCalledTimes(1));
   expect(writes(ok.requests)[0]).toMatchObject({
     method: 'DELETE',
@@ -238,7 +267,7 @@ it('deletes the area and reports it; a failed delete shows an alert', async () =
   const failing = renderPanel(() =>
     jsonResponse(429, { code: ERROR_CODES.RATE_LIMITED, message: 'Slow' }),
   );
-  fireEvent.click(within(selectedPanel()).getByRole('button', { name: COPY.AREAS.DELETE }));
+  confirmDelete(selectedPanel());
   const alert = await screen.findByRole('alert');
   expect(alert.textContent).toContain(COPY.AREAS.DELETE_ERROR_TITLE);
   expect(alert.textContent).toContain('Slow');

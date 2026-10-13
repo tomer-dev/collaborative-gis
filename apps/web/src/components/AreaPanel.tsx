@@ -1,6 +1,7 @@
 import { COPY, LIMITS, type Area, type Bbox } from '@cgis/shared';
 import * as L from 'leaflet';
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
+import { flushSync } from 'react-dom';
 import { areaReadout, formatArea } from '../lib/area-readout';
 import { areaBounds } from '../lib/map';
 import {
@@ -181,7 +182,8 @@ function SelectedAreaPanel({ area, onClose, onConflict, onDeleted }: SelectedAre
     event.preventDefault();
     const name = formAreaName(new FormData(event.currentTarget));
     setNameError(name === null ? COPY.AREAS.NAME_REQUIRED : null);
-    if (name === null) return;
+    // The same name saves nothing: no request, no new version in the history.
+    if (name === null || name === area.name) return;
     const edit = { id: area.id, body: { name, geometry: area.geometry, version: area.version } };
     update.mutate(edit, {
       onError: (error) => {
@@ -236,15 +238,10 @@ function SelectedAreaPanel({ area, onClose, onConflict, onDeleted }: SelectedAre
             />
           </Field>
           <div className="flex gap-2">
-            <Button
-              variant="danger"
-              size="sm"
-              className="mr-auto"
-              disabled={remove.isPending}
-              onClick={() => remove.mutate(area.id, { onSuccess: () => onDeleted() })}
-            >
-              {remove.isPending ? COPY.AREAS.DELETE_PENDING : COPY.AREAS.DELETE}
-            </Button>
+            <DeleteButton
+              pending={remove.isPending}
+              onDelete={() => remove.mutate(area.id, { onSuccess: () => onDeleted() })}
+            />
             <Button type="submit" size="sm" disabled={update.isPending}>
               {update.isPending ? COPY.AREAS.RENAME_PENDING : COPY.AREAS.RENAME_SUBMIT}
             </Button>
@@ -253,5 +250,55 @@ function SelectedAreaPanel({ area, onClose, onConflict, onDeleted }: SelectedAre
         <AreaHistory area={area} onConflict={onConflict} />
       </div>
     </Panel>
+  );
+}
+
+type DeleteButtonProps = { pending: boolean; onDelete: () => void };
+
+/** Delete in two clicks, no dialog: Delete, then Yes in the inline "Delete?" (No goes back). */
+function DeleteButton({ pending, onDelete }: DeleteButtonProps) {
+  const [confirming, setConfirming] = useState(false);
+  const deleteButton = useRef<HTMLButtonElement>(null);
+  // No unmounts the button that had focus: render Delete now and put focus back on it.
+  const back = () => {
+    flushSync(() => setConfirming(false));
+    deleteButton.current?.focus();
+  };
+
+  if (confirming) {
+    return (
+      <div
+        role="group"
+        aria-label={COPY.AREAS.DELETE_CONFIRM}
+        className="mr-auto flex items-center gap-2"
+      >
+        <span className="text-sm font-medium">{COPY.AREAS.DELETE_CONFIRM}</span>
+        <Button
+          variant="danger"
+          size="sm"
+          onClick={() => {
+            setConfirming(false);
+            onDelete();
+          }}
+        >
+          {COPY.AREAS.DELETE_YES}
+        </Button>
+        <Button variant="secondary" size="sm" autoFocus onClick={back}>
+          {COPY.AREAS.DELETE_NO}
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <Button
+      ref={deleteButton}
+      variant="danger"
+      size="sm"
+      className="mr-auto"
+      disabled={pending}
+      onClick={() => setConfirming(true)}
+    >
+      {pending ? COPY.AREAS.DELETE_PENDING : COPY.AREAS.DELETE}
+    </Button>
   );
 }
