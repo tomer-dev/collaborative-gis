@@ -4,7 +4,7 @@ import { useMutation } from '@tanstack/react-query';
 import { createContext, type ReactNode } from 'react';
 import { authClient } from '../../lib/auth-client';
 import { Avatar, Button } from '../../ui';
-import { focusRing } from '../../ui/focus';
+import { buttonClass } from '../../ui/Button';
 
 type AppFrameProps = {
   /** Right side of the top bar; the `_authed` layout puts `SessionMenu` here. */
@@ -29,7 +29,7 @@ export function AppFrame({ headerEnd, mainClassName = '', children }: AppFramePr
             href={ROUTES.APP.GUIDE}
             target="_blank"
             rel="noopener"
-            className={`rounded-sm font-medium text-primary underline-offset-4 hover:underline ${focusRing}`}
+            className={buttonClass('secondary', 'sm')}
           >
             {COPY.APP.GUIDE}
           </a>
@@ -63,7 +63,7 @@ export function SessionMenu({ user, color }: { user: AuthUser; color: string | n
           {COPY.AUTH.SIGN_OUT_ERROR}
         </span>
       ) : null}
-      {color ? <Avatar name={user.name} color={color} size="sm" decorative /> : null}
+      {color ? <Avatar name={user.name} color={color} size="sm" decorative /> : <AvatarSlot />}
       <span className="min-w-0 truncate">{user.name}</span>
       <Button
         variant="secondary"
@@ -71,6 +71,28 @@ export function SessionMenu({ user, color }: { user: AuthUser; color: string | n
         disabled={signOutMutation.isPending}
         onClick={() => signOutMutation.mutate()}
       >
+        {COPY.AUTH.SIGN_OUT}
+      </Button>
+    </div>
+  );
+}
+
+/** The avatar's box before the room has given the user a colour, so the bar keeps its width. */
+function AvatarSlot() {
+  return <span aria-hidden="true" className="size-6 shrink-0 rounded-full bg-line" />;
+}
+
+/**
+ * `SessionMenu`'s box while the session is still on its way (a remembered cold load): the avatar
+ * slot, a name-sized bar and the sign-out button kept invisible, so the bar does not shift when
+ * the real menu takes its place. The name's true width is unknown until then; the bar is a reserve.
+ */
+export function SessionMenuPlaceholder() {
+  return (
+    <div aria-hidden="true" className="flex min-w-0 items-center gap-3 text-sm">
+      <AvatarSlot />
+      <span className="h-4 w-16 min-w-0 rounded-sm bg-line" />
+      <Button variant="secondary" size="sm" className="invisible">
         {COPY.AUTH.SIGN_OUT}
       </Button>
     </div>

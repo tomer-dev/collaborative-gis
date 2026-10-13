@@ -4,8 +4,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { FakeSocket } from '../lib/fake-websocket';
 import { AppRouterProvider, createAppRouter } from '../router';
 
@@ -356,6 +354,8 @@ describe('cold load', () => {
       isPending: true,
     });
     expect(screen.getByRole('status').textContent).toBe(COPY.AUTH.SESSION_CHECKING);
+    // Nothing remembered, nothing to reserve: no session-menu placeholder.
+    expect(screen.queryByText(COPY.AUTH.SIGN_OUT)).toBeNull();
     // In the frame, so the header the skeleton painted stays through the check and on /login.
     expect(screen.getByRole('heading', { name: COPY.APP.NAME })).toBeTruthy();
     await sessionRoundTrip();
@@ -395,6 +395,8 @@ describe('cold load', () => {
     );
     // Still announced to a screen reader, just not shown.
     expect(screen.getByRole('status').textContent).toBe(COPY.AUTH.SESSION_CHECKING);
+    // The session menu's box is reserved: its button is there but invisible, so nothing shifts.
+    expect(screen.getByText(COPY.AUTH.SIGN_OUT).className).toContain('invisible');
     expect(screen.queryByTestId('map-root')).toBeNull();
     expect(resolved).toEqual([]);
     await sessionRoundTrip();
@@ -403,6 +405,9 @@ describe('cold load', () => {
     // The hand-off never blanks the screen: the frame is there the moment the router takes over.
     expect(screen.getByRole('heading', { name: COPY.APP.NAME })).toBeTruthy();
     expect(await screen.findByTestId('map-root')).toBeTruthy();
+    expect(screen.getByRole('button', { name: COPY.AUTH.SIGN_OUT }).className).not.toContain(
+      'invisible',
+    );
     expect(h1.stop()).toBe(0);
     expect(visited).not.toContain(ROUTES.APP.LOGIN);
     expect(resolved).toEqual([ROUTES.APP.MAP]);
@@ -424,15 +429,6 @@ describe('cold load', () => {
     expect(resolved).toEqual([ROUTES.APP.LOGIN]);
     expect(router.state.location.pathname).toBe(ROUTES.APP.LOGIN);
     expect(localStorage.getItem(AUTH.SIGNED_IN_HINT_KEY)).toBeNull();
-  });
-});
-
-describe('index.html', () => {
-  it('carries the pre-mount skeleton with the app name, for the first paint before React', () => {
-    const html = readFileSync(join(import.meta.dirname, '../../index.html'), 'utf8');
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    // Inside #root, so React replaces it on mount instead of leaving a second header.
-    expect(doc.querySelector('#root > #skeleton > header')?.textContent).toBe(COPY.APP.NAME);
   });
 });
 

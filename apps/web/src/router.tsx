@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from 'react';
 import { authClient } from './lib/auth-client';
 import { readSignedInHint, writeSignedInHint } from './lib/signed-in-hint';
 import { routeTree } from './routeTree.gen';
-import { AppFrame } from './routes/-components/AppFrame';
+import { AppFrame, SessionMenuPlaceholder } from './routes/-components/AppFrame';
 import { NotFound } from './routes/-components/NotFound';
 
 /** Builds the app router; tests pass a memory history. */
@@ -45,12 +45,16 @@ function EmptyFrame() {
 
 /**
  * The frame during the first session check. A browser remembered as signed in sees it empty, as
- * if the app stayed (the status is for screen readers only); any other sees the status in it.
+ * if the app stayed (the status is for screen readers only), with the session menu's box reserved
+ * in the top bar so nothing shifts when it arrives; any other sees the status in it.
  */
 function CheckingFrame({ quiet }: { quiet: boolean }) {
   return (
     // The map colour only under the empty main: text-fg is unreadable on it in dark mode.
-    <AppFrame mainClassName={quiet ? 'bg-map-bg' : ''}>
+    <AppFrame
+      headerEnd={quiet ? <SessionMenuPlaceholder /> : undefined}
+      mainClassName={quiet ? 'bg-map-bg' : ''}
+    >
       <p role="status" className={quiet ? 'sr-only' : 'grid h-full place-items-center text-sm'}>
         {COPY.AUTH.SESSION_CHECKING}
       </p>

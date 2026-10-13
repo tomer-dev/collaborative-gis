@@ -32,12 +32,71 @@
       #skeleton header {
         display: flex;
         align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
         flex-shrink: 0;
         height: 3rem;
         padding: 0 1rem;
         border-bottom: 1px solid var(--color-line);
         background: var(--color-bg-raised);
         color: var(--color-fg);
+      }
+      /* As AppFrame lays it out at phone width: the name truncates, the bar's end shrinks. */
+      #skeleton .title {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      /* The bar's end as AppFrame draws it: the Guide button, then (remembered only) the
+         session menu's box: avatar slot, name bar, invisible sign-out button. */
+      #skeleton .end,
+      #skeleton .session {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        font-weight: 500;
+      }
+      #skeleton .session {
+        display: none;
+      }
+      #skeleton[data-remembered] .session {
+        display: flex;
+      }
+      #skeleton .guide,
+      #skeleton .avatar,
+      #skeleton .button {
+        flex-shrink: 0;
+      }
+      #skeleton .guide,
+      #skeleton .button {
+        display: inline-flex;
+        align-items: center;
+        height: 2rem;
+        padding: 0 0.75rem;
+        border: 1px solid var(--color-line);
+        border-radius: 0.375rem;
+      }
+      #skeleton .button {
+        visibility: hidden;
+      }
+      #skeleton .avatar,
+      #skeleton .name {
+        background: var(--color-line);
+      }
+      #skeleton .avatar {
+        width: 1.5rem;
+        height: 1.5rem;
+        border-radius: 50%;
+      }
+      #skeleton .name {
+        min-width: 0;
+        width: 4rem;
+        height: 1rem;
+        border-radius: 0.25rem;
       }
       #skeleton main {
         flex: 1;
@@ -55,9 +114,26 @@
   <body>
     <div id="root">
       <div id="skeleton">
-        <header>Collaborative GIS</header>
+        <header>
+          <span class="title">Collaborative GIS</span>
+          <span class="end">
+            <span class="guide">Guide</span>
+            <span class="session">
+              <span class="avatar"></span><span class="name"></span
+              ><span class="button">Sign out</span>
+            </span>
+          </span>
+        </header>
         <main></main>
       </div>
+      <script>
+        // Same reserve as the checking frame: only for a browser signed in last time
+        // (AUTH.SIGNED_IN_HINT_KEY / VALUE; src/routes/-skeleton.test.tsx ties the literals).
+        try {
+          if (localStorage.getItem('cgis.signedIn') === '1')
+            document.getElementById('skeleton').dataset.remembered = '';
+        } catch {}
+      </script>
     </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
