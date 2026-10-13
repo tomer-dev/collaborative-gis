@@ -36,7 +36,8 @@ const VERTEX_CAP_UNIT = `/ ${LIMITS.POLYGON_MAX_PLACED_VERTICES}`;
 
 /**
  * Polygon draw control floating over the map's top-right corner: a "Draw polygon" toolbar
- * button, then, while drawing, the live area and vertex count with Finish / Undo / Cancel.
+ * button, then, while drawing, the live area and vertex count with Finish / Undo / Cancel
+ * (Escape cancels too).
  * Mount it next to the map container (not inside it), so its clicks never reach the map.
  */
 export function DrawControl({ map, onDone }: DrawControlProps) {
@@ -79,6 +80,16 @@ function MapDrawControl({ map, onDone }: DrawControlProps) {
       handler.disable();
     };
   }, [map, handler]);
+
+  // Escape while drawing takes the Cancel button's path (a dialog's own Escape is handled first).
+  useEffect(() => {
+    if (!drawing) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !event.defaultPrevented) handler.cancel();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [drawing, handler]);
 
   const start = () => {
     setSketch(EMPTY_SKETCH);
