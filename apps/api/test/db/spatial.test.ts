@@ -12,7 +12,7 @@ import {
   updateAreaIfVersion,
   writeAudit,
 } from '../../src/db/spatial';
-import { areasInBoundsSql, selectAreasInBounds } from '../../src/db/spatial-read';
+import { boundsQuery, selectAreasInBounds } from '../../src/db/spatial-read';
 
 // Runs in the `db` project on cgis_db, next to schema.test.ts and geometry.test.ts (files run in
 // parallel). Rows that a test asserts on exactly sit outside Israel, where the other files and the
@@ -76,45 +76,6 @@ async function versionRows(areaId: string) {
   return rows;
 }
 
-// --- Reference area on the WGS 84 ellipsoid -------------------------------------------------------
-
-const WGS84 = { a: 6_378_137, f: 1 / 298.257223563 }; // EPSG:7030 semi-major axis (m), flattening
-const E2 = WGS84.f * (2 - WGS84.f); // first eccentricity squared
-const E = Math.sqrt(E2);
-const RAD = Math.PI / 180;
-const M2_PER_KM2 = 1e6;
-
-/** Snyder (USGS PP 1395) eq. 3-12: q(φ), so that the zone from the equator to φ is a²·q/2 per radian. */
-function q(phi: number): number {
-  const s = Math.sin(phi);
-  return (1 - E2) * (s / (1 - E2 * s * s) - Math.log((1 - E * s) / (1 + E * s)) / (2 * E));
-}
-
-/**
- * Exact area, in km², of the ellipsoidal quadrangle between meridians w..e and parallels s..n:
- * A = (a²/2) · Δλ · (q(φn) − q(φs)).
- */
-function quadrangleKm2(w: number, s: number, e: number, n: number): number {
-  return ((WGS84.a ** 2 / 2) * (e - w) * RAD * (q(n * RAD) - q(s * RAD))) / M2_PER_KM2;
-}
-
-/**
- * The only way PostGIS's polygon differs from that quadrangle: its north and south edges are
- * geodesics, not parallels, so each bulges poleward. On a sphere of radius a the geodesic between
- * two points at latitude φ, Δλ apart, peaks at tan φm = tan φ / cos(Δλ/2). Each lens between edge
- * and parallel fits in a chord × sagitta rectangle, so the two together bound |A_postgis − A|.
- */
-function edgeBulgeBoundKm2(w: number, s: number, e: number, n: number): number {
-  const dLambda = (e - w) * RAD;
-  const lens = (latDeg: number) => {
-    const phi = latDeg * RAD;
-    const sagitta = WGS84.a * (Math.atan(Math.tan(phi) / Math.cos(dLambda / 2)) - phi);
-    const chord = WGS84.a * Math.cos(phi) * dLambda;
-    return chord * sagitta;
-  };
-  return (lens(s) + lens(n)) / M2_PER_KM2;
-}
-
 // --- Plan inspection -------------------------------------------------------------------------------
 
 type PlanNode = { 'Node Type': string; 'Index Name'?: string; Plans?: PlanNode[] };
@@ -125,7 +86,7 @@ function planNodes(node: PlanNode): PlanNode[] {
 
 async function explainBounds(bbox: Bbox): Promise<PlanNode[]> {
   const { rows } = await db(client).execute<{ 'QUERY PLAN': [{ Plan: PlanNode }] }>(
-    sql`EXPLAIN (FORMAT JSON) ${areasInBoundsSql(bbox, { limit: LIMITS.BOUNDS_LIMIT })}`,
+    sql`EXPLAIN (FORMAT JSON) ${boundsQuery(client, bbox)}`,
   );
   return planNodes(rows[0]!['QUERY PLAN'][0].Plan);
 }
@@ -153,19 +114,12 @@ describe('insertArea', () => {
   });
 
   it('stores area_km2 as the geodesic area on the WGS 84 ellipsoid (0.1° square at 32°N)', async () => {
-    const tolerance = 0.001; // 0.1 %
-    const [w, s, e, n] = [34.8, 32, 34.9, 32.1];
-    const reference = quadrangleKm2(w, s, e, n);
-
-    // The tolerance has to cover the edge bulge, the one difference the reference does not model.
-    expect(edgeBulgeBoundKm2(w, s, e, n)).toBeLessThan((tolerance * reference) / 2);
-
-    const area = await insertArea(client, {
-      name: 'square 32N',
-      geometry: box(w, s, e, n),
-      userId,
-    });
-    expect(Math.abs(area.areaKm2 - reference) / reference).toBeLessThan(tolerance);
+    // PostGIS is the authority (D25): ST_Area(geography) of a 0.1° box at 32°N is 104.7243 km², the
+    // value apps/web's geodesic.test.ts pins for the same box.
+    const reference = 104.7243;
+    const geometry = box(34.8, 32, 34.9, 32.1);
+    const area = await insertArea(client, { name: 'square 32N', geometry, userId });
+    expect(Math.abs(area.areaKm2 - reference) / reference).toBeLessThan(0.001); // 0.1 %
   });
 });
 

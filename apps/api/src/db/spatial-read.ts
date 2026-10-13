@@ -1,14 +1,11 @@
 import { GEO, LIMITS, type Area, type AreaVersion, type Bbox, type Polygon } from '@cgis/shared';
 import { and, desc, eq, isNull, sql, type AnyColumn, type SQL } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
 import { db } from './index.ts';
 import { areas, areaVersions } from './schema.ts';
 
 // Spatial reads on `areas` / `area_versions`, one `pg.Client` per call (from `withClient`): Drizzle
 // builder selects with PostGIS `sql` fragments (D23). The writes are in ./spatial.ts.
-
-export type AreaRow = Area;
 
 /**
  * A timestamp as an ISO 8601 UTC string, as `Date.toISOString()` prints it (the `Area` contract).
@@ -30,7 +27,7 @@ const AREA_FIELDS = {
 };
 
 /** The live area `id` (null when missing or soft-deleted). */
-export async function selectLiveArea(c: pg.Client, id: string): Promise<AreaRow | null> {
+export async function selectLiveArea(c: pg.Client, id: string): Promise<Area | null> {
   const [area] = await db(c)
     .select(AREA_FIELDS)
     .from(areas)
@@ -43,12 +40,12 @@ export async function selectLiveArea(c: pg.Client, id: string): Promise<AreaRow 
  * GiST index `areas_geom_gist`), newest edits first. `&&` compares bounding boxes only, so an area
  * near the viewport may be included without touching it; the map simply draws it off-screen.
  */
-function boundsQuery(
-  database: Pick<ReturnType<typeof db>, 'select'>,
+export function boundsQuery(
+  c: pg.Client,
   [west, south, east, north]: Bbox,
-  limit: number,
+  limit: number = LIMITS.BOUNDS_LIMIT,
 ) {
-  return database
+  return db(c)
     .select(AREA_FIELDS)
     .from(areas)
     .where(
@@ -61,21 +58,13 @@ function boundsQuery(
     .limit(limit);
 }
 
-/** The viewport query's SQL (see selectAreasInBounds), for EXPLAIN; built without a client. */
-export function areasInBoundsSql(
-  bbox: Bbox,
-  { limit = LIMITS.BOUNDS_LIMIT }: { limit?: number } = {},
-): SQL {
-  return boundsQuery(drizzle.mock(), bbox, limit).getSQL();
-}
-
 /** Live areas in the viewport (see boundsQuery); `limit` defaults to `LIMITS.BOUNDS_LIMIT`. */
 export async function selectAreasInBounds(
   c: pg.Client,
   bbox: Bbox,
   { limit = LIMITS.BOUNDS_LIMIT }: { limit?: number } = {},
-): Promise<AreaRow[]> {
-  return await boundsQuery(db(c), bbox, limit);
+): Promise<Area[]> {
+  return await boundsQuery(c, bbox, limit);
 }
 
 /**

@@ -80,8 +80,7 @@ async function counts(id: string) {
   return row;
 }
 
-const purge = (now = NOW, days?: number) =>
-  withClient(env, (client) => purgeDeleted(client, now, days));
+const purge = () => withClient(env, (client) => purgeDeleted(client, NOW));
 
 describe('purgeDeleted', () => {
   it('removes areas soft-deleted before the cutoff and their versions, nothing else', async () => {
@@ -105,13 +104,6 @@ describe('purgeDeleted', () => {
 
     expect(await purge()).toEqual({ areas: 1, versions: 2 });
     expect(await purge()).toEqual({ areas: 0, versions: 0 });
-  });
-
-  it('takes the retention period as `days`', async () => {
-    const twoDaysOld = await seedArea(daysBefore(2), 1);
-
-    expect(await purge(NOW, 1)).toEqual({ areas: 1, versions: 1 });
-    expect(await counts(twoDaysOld)).toEqual({ areas: 0, versions: 0 });
   });
 
   it('writes one audit row per batch (one for a small run), without a user, with the counts in details', async () => {
