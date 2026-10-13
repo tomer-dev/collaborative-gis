@@ -217,6 +217,19 @@ it('discards the sketch from Cancel', () => {
   expect(document.activeElement).toBe(button(DRAW.START_LABEL));
 });
 
+it('discards the sketch on Escape, as Cancel does', () => {
+  const { handler, onDone } = renderOnMap();
+  startDrawing();
+  act(() => clickOn(map, 32, 35));
+
+  fireEvent.keyDown(document, { key: 'Escape' });
+
+  expect(handler().enabled()).toBe(false);
+  expect(handler().getVertices()).toEqual([]);
+  expect(onDone).not.toHaveBeenCalled();
+  expect(document.activeElement).toBe(button(DRAW.START_LABEL));
+});
+
 it('counts placed vertices up to the reachable cap, 999, where the handler stops', () => {
   renderOnMap();
   startDrawing();
