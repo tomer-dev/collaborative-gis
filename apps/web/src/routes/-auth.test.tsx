@@ -365,10 +365,15 @@ describe('cold load', () => {
       isPending: true,
     });
     expect(screen.getByRole('heading', { name: COPY.APP.NAME })).toBeTruthy();
-    expect(screen.queryByText(COPY.AUTH.SESSION_CHECKING)).toBeNull();
+    // Still announced to a screen reader, just not shown.
+    expect(screen.getByRole('status').textContent).toBe(COPY.AUTH.SESSION_CHECKING);
+    expect(screen.queryByTestId('map-root')).toBeNull();
+    expect(resolved).toEqual([]);
     await sessionRoundTrip();
     await act(async () => auth.set(signedIn));
 
+    // The hand-off never blanks the screen: the frame is there the moment the router takes over.
+    expect(screen.getByRole('heading', { name: COPY.APP.NAME })).toBeTruthy();
     expect(await screen.findByTestId('map-root')).toBeTruthy();
     expect(visited).not.toContain(ROUTES.APP.LOGIN);
     expect(resolved).toEqual([ROUTES.APP.MAP]);
@@ -381,7 +386,7 @@ describe('cold load', () => {
       data: null,
       isPending: true,
     });
-    expect(screen.queryByText(COPY.AUTH.SESSION_CHECKING)).toBeNull();
+    expect(screen.getByRole('heading', { name: COPY.APP.NAME })).toBeTruthy();
     await sessionRoundTrip();
     await act(async () => auth.set(signedOut));
 
