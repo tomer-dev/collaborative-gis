@@ -72,6 +72,10 @@ jobs:
           pnpm exec hono batch --compact batch/areas.jsonl --runtime workerd > "$RUNNER_TEMP/batch.json"
           cat "$RUNNER_TEMP/batch.json"
           jq -e '.data.summary.failed == 0' "$RUNNER_TEMP/batch.json"
+      # The web project's `tsc -b` references the api project, whose bindings come from the
+      # generated Worker types (`pnpm types`); the checks job generates them on its own runner.
+      - name: worker types
+        run: pnpm --filter @cgis/api types
       - name: web build
         run: pnpm --filter @cgis/web build
       # Static build only (D18 reduced): proves every story and .storybook file compiles. Story
