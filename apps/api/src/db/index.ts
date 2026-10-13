@@ -1,16 +1,50 @@
+// Node also runs the db modules natively (`db:seed`, `db:explain`), so within src/db relative
+// imports name the .ts file (see tsconfig.base.json); type-only imports are erased.
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { TIMEOUTS } from '@cgis/shared';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import type { Env } from '../app';
-import { log } from '../log';
-import * as schema from './schema';
+import { timeoutException } from '../errors.ts';
+import { log } from '../log.ts';
+import * as schema from './schema.ts';
+
+/** pg rejects a query that outlived `query_timeout` with this message (pg/lib/client.js). */
+const PG_QUERY_TIMEOUT = 'Query read timeout';
+
+const requestSignal = new AsyncLocalStorage<AbortSignal>();
+
+/**
+ * Runs `fn` with `signal` as the default `withClient` signal for every database call made inside
+ * it. The request timeout middleware wraps each request in it, so routes, services and auth need
+ * no signal parameter for a timed-out request to end its clients.
+ */
+export function withSignal<T>(signal: AbortSignal, fn: () => T): T {
+  return requestSignal.run(signal, fn);
+}
+
+export type ClientOptions = {
+  /**
+   * When it aborts, the client is ended at once (the query in flight rejects) and the call rejects
+   * with the signal's reason. Default: the signal of the request being served (`withSignal`).
+   * `null`: none. For work that outlives its request (`waitUntil` writers such as the audit), which
+   * must not end when the request's deadline passes or its client disconnects.
+   */
+  signal?: AbortSignal | null;
+};
 
 /**
  * Runs `fn` with a fresh `pg.Client` on `env.HYPERDRIVE` and closes it afterwards.
  * One client per call: Hyperdrive pools the connections, so nothing session-scoped is kept here.
- * Bounded: connecting by a hard `TIMEOUTS.DB_CONNECT_MS` deadline, each query by `DB_QUERY_MS`.
+ * Bounded: connecting by a hard `TIMEOUTS.DB_CONNECT_MS` deadline; each query by `DB_QUERY_MS`,
+ * past which it rejects with the 504 `timeoutException`; the whole call by `signal`.
  */
-export async function withClient<T>(env: Env, fn: (client: pg.Client) => Promise<T>): Promise<T> {
+export async function withClient<T>(
+  env: Env,
+  fn: (client: pg.Client) => Promise<T>,
+  { signal = requestSignal.getStore() }: ClientOptions = {},
+): Promise<T> {
+  signal?.throwIfAborted();
   const client = new pg.Client({
     connectionString: env.HYPERDRIVE.connectionString,
     connectionTimeoutMillis: TIMEOUTS.DB_CONNECT_MS,
@@ -24,20 +58,33 @@ export async function withClient<T>(env: Env, fn: (client: pg.Client) => Promise
     log('error', err.message, { src: 'pg' });
   });
 
+  // In the background: end() waits for a connect still in flight (workerd's socket.close() does),
+  // and with a query in flight pg destroys the socket, which rejects that query now.
+  const endNow = () => void client.end().catch(() => {});
+  signal?.addEventListener('abort', endNow, { once: true });
   try {
-    // pg's connect timeout cannot interrupt a TCP connect workerd is still opening, so the
-    // connect also races a hard deadline.
-    await withDeadline(client.connect(), TIMEOUTS.DB_CONNECT_MS, 'database connect');
-  } catch (err) {
-    // end() waits for a connect still in flight (workerd's socket.close() does), so close in the
-    // background instead of holding the request.
-    client.end().catch(() => {});
-    throw err;
-  }
-  try {
-    return await fn(client);
+    try {
+      // pg's connect timeout cannot interrupt a TCP connect workerd is still opening, so the
+      // connect also races a hard deadline.
+      await withDeadline(client.connect(), TIMEOUTS.DB_CONNECT_MS, 'database connect');
+    } catch (err) {
+      endNow();
+      signal?.throwIfAborted();
+      throw err;
+    }
+    try {
+      // Aborted while connecting: the client is already ending.
+      signal?.throwIfAborted();
+      return await fn(client);
+    } catch (err) {
+      // After an abort, pg's 'Connection terminated' only echoes it: reject with the reason.
+      signal?.throwIfAborted();
+      throw err instanceof Error && err.message === PG_QUERY_TIMEOUT ? timeoutException(err) : err;
+    } finally {
+      await client.end();
+    }
   } finally {
-    await client.end();
+    signal?.removeEventListener('abort', endNow);
   }
 }
 
@@ -46,7 +93,8 @@ export function db(client: pg.Client) {
   return drizzle(client, { schema });
 }
 
-async function withDeadline<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
+/** `promise`, or a rejection `<what> exceeded <ms> ms` once `ms` pass first. */
+export async function withDeadline<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error(`${what} exceeded ${ms} ms`)), ms);

@@ -171,6 +171,8 @@ describe('audit_log', () => {
       'user_agent text null',
       'at timestamp with time zone not null default now()',
       'version integer null',
+      'details jsonb null',
+      'request_id text null',
     ]);
     expect(await constraints('audit_log')).toEqual(['PRIMARY KEY (id)']);
   });

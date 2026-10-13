@@ -1,6 +1,7 @@
-import { COPY, LIMITS, type Area } from '@cgis/shared';
+import { COPY, LIMITS, type Area, type Bbox } from '@cgis/shared';
+import * as L from 'leaflet';
 import { useState, type FormEvent } from 'react';
-import { areaReadout } from '../lib/area-readout';
+import { areaReadout, formatArea } from '../lib/area-readout';
 import {
   AreaConflictError,
   areaErrorMessage,
@@ -8,23 +9,106 @@ import {
   useDeleteArea,
   useUpdateArea,
   type AreaEdit,
-} from '../lib/areas-query';
+} from '../lib/areas-mutations';
 import { Banner, Button, Field, IconClose, Input, Panel, Stat } from '../ui';
+import { AreaHistory } from './AreaHistory';
 
-export type AreaPanelProps = {
-  /** The selected area, as the viewport query has it now. */
-  area: Area;
+type SelectedAreaProps = {
   onClose: () => void;
-  /** A rename met a newer version (409): the parent asks the user (ConflictDialog). */
+  /** A rename or a revert met a newer version (409): the parent asks the user (ConflictDialog). */
   onConflict: (edit: AreaEdit, current: Area) => void;
   onDeleted: () => void;
 };
 
+export type AreaPanelProps = SelectedAreaProps & {
+  /**
+   * The viewport query's areas. They can reach past `bbox`: the WebSocket adds an area to every
+   * cached list, and the last viewport's list stays while the next one loads.
+   */
+  areas: readonly Area[];
+  /** The current viewport; the list shows the areas whose bounds meet it. */
+  bbox: Bbox | null;
+  /** Optimistic areas whose create is in flight (`usePendingAreaIds`): never listed or opened. */
+  pendingIds: ReadonlySet<string>;
+  /** The selected area's id, or null. */
+  selectedId: string | null;
+  /** A listed area was picked: the parent selects it, as a click on its polygon does. */
+  onSelect: (area: Area) => void;
+};
+
 /**
- * Floating card for the selected area: its server-measured size, a rename form (`PUT` with the
- * version shown here) and delete. Key it by area id so the form starts over per area.
+ * The map's area card. With an area selected it shows that area (rename, delete, history);
+ * otherwise the areas in view, each one selectable. An area being created is in neither: its
+ * temporary id would 404.
  */
-export function AreaPanel({ area, onClose, onConflict, onDeleted }: AreaPanelProps) {
+export function AreaPanel({
+  areas,
+  bbox,
+  pendingIds,
+  selectedId,
+  onSelect,
+  ...selectedProps
+}: AreaPanelProps) {
+  const saved = areas.filter((area) => !pendingIds.has(area.id));
+  const selected = saved.find((area) => area.id === selectedId);
+  if (selected) return <SelectedAreaPanel key={selected.id} area={selected} {...selectedProps} />;
+  return <AreasInViewPanel areas={inView(saved, bbox)} onSelect={onSelect} />;
+}
+
+/** The areas whose bounds meet `bbox`, the same test as the server's `&&` on the bounds query. */
+function inView(areas: readonly Area[], bbox: Bbox | null): Area[] {
+  if (bbox === null) return [];
+  const [west, south, east, north] = bbox;
+  const view = L.latLngBounds([south, west], [north, east]);
+  return areas.filter((area) =>
+    L.latLngBounds(area.geometry.coordinates[0].map(([lng, lat]) => L.latLng(lat, lng))).intersects(
+      view,
+    ),
+  );
+}
+
+type AreasInViewPanelProps = { areas: readonly Area[]; onSelect: (area: Area) => void };
+
+/** The areas in view with their size, up to `LIMITS.PANEL_LIST_MAX`, then a "+N more" line. */
+function AreasInViewPanel({ areas, onSelect }: AreasInViewPanelProps) {
+  const shown = areas.slice(0, LIMITS.PANEL_LIST_MAX);
+  const more = areas.length - shown.length;
+  return (
+    <Panel as="section" variant="floating" title={COPY.AREAS.LIST_TITLE} className="max-h-panel">
+      <AreaList areas={shown} onSelect={onSelect} />
+      {more > 0 ? <p className="pt-2 text-xs text-fg-muted">{COPY.AREAS.LIST_MORE(more)}</p> : null}
+    </Panel>
+  );
+}
+
+function AreaList({ areas, onSelect }: AreasInViewPanelProps) {
+  if (areas.length === 0) return <p className="text-sm text-fg-muted">{COPY.AREAS.LIST_EMPTY}</p>;
+  return (
+    <ul className="-mx-2 flex flex-col">
+      {areas.map((area) => (
+        <li key={area.id}>
+          <Button variant="ghost" size="sm" className="w-full" onClick={() => onSelect(area)}>
+            <span className="min-w-0 flex-1 truncate text-left">{area.name}</span>
+            <span className="font-normal text-fg-muted tabular-nums">
+              {formatArea(area.areaKm2)}
+            </span>
+          </Button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+type SelectedAreaPanelProps = SelectedAreaProps & {
+  /** The selected area, as the viewport query has it now. */
+  area: Area;
+};
+
+/**
+ * The selected area: its server-measured size, a rename form (`PUT` with the version shown here),
+ * delete, and its history with revert. Keyed by area id so the form starts over per area.
+ */
+function SelectedAreaPanel({ area, onClose, onConflict, onDeleted }: SelectedAreaPanelProps) {
   const update = useUpdateArea();
   const remove = useDeleteArea();
   const [nameError, setNameError] = useState<string | null>(null);
@@ -49,6 +133,7 @@ export function AreaPanel({ area, onClose, onConflict, onDeleted }: AreaPanelPro
       as="section"
       variant="floating"
       title={area.name}
+      className="max-h-panel"
       actions={
         <Button
           variant="ghost"
@@ -78,7 +163,9 @@ export function AreaPanel({ area, onClose, onConflict, onDeleted }: AreaPanelPro
             error={nameError}
             required
           >
+            {/* Keyed by the name: a revert or another user's rename refills the field. */}
             <Input
+              key={area.name}
               name="name"
               size="sm"
               defaultValue={area.name}
@@ -101,6 +188,7 @@ export function AreaPanel({ area, onClose, onConflict, onDeleted }: AreaPanelPro
             </Button>
           </div>
         </form>
+        <AreaHistory area={area} onConflict={onConflict} />
       </div>
     </Panel>
   );

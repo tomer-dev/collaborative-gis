@@ -57,6 +57,10 @@ describe('tokens.css', () => {
     expect(Number(themeValue('--z-index-map-drafts'))).toBe(MAP.DRAFTS_PANE_Z);
   });
 
+  it('times the base-layer crossfade (MAP.CROSSFADE_MS) as the slow transition', () => {
+    expect(themeValue('--transition-duration-slow')).toBe(`${MAP.CROSSFADE_MS}ms`);
+  });
+
   it('owns the vertex handle look in CSS and leaves the Leaflet JS numbers to MAP', () => {
     // CSS source: the handle dot (radius, ring, colours) for .cgis-draw-handle in map.css.
     for (const name of ['--map-handle-radius', '--map-handle-border', '--map-handle-ring']) {

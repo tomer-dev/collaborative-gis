@@ -20,7 +20,7 @@ export const ERROR_CODES = {
   RATE_LIMITED: 'RATE_LIMITED',
   /** Request budget exceeded. */
   TIMEOUT: 'TIMEOUT',
-  /** DB unreachable. */
+  /** `/readyz`: the database or the Room did not answer. */
   NOT_READY: 'NOT_READY',
   /** Sanitised server error. */
   INTERNAL: 'INTERNAL',
@@ -55,8 +55,8 @@ export const ERROR_MESSAGES = {
   RATE_LIMITED: 'Too many requests',
   /** 504 body. */
   TIMEOUT: 'timeout',
-  /** `/readyz` 503 body. */
-  NOT_READY: 'database unreachable',
+  /** `/readyz` 503 body; `details: { db, room }` says which one is down. */
+  NOT_READY: 'dependency unreachable',
   /** 5xx bodies never leak `err.message`. */
   INTERNAL: 'Internal Server Error',
   /** 501 until the lane fills the stub. */
@@ -67,7 +67,10 @@ export const ERROR_MESSAGES = {
   DRAFT_OP_MISFIT: 'draft op does not fit the current draft',
 } as const satisfies Record<keyof typeof ERROR_CODES, string>;
 
-/** `ApiError.message`s more specific than their code's default in ERROR_MESSAGES. */
+/**
+ * `ApiError.message`s more specific than their code's default in ERROR_MESSAGES, and the
+ * `details.reason`s the API itself names.
+ */
 export const ERROR_REASONS = {
   /**
    * Cross-site WebSocket hijacking: Better Auth's `getSession` ignores Origin, so without this a
@@ -80,6 +83,11 @@ export const ERROR_REASONS = {
   VERSION_CONFLICT: 'version conflict',
   /** 422 on sign-up: the trimmed name is longer than `LIMITS.USER_NAME_MAX`. */
   NAME_TOO_LONG: 'name too long',
+  /**
+   * 409 `details.reason` (the message is the code's default): a revert on a soft-deleted area,
+   * which stays deleted.
+   */
+  AREA_DELETED: 'area deleted',
 } as const;
 
 /**
@@ -91,4 +99,10 @@ export const WS_MESSAGES = {
   NOT_JSON: 'frames must be JSON text',
   /** Drafts come only from users in presence. */
   NOT_JOINED: 'send join first',
+  /**
+   * `error CONFLICT` with `resync: true`: the socket joined state the Room has since lost (its
+   * storage went while the socket stayed attached); every frame but `join`/`leave` is dropped
+   * until it joins again.
+   */
+  ROOM_STATE_LOST: 'room state lost; join again',
 } as const;

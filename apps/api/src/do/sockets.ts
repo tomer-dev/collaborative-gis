@@ -69,13 +69,16 @@ export function sendAll(ctx: DurableObjectState, event: RoomEvent, exceptUserId?
   }
 }
 
-/** Sends `error { code, message, retryAfter? }` (`retryAfter` in ms) to one socket. */
+/**
+ * Sends `error { code, message, retryAfter?, resync? }` to one socket: `retryAfter` in ms;
+ * `resync: true` when the client must rebuild (join again, resend its draft).
+ */
 export function sendError(
   ctx: DurableObjectState,
   ws: WebSocket,
   code: ApiErrorCode,
   message: string,
-  extra: { retryAfter?: number } = {},
+  extra: { retryAfter?: number; resync?: boolean; frameSeq?: number } = {},
 ): void {
   sendTo(ctx, ws, { type: 'error', payload: { code, message, ...extra } });
 }

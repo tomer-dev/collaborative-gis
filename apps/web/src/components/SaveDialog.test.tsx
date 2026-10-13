@@ -13,6 +13,7 @@ import {
   SQUARE,
   stubApi,
   stubDialogModal,
+  ZOOM,
 } from '../test/api-stub';
 import { SaveDialog } from './SaveDialog';
 
@@ -38,9 +39,11 @@ function renderDialog(post: () => Response) {
     method === 'POST' ? post() : jsonResponse(200, { areas: [] }),
   );
   const { queryClient, wrapper: Wrapper } = queryWrapper();
-  queryClient.setQueryData<AreaList>(areasKey(ISRAEL), { areas: [] });
+  queryClient.setQueryData<AreaList>(areasKey(ISRAEL, ZOOM), { areas: [] });
   const onClose = vi.fn();
-  render(<SaveDialog ring={SQUARE} bbox={ISRAEL} onClose={onClose} />, { wrapper: Wrapper });
+  render(<SaveDialog ring={SQUARE} bbox={ISRAEL} zoom={ZOOM} onClose={onClose} />, {
+    wrapper: Wrapper,
+  });
   return { requests, onClose, queryClient };
 }
 

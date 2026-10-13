@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { LIMITS } from './constants';
-import { PolygonSchema } from './geo';
+import { LIMITS } from './constants/index.ts';
+import { PolygonSchema } from './geo.ts';
 
 export const AreaSchema = z.object({
   id: z.uuid(),
@@ -17,8 +17,18 @@ export type Area = z.infer<typeof AreaSchema>;
 export const AreaCreateSchema = AreaSchema.pick({ name: true, geometry: true });
 export type AreaCreate = z.infer<typeof AreaCreateSchema>;
 
-export const AreaUpdateSchema = AreaCreateSchema.extend({ version: z.number().int().positive() });
+export const AreaUpdateSchema = AreaCreateSchema.extend({
+  version: z.number().int().positive().max(LIMITS.VERSION_MAX),
+});
 export type AreaUpdate = z.infer<typeof AreaUpdateSchema>;
+
+/**
+ * `POST /api/areas/:id/revert/:version` body: the area's version the client was looking at when it
+ * asked for the revert (D4, as `PUT`'s `version`). A newer stored version is a 409 with
+ * `details.current`, so a revert never silently undoes someone else's edit.
+ */
+export const RevertRequestSchema = AreaUpdateSchema.pick({ version: true });
+export type RevertRequest = z.infer<typeof RevertRequestSchema>;
 
 /** `GET /api/areas?bbox=…` response body: the live areas in the viewport. */
 export const AreaListSchema = z.object({ areas: z.array(AreaSchema) });
@@ -35,6 +45,13 @@ export const AreaVersionSchema = z.object({
   changedAt: z.iso.datetime(),
 });
 export type AreaVersion = z.infer<typeof AreaVersionSchema>;
+
+/**
+ * `GET /api/areas/:id/versions` response body: the area's saved versions, newest first, at most
+ * `LIMITS.VERSIONS_PAGE` of them.
+ */
+export const VersionsResponseSchema = z.object({ versions: z.array(AreaVersionSchema) });
+export type VersionsResponse = z.infer<typeof VersionsResponseSchema>;
 
 /** One `bbox` part: a non-empty number in [min, max] (`Number('')` would read an empty part as 0). */
 const coordinate = (min: number, max: number) =>

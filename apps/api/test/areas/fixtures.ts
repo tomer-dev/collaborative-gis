@@ -95,6 +95,10 @@ export function areasClient(
     list: (query: string) => send(`${ROUTES.AREAS}?${query}`),
     update: (id: string, body: unknown) => json('PUT', `${ROUTES.AREAS}/${id}`, body),
     remove: (id: string) => send(`${ROUTES.AREAS}/${id}`, { method: 'DELETE' }),
+    versions: (id: string) => send(`${ROUTES.AREAS}/${id}/versions`),
+    /** `expected`: the area's version the revert is based on (the body's `version`, if any). */
+    revert: (id: string, version: number | string, expected: number | undefined) =>
+      json('POST', `${ROUTES.AREAS}/${id}/revert/${version}`, { version: expected }),
   };
 }
 

@@ -10,11 +10,28 @@ export const COPY = {
     NAME: 'Collaborative GIS',
   },
   CONNECTION: {
-    DEGRADED_TITLE: 'Reconnecting',
+    /** Banner while `degraded`: the socket keeps retrying with backoff. */
+    DEGRADED_TITLE: 'Reconnecting…',
+    /** The local draft stays in memory and is resent after the next join. */
     DEGRADED_DETAIL: 'Live updates are paused. Your drawing is kept.',
+    /** Banner while `offline`: the saved areas are polled every `WS.OFFLINE_POLL_MS`. */
     OFFLINE_TITLE: 'Offline',
-    OFFLINE_DETAIL: `Live updates are off. Saved areas refresh every ${WS.OFFLINE_POLL_MS / MS_PER_SECOND} s.`,
+    /** States the poll interval from `WS.OFFLINE_POLL_MS`. */
+    OFFLINE_DETAIL: `Showing the last saved areas; polling every ${WS.OFFLINE_POLL_MS / MS_PER_SECOND} s. Your drawing is kept.`,
+    /** Banner while a re-join waits for the Room's state (after a reconnect or a `resync` error); brief. */
+    RESYNC_TITLE: 'Resyncing…',
+    /** Ghosts and presence are replaced by the Room's answer; the draft is resent. */
+    RESYNC_DETAIL: 'Catching up with the live map.',
+    /** The offline banner's button: connect now. */
     RETRY: 'Retry',
+  },
+  /** The base-layer switch on /map (LayerSwitch): the toolbar's name and its two toggles. */
+  MAP: {
+    BASE_LAYER_LABEL: 'Base map',
+    /** OpenStreetMap on Web Mercator. */
+    OSM_LABEL: 'Street map',
+    /** govmap's aerial imagery on the EPSG:2039 grid. */
+    AERIAL_LABEL: 'Aerial imagery',
   },
   PRESENCE: {
     TITLE: 'On this map',
@@ -44,7 +61,10 @@ export const COPY = {
     SIGN_OUT: 'Sign out',
     SIGN_OUT_ERROR: 'Could not sign out. Try again.',
   },
-  /** Saved areas on /map: the save dialog, the selected-area panel and the conflict dialog (D4). */
+  /**
+   * Saved areas on /map: the save dialog, the area panel (the areas in view, the selected area and
+   * its history) and the conflict dialog (D4).
+   */
   AREAS: {
     SAVE_TITLE: 'Save area',
     NAME_LABEL: 'Name',
@@ -78,5 +98,25 @@ export const COPY = {
     OVERWRITE_ERROR_TITLE: 'Could not overwrite the area',
     /** A failure without an API error body (network error, proxy page). */
     ERROR_GENERIC: 'Something went wrong. Try again.',
+    /** The area panel: its title, also the name of the list of the areas in the viewport. */
+    LIST_TITLE: 'Areas in view',
+    LIST_EMPTY: 'No saved areas in view.',
+    /** Under the list when more than `LIMITS.PANEL_LIST_MAX` areas are in view. */
+    LIST_MORE: (count: number) => `+${count} more`,
+    HISTORY_TITLE: 'History',
+    HISTORY_LOADING: 'Loading history…',
+    HISTORY_ERROR_TITLE: 'Could not load the history',
+    VERSION_LABEL: (version: number) => `Version ${version}`,
+    /** In place of the revert button on the version the area is at now. */
+    VERSION_CURRENT: 'Current',
+    /** Who saved a version: a user id prefix (`LIMITS.USER_ID_PREFIX`). */
+    VERSION_BY: (who: string) => `by ${who}`,
+    REVERT: 'Revert to this version',
+    REVERT_PENDING: 'Reverting…',
+    REVERT_ERROR_TITLE: 'Could not revert the area',
+    /** 409: someone deleted the area; a revert never brings it back. */
+    REVERT_DELETED: 'This area has been deleted, so it cannot be reverted.',
+    /** 404: the area or that version is gone; the lists and the history refetch. */
+    REVERT_MISSING: 'That version is no longer available. The history has been refreshed.',
   },
 } as const;
