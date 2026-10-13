@@ -295,7 +295,7 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 | `PANEL_TITLE` | `'New area'` | The sketch becomes an area when saved. |
 | `AREA_LABEL` | `'Area'` | Visible labels; also the readouts' accessible names. |
 | `VERTICES_LABEL` | `'Vertices'` |  |
-| `FINISH_LABEL` | `'Finish'` | The handler has no keyboard shortcuts, so these buttons are the keyboard path as well as the pointer one. |
+| `FINISH_LABEL` | `'Finish'` | Escape cancels (DrawControl); Finish and Undo have no shortcut, so these buttons are the keyboard path as well as the pointer one. |
 | `UNDO_LABEL` | `'Undo'` |  |
 | `CANCEL_LABEL` | `'Cancel'` |  |
 | `M2_UNIT` | `'m²'` | Area unit suffixes (Intl.NumberFormat has no area units). |

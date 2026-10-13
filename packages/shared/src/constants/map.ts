@@ -86,8 +86,8 @@ export const DRAW = {
   AREA_LABEL: 'Area',
   VERTICES_LABEL: 'Vertices',
   /**
-   * The handler has no keyboard shortcuts, so these buttons are the keyboard path as well as the
-   * pointer one.
+   * Escape cancels (DrawControl); Finish and Undo have no shortcut, so these buttons are the
+   * keyboard path as well as the pointer one.
    */
   FINISH_LABEL: 'Finish',
   UNDO_LABEL: 'Undo',
