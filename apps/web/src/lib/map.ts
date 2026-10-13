@@ -1,6 +1,11 @@
 import type { Area, Bbox } from '@cgis/shared';
 import L from 'leaflet';
 
+const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
+
+/** The OS asks for less motion: the map's zoom and fade animations and the layer crossfade are off. */
+export const prefersReducedMotion = (): boolean => window.matchMedia(REDUCED_MOTION).matches;
+
 /**
  * The map's visible bounds as a `Bbox` the API accepts. `map.getBounds()` is unbounded: on a
  * wrapped world copy, or zoomed out until the world is narrower than the container, its longitudes
