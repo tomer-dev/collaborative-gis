@@ -1,4 +1,4 @@
-import type { Bbox, Area } from '@cgis/shared';
+import { MAP, type Bbox, type Area } from '@cgis/shared';
 import { createFileRoute } from '@tanstack/react-router';
 import type * as L from 'leaflet';
 import { use, useEffect, useState } from 'react';
@@ -15,6 +15,7 @@ import { SaveDialog } from '../../components/SaveDialog';
 import { usePendingAreaIds, type AreaEdit } from '../../lib/areas-mutations';
 import { useAreasInBounds } from '../../lib/areas-query';
 import type { LngLat } from '../../lib/geo/geodesic';
+import { areaBounds } from '../../lib/map';
 import { useRoom } from '../../lib/use-room';
 import { ReportSelfColor } from '../-components/AppFrame';
 
@@ -36,6 +37,7 @@ type MapMode =
 const BROWSE: MapMode = { kind: 'browse' };
 // One empty list for every render without data, so AreasLayer's diff does not re-run for nothing.
 const NO_AREAS: readonly Area[] = [];
+const FIT_PADDING: L.PointTuple = [MAP.FIT_PADDING_PX, MAP.FIT_PADDING_PX];
 
 // Fills <main> (the viewport below the top bar); MapView takes the full size of this box.
 // The draw control, the overlays, the presence list and the connection banner are siblings of
@@ -62,6 +64,11 @@ function MapRoute() {
   const areas = areasQuery.data?.areas ?? NO_AREAS;
   const pendingIds = usePendingAreaIds();
   const selectedId = mode.kind === 'selected' ? mode.id : null;
+  // A pick in the panel's list also brings the area into view (a click on its polygon is there).
+  const pick = (area: Area) => {
+    map?.fitBounds(areaBounds(area), { padding: FIT_PADDING });
+    setMode({ kind: 'selected', id: area.id });
+  };
 
   return (
     <div data-testid="map-root" className="absolute inset-0">
@@ -91,6 +98,7 @@ function MapRoute() {
         <MapOverlay
           mode={mode}
           setMode={setMode}
+          onPick={pick}
           areas={areas}
           list={areasQuery}
           bbox={bbox}
@@ -109,6 +117,8 @@ function MapRoute() {
 type MapOverlayProps = {
   mode: MapMode;
   setMode: (mode: MapMode) => void;
+  /** An area picked in the panel's list. */
+  onPick: (area: Area) => void;
   areas: readonly Area[];
   list: AreasListState;
   bbox: Bbox | null;
@@ -117,7 +127,16 @@ type MapOverlayProps = {
 };
 
 /** The one overlay for the current mode. */
-function MapOverlay({ mode, setMode, areas, list, bbox, zoom, pendingIds }: MapOverlayProps) {
+function MapOverlay({
+  mode,
+  setMode,
+  onPick,
+  areas,
+  list,
+  bbox,
+  zoom,
+  pendingIds,
+}: MapOverlayProps) {
   const select = (area: Area) => setMode({ kind: 'selected', id: area.id });
   const onConflict = (edit: AreaEdit, current: Area) =>
     setMode({ kind: 'conflict', edit, current });
@@ -134,7 +153,7 @@ function MapOverlay({ mode, setMode, areas, list, bbox, zoom, pendingIds }: MapO
           bbox={bbox}
           pendingIds={pendingIds}
           selectedId={mode.kind === 'selected' ? mode.id : null}
-          onSelect={select}
+          onSelect={onPick}
           onClose={() => setMode(BROWSE)}
           onConflict={onConflict}
           onDeleted={() => setMode(BROWSE)}
