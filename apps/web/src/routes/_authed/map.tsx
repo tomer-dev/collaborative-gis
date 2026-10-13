@@ -77,15 +77,15 @@ function MapRoute() {
             pendingIds={pendingIds}
             onSelect={(area) => setMode({ kind: 'selected', id: area.id })}
           />
-          <DrawControl map={map} onDone={(ring) => setMode({ kind: 'draft', ring })} />
           <GhostPolygons map={map} drafts={room.drafts} users={room.users} />
           <LayerSwitch map={map} />
         </>
       ) : null}
-      {/* One bottom-left column: the area panel stacks above the presence list. */}
+      {/* One bottom-left column: the area panel stacks above the presence list. It stops below
+          the left map controls (zoom, base layer), and its panels scroll inside. */}
       <div
         data-testid="map-corner"
-        className="absolute bottom-3 left-3 z-controls flex flex-col items-start gap-2"
+        className="absolute bottom-3 left-3 z-controls flex max-h-map-corner flex-col items-start gap-2"
       >
         <MapOverlay
           mode={mode}
@@ -97,6 +97,8 @@ function MapRoute() {
         />
         <PresenceList users={room.users} selfId={selfId} />
       </div>
+      {/* After the corner column: where a phone-width map makes them meet, drawing stays on top. */}
+      {map ? <DrawControl map={map} onDone={(ring) => setMode({ kind: 'draft', ring })} /> : null}
       <ConnectionBanner state={room.state} onRetry={room.reconnect} />
     </div>
   );

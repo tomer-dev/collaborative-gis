@@ -97,6 +97,10 @@ export const COPY = {
     /** The area panel: its title, also the name of the list of the areas in the viewport. */
     LIST_TITLE: 'Areas in view',
     LIST_EMPTY: 'No saved areas in view.',
+    /** Phone width only: the area panel's header button that unfolds the list (it starts folded). */
+    LIST_SHOW: 'Show the list',
+    /** The same button once the list is unfolded. */
+    LIST_HIDE: 'Hide the list',
     HISTORY_TITLE: 'History',
     HISTORY_LOADING: 'Loading history…',
     HISTORY_ERROR_TITLE: 'Could not load the history',
