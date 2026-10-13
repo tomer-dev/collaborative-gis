@@ -8,7 +8,7 @@ export const Route = createFileRoute('/login')({
   component: LoginRoute,
 });
 
-// Renders under the root with the minimal header (app name only).
+// Renders under the root with the minimal header (app name and the guide link).
 function LoginRoute() {
   return (
     <AppFrame>

@@ -340,7 +340,8 @@ describe('cold load', () => {
       isPending: true,
     });
     expect(screen.getByRole('status').textContent).toBe(COPY.AUTH.SESSION_CHECKING);
-    expect(screen.queryByRole('heading', { name: COPY.APP.NAME })).toBeNull();
+    // In the frame, so the header the skeleton painted stays through the check and on /login.
+    expect(screen.getByRole('heading', { name: COPY.APP.NAME })).toBeTruthy();
     await sessionRoundTrip();
     await act(async () => auth.set(signedOut));
 
@@ -360,7 +361,7 @@ describe('cold load', () => {
     expect(localStorage.getItem(AUTH.SIGNED_IN_HINT_KEY)).toBeNull();
   });
 
-  it('remembered as signed in: shows the app frame at once instead of the status, then the map', async () => {
+  it('remembered as signed in: shows the empty app frame at once, no visible status, then the map', async () => {
     localStorage.setItem(AUTH.SIGNED_IN_HINT_KEY, AUTH.SIGNED_IN_HINT_VALUE);
     // Every commit, not just the settled states: the app name must never leave the DOM once there.
     let h1Gone = 0;
@@ -416,7 +417,9 @@ describe('cold load', () => {
 describe('index.html', () => {
   it('carries the pre-mount skeleton with the app name, for the first paint before React', () => {
     const html = readFileSync(join(import.meta.dirname, '../../index.html'), 'utf8');
-    expect(html).toContain(`<header>${COPY.APP.NAME}</header>`);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    // Inside #root, so React replaces it on mount instead of leaving a second header.
+    expect(doc.querySelector('#root > #skeleton > header')?.textContent).toBe(COPY.APP.NAME);
   });
 });
 
