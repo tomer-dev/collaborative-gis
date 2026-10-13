@@ -11,7 +11,8 @@ RUN chown node:node /app
 USER node
 # Manifests first so the install layer is cached until a dependency changes.
 # Every workspace package.json must be present for --frozen-lockfile; only the api subtree is installed.
-COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# tsconfig.base.json: apps/api and packages/shared tsconfigs extend it (wrangler reads them).
+COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY --chown=node:node apps/api/package.json apps/api/
 COPY --chown=node:node apps/web/package.json apps/web/
 COPY --chown=node:node packages/shared/package.json packages/shared/
