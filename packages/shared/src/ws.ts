@@ -67,19 +67,26 @@ const draftState = z.object({
   ...base,
   payload: z.object({ drafts: z.array(DraftSchema) }),
 });
+// `mapVersion` is the map's version after this change: the Room's counter, bumped once per
+// committed area change (D6: the M2 viewport cache keys on it). The Room stamps it on every area
+// event it sends; it is optional only so that adding it changed no existing producer.
+const mapVersion = { mapVersion: z.number().int().nonnegative().optional() };
 const areaCreated = z.object({
   type: z.literal('area:created'),
   ...base,
+  ...mapVersion,
   payload: z.object({ area: AreaSchema }),
 });
 const areaUpdated = z.object({
   type: z.literal('area:updated'),
   ...base,
+  ...mapVersion,
   payload: z.object({ area: AreaSchema }),
 });
 const areaDeleted = z.object({
   type: z.literal('area:deleted'),
   ...base,
+  ...mapVersion,
   payload: z.object({ id: z.uuid() }),
 });
 const error = z.object({
@@ -112,6 +119,18 @@ export const WsClientEventSchema = z.discriminatedUnion('type', [
   presenceSet,
 ]);
 export type WsClientEvent = z.infer<typeof WsClientEventSchema>;
+
+/**
+ * A committed area change as the Worker hands it to the Room (`fanout` → `Room.broadcast` RPC):
+ * an `area:*` event before the Room stamps `seq`, `ts` and `mapVersion`. Parsing drops any stamps
+ * the caller sent, so the Room's own always win.
+ */
+export const AreaEventSchema = z.discriminatedUnion('type', [
+  areaCreated.omit({ seq: true, ts: true, mapVersion: true }),
+  areaUpdated.omit({ seq: true, ts: true, mapVersion: true }),
+  areaDeleted.omit({ seq: true, ts: true, mapVersion: true }),
+]);
+export type AreaEvent = z.infer<typeof AreaEventSchema>;
 
 export function parseWsMessage(raw: string): WsEvent {
   return WsEnvelopeSchema.parse(JSON.parse(raw));

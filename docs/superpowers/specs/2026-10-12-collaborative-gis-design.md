@@ -54,7 +54,7 @@ Rule: the Worker never holds state between requests; all coordination state live
 
 ## 5. Data flows
 
-**Save polygon.** Client validates ring (closed, ≥3 unique vertices, ≤1,000, no self-intersection via a simple segment check) → `POST /areas` → Zod → `requireUser` → `RateLimiter.take('draw')` → transaction: insert area with computed `area_km2`, insert version 1, audit row → response → `ctx.waitUntil(room.broadcast({type:'area:created', area}))`.
+**Save polygon.** Client validates ring (closed, ≥3 unique vertices, ≤1,000, no self-intersection via a simple segment check) → `POST /areas` → Zod → `requireUser` → `RateLimiter.take('draw')` → transaction: insert area with computed `area_km2`, insert version 1, audit row → response → `ctx.waitUntil(fanout(env, {type:'area:created', payload:{area}}))` → `Room.broadcast` (DO RPC) validates the event, bumps the map version and sends it to every socket stamped with `seq`, `ts` and `mapVersion` (`Room.getVersion()` reads the counter). `PUT` and `DELETE` fan out `area:updated` / `area:deleted {id}` the same way; a refused mutation (409, 404, 422) sends nothing.
 
 **Concurrent edit.** `PUT /areas/:id` carries `version`. `UPDATE … WHERE id=$1 AND version=$2 AND deleted_at IS NULL`; zero rows → 409 with the current server row. Client shows a two-button prompt: Overwrite with mine (resend with the server version) or Load theirs. Success bumps version and writes a version row.
 
