@@ -9,7 +9,7 @@ import {
   useDeleteArea,
   useUpdateArea,
   type AreaEdit,
-} from '../lib/areas-query';
+} from '../lib/areas-mutations';
 import { Banner, Button, Field, IconClose, Input, Panel, Stat } from '../ui';
 import { AreaHistory } from './AreaHistory';
 

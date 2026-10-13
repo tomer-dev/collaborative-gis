@@ -4,7 +4,6 @@ import {
   AreaEventSchema,
   ERROR_CODES,
   ERROR_MESSAGES,
-  PresenceStateSchema,
   RATE_LIMIT,
   ROUTES,
   WS,
@@ -14,7 +13,7 @@ import { z } from 'zod';
 import type { Env } from '../app';
 import { apiErrorResponse } from '../errors';
 import { log } from '../log';
-import { DraftStore, fullDraftBucket } from './drafts';
+import { DraftStore } from './drafts';
 import { ensureEpoch } from './epoch';
 import { parseClientFrame, SWITCHING_PROTOCOLS } from './frames';
 import {
@@ -30,7 +29,7 @@ import {
   sweepIdle,
 } from './handlers';
 import { isWebSocketUpgrade, readRoomUser } from './handoff';
-import { attachmentOf, type PresenceAttachment, presenceColor } from './presence';
+import { attachmentOf, newAttachment } from './presence';
 import { bump, createSeqCounter, sendAll, sendError, sockets } from './sockets';
 
 /**
@@ -235,18 +234,7 @@ export class Room extends DurableObject<Env> {
     // The first socket starts the sweep. Armed before accepting, so a storage failure here is a
     // 500 that leaves no socket behind.
     await this.armSweep(now);
-    const attachment: PresenceAttachment = {
-      userId: user.id,
-      name: user.name,
-      color: await presenceColor(user.id),
-      state: PresenceStateSchema.enum.viewing,
-      lastSeen: now,
-      joined: false,
-      strikes: 0,
-      ...fullDraftBucket(now),
-      lastSeq: null,
-      epoch: null,
-    };
+    const attachment = await newAttachment(user, now);
     const pair = new WebSocketPair();
     const [client, server] = [pair[0], pair[1]];
     // Attach before accepting: if serializing ever failed, the Room would not be left owning a

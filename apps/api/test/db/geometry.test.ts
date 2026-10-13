@@ -4,7 +4,8 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { db } from '../../src/db';
 import { areas } from '../../src/db/schema';
-import { insertArea, selectAreasInBounds } from '../../src/db/spatial';
+import { insertArea } from '../../src/db/spatial';
+import { selectAreasInBounds } from '../../src/db/spatial-read';
 
 const client = new pg.Client({ connectionString: inject('databaseUrl') });
 beforeAll(() => client.connect());

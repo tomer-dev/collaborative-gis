@@ -13,15 +13,14 @@ import { db, withClient } from '../db';
 import {
   InvalidGeometryError,
   insertArea,
-  listVersions,
   revertArea,
-  selectAreasInBounds,
   softDeleteArea,
   updateAreaIfVersion,
   writeAudit,
   type AuditRow,
   type RevertResult,
 } from '../db/spatial';
+import { listVersions, selectAreasInBounds } from '../db/spatial-read';
 
 // Area mutations and their audit rows (D20). Each mutation runs on one per-request client in one
 // transaction, so the area write and its `audit_log` row commit together or not at all.
