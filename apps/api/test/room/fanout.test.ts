@@ -84,7 +84,7 @@ const withRoom = (
 
 describe('fan-out from the area routes', () => {
   it('POST: a joined socket receives area:created with the 201 area, seq, ts and mapVersion', async () => {
-    const before = await room().getVersion();
+    const before = (await room().getVersion()).version;
     const user = freshUser();
     const socket = await joined(user);
     const area = await createArea(user);
@@ -98,7 +98,7 @@ describe('fan-out from the area routes', () => {
       mapVersion: before + 1,
     });
     expect(frame.payload.area.id).toBe(area.id);
-    expect(await room().getVersion()).toBe(before + 1);
+    expect((await room().getVersion()).version).toBe(before + 1);
   });
 
   it('every socket receives the change, the author’s included, as the same frame', async () => {
@@ -117,7 +117,7 @@ describe('fan-out from the area routes', () => {
     const user = freshUser();
     const socket = await joined(user);
     const api = areasClient(env, user);
-    const before = await room().getVersion();
+    const before = (await room().getVersion()).version;
     const area = await createArea(user);
     const put = await api.update(area.id, {
       name: 'Renamed',
@@ -153,7 +153,7 @@ describe('fan-out from the area routes', () => {
     const api = areasClient(env, user);
     const area = await createArea(user);
     await socket.waitFor('area:created');
-    const version = await room().getVersion();
+    const version = (await room().getVersion()).version;
 
     const stale = await api.update(area.id, { name: 'Late', geometry: area.geometry, version: 99 });
     expect(stale.status).toBe(409);
@@ -162,7 +162,7 @@ describe('fan-out from the area routes', () => {
     expect(missing.status).toBe(404);
     await missing.body?.cancel();
 
-    expect(await room().getVersion()).toBe(version);
+    expect((await room().getVersion()).version).toBe(version);
     // A later change is the next frame after area:created: nothing was sent in between.
     await api.remove(area.id);
     await socket.waitFor('area:deleted');
@@ -300,27 +300,27 @@ describe('Room.broadcast and Room.getVersion (RPC)', () => {
 
   it('getVersion() starts at 0, rises by one per broadcast, and survives a fresh instance', async () => {
     const stub = env.ROOM.get(env.ROOM.idFromName(crypto.randomUUID()));
-    expect(await stub.getVersion()).toBe(0);
+    expect((await stub.getVersion()).version).toBe(0);
     await stub.broadcast(deleted(1));
-    expect(await stub.getVersion()).toBe(1);
+    expect((await stub.getVersion()).version).toBe(1);
     await stub.broadcast(deleted(2));
-    expect(await stub.getVersion()).toBe(2);
+    expect((await stub.getVersion()).version).toBe(2);
 
     // A new Room on the same storage reads the persisted counter...
     const fresh = await runInDurableObject(stub, (_room, state) =>
       new Room(state, env).getVersion(),
     );
-    expect(fresh).toBe(2);
+    expect(fresh.version).toBe(2);
     // ...and so does the next instance after this one is evicted.
     await evictDurableObject(stub);
-    expect(await stub.getVersion()).toBe(2);
+    expect((await stub.getVersion()).version).toBe(2);
     await stub.broadcast(deleted(3));
-    expect(await stub.getVersion()).toBe(3);
+    expect((await stub.getVersion()).version).toBe(3);
   });
 
   it('rejects an invalid event: logged, not sent, version unchanged, never thrown', async () => {
     const socket = await joined(freshUser());
-    const before = await room().getVersion();
+    const before = (await room().getVersion()).version;
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
     const invalid: AreaEvent = { type: 'area:deleted', payload: { id: 'not-a-uuid' } };
     const call = async () => room().broadcast(invalid);
@@ -331,7 +331,7 @@ describe('Room.broadcast and Room.getVersion (RPC)', () => {
       msg: 'room broadcast rejected an invalid event',
       issues: expect.stringContaining('id'),
     });
-    expect(await room().getVersion()).toBe(before);
+    expect((await room().getVersion()).version).toBe(before);
 
     // The next valid change is the first area frame the socket sees, at the next version.
     await room().broadcast(deleted(4));

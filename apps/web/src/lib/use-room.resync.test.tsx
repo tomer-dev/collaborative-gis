@@ -14,7 +14,7 @@ import {
   renderRoom,
   replay,
   SELF,
-  misfit,
+  stateLost,
   unmountMap,
 } from './use-room.harness';
 import { backoffDelay } from './ws';
@@ -39,7 +39,7 @@ describe('useRoom resync (an error with resync: true)', () => {
     room.advance(DRAFT_INTERVAL_MS * vertices.length);
     const before = room.socket().frames().length;
 
-    room.receive(misfit);
+    room.receive(stateLost);
     room.advance(DRAFT_INTERVAL_MS * (vertices.length + 1));
 
     const resent = room.socket().frames().slice(before);
@@ -107,10 +107,10 @@ describe('useRoom resync (an error with resync: true)', () => {
     room.open();
     room.receive(draftState([]));
 
-    // Three frames were in flight when the Room's copy diverged: three errors, then the join's answer.
-    room.receive(misfit);
-    room.receive(misfit);
-    room.receive(misfit);
+    // Three frames were in flight when the state was lost: three errors, then the join's answer.
+    room.receive(stateLost);
+    room.receive(stateLost);
+    room.receive(stateLost);
     expect(room.joins()).toBe(2);
     room.receive(draftState([]));
     room.advance(WS.RECONNECT_BACKOFF_MS.max * 2);
@@ -118,7 +118,7 @@ describe('useRoom resync (an error with resync: true)', () => {
     expect(room.result.current.state).toBe('open');
 
     // The join itself failed (error INTERNAL + resync in its place, no draft:state): sent again.
-    room.receive(misfit);
+    room.receive(stateLost);
     room.receive(errorFrame(ERROR_CODES.INTERNAL, ERROR_MESSAGES.INTERNAL, { resync: true }));
     expect(room.joins()).toBe(3);
     room.advance(backoffDelay(1, () => 0) - 1);
