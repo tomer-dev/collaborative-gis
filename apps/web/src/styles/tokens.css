@@ -1,5 +1,5 @@
 /*
- * Design tokens: "Grid 4" (decisions D15-D18, docs/design-system-brief.html).
+ * Design tokens: "Grid 4" (decisions D15-D18 in the design spec, docs/superpowers/specs).
  *
  * The one place a size, font, colour, radius, z-index or duration is written down. Components
  * use the Tailwind utilities these generate (bg-bg-raised, text-fg-muted, p-4, h-10, z-dialog,
