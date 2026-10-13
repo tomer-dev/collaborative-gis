@@ -35,6 +35,11 @@ jobs:
       # docs/constants.md is generated from packages/shared/src/constants/; fails when it is stale.
       - run: pnpm constants:docs --check
       - run: pnpm typecheck
+      # Generating from apps/api/src/db/*schema.ts writes nothing: drizzle/ matches the schema.
+      - name: migrations match the schema
+        run: |
+          pnpm --filter @cgis/api exec drizzle-kit generate
+          test -z "$(git status --porcelain apps/api/drizzle)"
       # The workerd tests reach this database through Hyperdrive's localConnectionString.
       - name: migrate
         run: pnpm --filter @cgis/api db:migrate
