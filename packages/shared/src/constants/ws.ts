@@ -2,9 +2,12 @@ const PING_INTERVAL_MS = 30_000;
 
 /** Realtime room behaviour, server and client (D13). */
 export const WS = {
-  /** D13: drafts ≤ 10 msg/s per user. */
+  /**
+   * D13: drafts ≤ 10 msg/s, enforced per socket (a token bucket in the Room). The burst guard on
+   * draft frames, which spend no drawing actions: D5 charges a draft session once.
+   */
   DRAFT_RATE_PER_SEC: 10,
-  /** D13: a draft not edited for 60 s is dropped by the Room's idle sweep. */
+  /** D13: a draft not edited for 60 s is dropped by the Room's idle sweep; D5: its session ends. */
   PRESENCE_IDLE_MS: 60_000,
   /**
    * The idle sweep closes a socket with no frame and no ping for this long (`CLOSE_IDLE`): three

@@ -40,8 +40,8 @@ afterEach(async () => {
 });
 
 /**
- * A user no other test spends from: every accepted `draft:update` spends from the user's
- * RateLimiter, whose storage lasts for the whole file. Presence sorts by name.
+ * A user no other test spends from: every draft session spends from the user's RateLimiter (D5),
+ * whose storage lasts for the whole file. Presence sorts by name.
  */
 const user = (name: string): User => ({ id: `${name}-${crypto.randomUUID()}`, name });
 
@@ -307,7 +307,7 @@ describe('error events carry resync: true when the Room lost state', () => {
     const a = await join(user('A'));
     const b = await join(user('B'));
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
-    vi.spyOn(DraftStore.prototype, 'apply').mockImplementation(() => {
+    vi.spyOn(DraftStore.prototype, 'write').mockImplementation(() => {
       throw new Error('SQLITE_FULL');
     });
     a.send('draft:update', add(0));

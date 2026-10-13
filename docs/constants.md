@@ -131,8 +131,8 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 
 | Name | Value | Notes |
 |---|---|---|
-| `DRAFT_RATE_PER_SEC` | `10` | D13: drafts ≤ 10 msg/s per user. |
-| `PRESENCE_IDLE_MS` | `60_000` | D13: a draft not edited for 60 s is dropped by the Room's idle sweep. |
+| `DRAFT_RATE_PER_SEC` | `10` | D13: drafts ≤ 10 msg/s, enforced per socket (a token bucket in the Room). The burst guard on draft frames, which spend no drawing actions: D5 charges a draft session once. |
+| `PRESENCE_IDLE_MS` | `60_000` | D13: a draft not edited for 60 s is dropped by the Room's idle sweep; D5: its session ends. |
 | `SOCKET_IDLE_MS` | `3 * PING_INTERVAL_MS` | The idle sweep closes a socket with no frame and no ping for this long (`CLOSE_IDLE`): three ping intervals, so a hidden tab whose timers the browser throttles to one per minute stays. |
 | `ALARM_INTERVAL_MS` | `30_000` | Sweeps idle state twice per idle window. |
 | `BAD_FRAME_STRIKES` | `10` | Tolerates a few bad frames, stops a flood. |
@@ -160,13 +160,13 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 
 ## RATE_LIMIT
 
-`rate-limit.ts`. Per-user budget shared by REST mutations and WS drawing actions (D5): an exact sliding window.
+`rate-limit.ts`. Per-user budget shared by REST mutations and WS draft sessions (D5): an exact sliding window.
 
 | Name | Value | Notes |
 |---|---|---|
-| `DRAW_ACTIONS_PER_WINDOW` | `50` | D5: 50 drawing actions per user per window, one budget for REST and WS. |
+| `DRAW_ACTIONS_PER_WINDOW` | `50` | D5: 50 drawing actions per user per window, one budget for REST and WS. A REST mutation is one; so is a WS draft session (its frames are not). |
 | `WINDOW_MS` | `60_000` | D5: exact sliding window over the last 60 s; the 429 `Retry-After` is at most this long. |
-| `ACTIONS` | `{ DRAW: 'draw' }` | The only labels `RateLimiter.take` accepts. REST mutations and WS draft actions both spend `DRAW`: one drawing-action budget (spec: `requireUser` then `take('draw')`). |
+| `ACTIONS` | `{ DRAW: 'draw' }` | The only labels `RateLimiter.take` accepts. REST mutations and WS draft sessions both spend `DRAW`: one drawing-action budget (spec: `requireUser` then `take('draw')`). |
 
 ## AUTH
 

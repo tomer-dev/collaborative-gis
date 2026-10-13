@@ -509,6 +509,27 @@ describe('useRoom', () => {
     expect(replay(accepted)).toEqual(line(20));
   });
 
+  it('RATE_LIMITED on the add that starts a draft (the Room refused the session, D5): after retryAfter that add goes out again, no clear', () => {
+    const room = renderRoom();
+    room.open();
+    room.draw(line(1));
+    const [refused] = room.drafts();
+    expect(refused?.payload).toEqual({ op: 'add', index: 0, vertex: line(1)[0] });
+    const retryAfter = 30_000;
+
+    room.receive(
+      errorFrame(ERROR_CODES.RATE_LIMITED, 'rate limited', { retryAfter, frameSeq: refused?.seq }),
+    );
+    room.draw(line(2));
+    room.advance(retryAfter - 1);
+    expect(room.drafts()).toHaveLength(1);
+
+    room.advance(1 + DRAFT_INTERVAL_MS);
+    const after = room.drafts().slice(1);
+    expect(after.map((frame) => frame.payload)).toEqual([refused?.payload, expect.anything()]);
+    expect(replay(after.map((frame) => frame.payload))).toEqual(line(2));
+  });
+
   it('RATE_LIMITED on an older op (ops were built on it since): restarts with clear and re-adds', () => {
     const room = renderRoom();
     room.open();

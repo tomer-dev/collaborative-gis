@@ -24,6 +24,7 @@ import {
   leave,
   outlivedState,
   type RoomCtx,
+  sessionSaved,
   setPresence,
   strike,
   sweepIdle,
@@ -35,9 +36,10 @@ import { bump, createSeqCounter, sendAll, sendError, sockets } from './sockets';
 /**
  * The single map room (id `ROOM.DEFAULT_ROOM_ID`). Sockets use the WebSocket Hibernation API:
  * the runtime keeps them open while the object is evicted, so per-socket state lives in
- * attachments and nothing presence-related is kept in instance memory. Drafts, the outgoing
- * `seq` counter and the map version (`mapVersion`) live in SQLite, the storage epoch (epoch.ts)
- * in the synchronous KV. This class holds only the entry points; handlers.ts does the work.
+ * attachments and nothing presence-related is kept in instance memory. Drafts (with their draw
+ * sessions, D5), the outgoing `seq` counter and the map version (`mapVersion`) live in SQLite,
+ * the storage epoch (epoch.ts) in the synchronous KV. This class holds only the entry points;
+ * handlers.ts does the work.
  */
 export class Room extends DurableObject<Env> {
   private readonly room: RoomCtx;
@@ -89,7 +91,8 @@ export class Room extends DurableObject<Env> {
    * sent, version unchanged) and never thrown back to the Worker. A valid one goes out stamped
    * with its `mapVersion`, the next `seq` and `ts = Date.now()`. The mutation routes bump the
    * version before their response and pass it here; without one (that bump failed), the
-   * broadcast bumps it once itself, so every change still moves the version.
+   * broadcast bumps it once itself, so every change still moves the version. An `area:created`
+   * is its author's save: it ends their draw session (D5, `sessionSaved`).
    */
   async broadcast(event: AreaEvent, mapVersion?: number): Promise<void> {
     const parsed = AreaEventSchema.safeParse(event);
@@ -99,7 +102,9 @@ export class Room extends DurableObject<Env> {
       });
       return;
     }
-    sendAll(this.ctx, { ...parsed.data, mapVersion: mapVersion ?? (await this.bumpVersion()) });
+    const { data } = parsed;
+    sendAll(this.ctx, { ...data, mapVersion: mapVersion ?? (await this.bumpVersion()) });
+    if (data.type === 'area:created') sessionSaved(this.room, data.payload.area.createdBy);
   }
 
   /**
