@@ -267,7 +267,7 @@ it('leaves an area whose create is still pending out of the list (SaveDialog can
   const list = await screen.findByRole('region', { name: COPY.AREAS.LIST_TITLE });
   expect(
     within(list)
-      .getAllByRole('button')
+      .getAllByRole('listitem')
       .map((row) => row.textContent),
   ).toEqual([expect.stringContaining('Orchard')]);
   expect(within(list).queryByText('Unsaved')).toBeNull();

@@ -426,6 +426,8 @@ Saved areas on /map: the save dialog, the area panel (the areas in view, the sel
 | `ERROR_GENERIC` | `'Something went wrong. Try again.'` | A failure without an API error body (network error, proxy page). |
 | `LIST_TITLE` | `'Areas in view'` | The area panel: its title, also the name of the list of the areas in the viewport. |
 | `LIST_EMPTY` | `'No saved areas in view.'` |  |
+| `LIST_SHOW` | `'Show the list'` | Phone width only: the area panel's header button that unfolds the list (it starts folded). |
+| `LIST_HIDE` | `'Hide the list'` | The same button once the list is unfolded. |
 | `HISTORY_TITLE` | `'History'` |  |
 | `HISTORY_LOADING` | `'Loading history…'` |  |
 | `HISTORY_ERROR_TITLE` | `'Could not load the history'` |  |
