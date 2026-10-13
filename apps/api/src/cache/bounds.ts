@@ -33,9 +33,10 @@ const stamp = ({ epoch, version }: MapVersion) => `${epoch}.${version}`;
 
 /**
  * Snaps `[west, south, east, north]` outward to the `CACHE.TILE_QUANT_DEG` grid, clamped to the
- * WGS 84 range. `key` is the grid indices, so every viewport inside the same cells shares one
- * entry; the bounds query reads `bbox`, so that entry holds every area of the tile, not just the
- * first viewport's.
+ * WGS 84 range. Why: without snapping, every pan produces a new bbox and so a new key, and the
+ * cache would never hit. Snapped, every viewport inside the same cells shares one entry (D6,
+ * spec §5: the bbox is quantised to a tile grid). `key` is the grid indices; the bounds query
+ * reads `bbox`, so that entry holds every area of the tile, not just the first viewport's.
  */
 export function tileOf([west, south, east, north]: Bbox): Tile {
   const step = CACHE.TILE_QUANT_DEG;
