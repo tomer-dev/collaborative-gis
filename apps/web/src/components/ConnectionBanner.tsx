@@ -1,19 +1,13 @@
 import { COPY } from '@cgis/shared';
-import type { RoomState } from '../lib/use-room';
+import type { ConnectionState } from '../lib/ws';
 import { Banner, Button, type BannerTone } from '../ui';
 
 type BannerCopy = { tone: BannerTone; title: string; detail: string; retry: boolean };
 
 /** What each room state shows; connecting (start-up, one quick retry) and open show nothing. */
-const banners: Record<RoomState, BannerCopy | null> = {
+const banners: Record<ConnectionState, BannerCopy | null> = {
   connecting: null,
   open: null,
-  resyncing: {
-    tone: 'info',
-    title: COPY.CONNECTION.RESYNC_TITLE,
-    detail: COPY.CONNECTION.RESYNC_DETAIL,
-    retry: false,
-  },
   degraded: {
     tone: 'warn',
     title: COPY.CONNECTION.DEGRADED_TITLE,
@@ -30,12 +24,12 @@ const banners: Record<RoomState, BannerCopy | null> = {
 
 export type ConnectionBannerProps = {
   /** `useRoom().state`. */
-  state: RoomState;
+  state: ConnectionState;
   /** The offline banner's Retry: connect now (`useRoom().reconnect`). */
   onRetry: () => void;
 };
 
-/** Resyncing / degraded / offline notice floating at the top centre of the map. */
+/** Degraded / offline notice floating at the top centre of the map. */
 export function ConnectionBanner({ state, onRetry }: ConnectionBannerProps) {
   const banner = banners[state];
   if (!banner) return null;
