@@ -1,20 +1,68 @@
-docker compose --profile api up --build: the owner's run on 2026-10-13, on the merged PR #67
-(compose lane, "Fix round 2 (owner run)").
+Captured 2026-10-13 on a Linux host with Docker 2x (compose project cgistest), with the repository's docker-compose.yml plus a port override: API on host port 20000, PostGIS on 15433.
+Sequence: plain `up` (postgis only) -> `--profile api up --build` -> /readyz -> health -> api logs (first 40 lines, secrets filtered) -> `down`.
+The image was already built by an earlier cold run (67 s), so this run's build step shows 6 s; ANSI colour codes were stripped, nothing else changed.
 
-How this file was made: the compose lane recorded the owner's terminal result in its report; the raw
-log was not kept, and the guide lane's user has no access to the Docker socket on this machine
-(permission denied on /var/run/docker.sock), so this file transcribes the recorded facts rather than a
-captured transcript.
-
-  build                              67 s (apps/api/Dockerfile.dev, node:26.11.1-slim)
-  api start                          after postgis reported healthy; "migrations applied" logged
-                                     before wrangler dev started
-  wrangler                           Ready on 0.0.0.0:8787, no login or metrics prompt (no TTY)
-  GET /readyz                        200, all three up: db, room, config
-  docker compose ps                  postgis healthy, api healthy (image HEALTHCHECK on /healthz)
-  ports                              127.0.0.1:5433 and 127.0.0.1:8787 only (loopback)
-  docker compose --profile api down  stopped in 2 s
-
-Leftover seen in that log: wrangler warned "Cannot find base config file ../../tsconfig.base.json".
-Fixed by commit dd3560d, which copies the root tsconfig.base.json into the image's manifests layer
-(validated with docker compose config, lint and format:check; not rebuilt on this machine).
+== plain up (postgis only)
+ Container cgistest-postgis-1 Created 
+ Container cgistest-postgis-1 Starting 
+ Container cgistest-postgis-1 Started 
+postgis running
+== profile api up --build
+ Container cgistest-api-1 Created 
+ Container cgistest-postgis-1 Waiting 
+ Container cgistest-postgis-1 Healthy 
+ Container cgistest-api-1 Starting 
+ Container cgistest-api-1 Started 
+build+up took 6 s
+== readyz after 10 s: 200 {"status":"ready","db":"up","room":"up","config":"up"}
+healthz 200
+api running healthy
+postgis running healthy
+== api logs (first 40, secrets filtered)
+api-1  | $ node src/db/migrate.ts
+api-1  | migrations applied
+api-1  | 
+api-1  |  ⛅️ wrangler 4.149.0
+api-1  | ────────────────────
+api-1  | Found a non-empty CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE variable for binding. Hyperdrive will connect to this database during local development.
+api-1  | Your Worker has access to the following bindings:
+api-1  | Binding                                                        Resource                      Mode
+api-1  | env.ROOM (Room)                                                Durable Object                local
+api-1  | env.RATE_LIMITER (RateLimiter)                                 Durable Object                local
+api-1  | env.HYPERDRIVE (ffdceaec4c3b4c70a324ebf9da6cb7a9)              Hyperdrive Config             local
+api-1  | env.METRICS (cgis_metrics)                                     Analytics Engine Dataset      local
+api-1  | env.CLIENT_ORIGIN ("http://localhost:5173")                    Environment Variable          local
+api-1  | env.BETTER_AUTH_URL ("(hidden)")                               Environment Variable          local
+api-1  | 
+api-1  | ▲ [WARNING] Scheduled Workers are not automatically triggered during local development.
+api-1  | 
+api-1  |   To manually trigger a scheduled event, run:
+api-1  |     curl "http://127.0.0.1:8787/cdn-cgi/local/scheduled"
+api-1  |   For more details, see https://developers.cloudflare.com/workers/configuration/cron-triggers/#test-cron-triggers-locally
+api-1  | 
+api-1  | 
+api-1  | ▲ [WARNING] Cannot find base config file "../../tsconfig.base.json" [tsconfig.json]
+api-1  | 
+api-1  |     tsconfig.json:2:13:
+api-1  |       2 │   "extends": "../../tsconfig.base.json",
+api-1  |         ╵              ~~~~~~~~~~~~~~~~~~~~~~~~~~
+api-1  | 
+api-1  | 
+api-1  | ▲ [WARNING] Cannot find base config file "../../tsconfig.base.json" [tsconfig.json]
+api-1  | 
+api-1  |     ../../packages/shared/tsconfig.json:1:13:
+api-1  |       1 │ { "extends": "../../tsconfig.base.json", "include": ["src"] }
+api-1  |         ╵              ~~~~~~~~~~~~~~~~~~~~~~~~~~
+api-1  | 
+api-1  | 
+api-1  | ⎔ Starting local server...
+api-1  | [wrangler:info] Ready on http://0.0.0.0:8787
+api-1  | [wrangler:info] - http://127.0.0.1:8787
+api-1  | [wrangler:info] - http://10.0.2.3:8787
+== LAN exposure
+LISTEN 0      4096                     127.0.0.1:20000      0.0.0.0:*   
+LISTEN 0      4096                     127.0.0.1:15433      0.0.0.0:*   
+== down timing
+ Volume cgistest_postgis-data Removed 
+ Network cgistest_default Removed 
+down took 2 s
