@@ -22,7 +22,7 @@ The top level of `wrangler.jsonc` is the local setup (`wrangler dev`, the worker
 | `BETTER_AUTH_SECRET` | `.dev.vars` | Worker secret |
 | `HYPERDRIVE` | `localConnectionString`, the compose PostGIS | `cgis-neon` |
 
-Never run `wrangler deploy` without `--env production`: the top level would create a second Worker, `collaborative-gis-api`, with localhost origins. Never run it without the two `--var`s either: the Worker would run with empty origins, so CORS and the WebSocket origin gate refuse every browser and every auth request fails.
+Never run `wrangler deploy` without `--env production`: the top level would create a second Worker, `collaborative-gis-api`, with localhost origins. Never run it without the two `--var`s either: the Worker would run with empty origins, so CORS and the WebSocket origin gate refuse every browser and every auth request fails. Such a Worker answers `/readyz` with 503 `NOT_READY` and `config: down`, and its log line names the var that is not an absolute URL.
 
 ## Owner checklist (once)
 
@@ -79,9 +79,9 @@ Migrations run before the new Worker goes live, so the running Worker meets the 
 ```bash
 ORIGIN=https://<your-hostname>
 curl -s "$ORIGIN/healthz"                                       # 200 {"ok":true}
-curl -s "$ORIGIN/readyz"                                        # 200 {"ok":true,"db":"up"}; 503 NOT_READY when Neon is unreachable
+curl -s "$ORIGIN/readyz"                                        # 200 {"status":"ready","db":"up","room":"up","config":"up"}; 503 NOT_READY names what is down
 curl -s -o /dev/null -w '%{http_code}\n' "$ORIGIN/openapi.json" # 200
-curl -s -o /dev/null -w '%{http_code}\n' "$ORIGIN/docs"         # 200 once the API reference UI is merged; until then the Worker's 404
+curl -s -o /dev/null -w '%{http_code}\n' "$ORIGIN/docs"         # 200 text/html: the API reference page (Scalar)
 curl -s -i "$ORIGIN/ws" -H 'Upgrade: websocket' -H 'Connection: Upgrade' \
   -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' | head -1   # 401: no session
 curl -s -o /dev/null -w '%{http_code} %{content_type}\n' "$ORIGIN/map"  # 200 text/html: the SPA
@@ -142,7 +142,7 @@ Wrangler has no WAF command. Over the API (a token with Zone WAF Edit on the zon
 
 ### Health check on `/readyz`
 
-`/readyz` answers 200 only when every dependency answered within its deadline, and 503 `NOT_READY` otherwise. With the Room probe (PR #38) the body is `{"status":"ready","db":"up","room":"up"}`; before that PR merges it is `{"ok":true,"db":"up"}`, so match `"db":"up"` until then. Cloudflare Health Checks need a zone on the Pro plan or higher (the Free plan has none) and the custom domain above. On workers.dev, point any external uptime monitor at the same URL, expecting the same code and body.
+`/readyz` answers 200 only when the database and the Room answered within their deadlines and `CLIENT_ORIGIN` and `BETTER_AUTH_URL` are absolute URLs, and 503 `NOT_READY` otherwise, with `details` naming what is down. The 200 body is `{"status":"ready","db":"up","room":"up","config":"up"}`. Cloudflare Health Checks need a zone on the Pro plan or higher (the Free plan has none) and the custom domain above. On workers.dev, point any external uptime monitor at the same URL, expecting the same code and body.
 
 Dashboard: the zone → Traffic → Health Checks → Create (newer dashboards list it under Smart Shield).
 
@@ -153,7 +153,7 @@ Dashboard: the zone → Traffic → Health Checks → Create (newer dashboards l
 | Type, port | HTTPS, 443 |
 | Path, method | `/readyz`, GET |
 | Expected codes | `200` |
-| Response body | `"db":"up","room":"up"`: a case-insensitive substring of the first 10 KB |
+| Response body | `"db":"up","room":"up","config":"up"`: a case-insensitive substring of the first 10 KB |
 | Interval, retries, timeout | 60 s, 2, 5 s |
 | Consecutive fails | 2 |
 | Follow redirects | off |
@@ -177,7 +177,7 @@ Run these against the deployed origin (`ORIGIN=https://…`, no trailing slash).
   curl -si "$ORIGIN/api/auth/sign-in/email" -H "Origin: $ORIGIN" -H 'content-type: application/json' \
     -d '{"email":"<registered email>","password":"<password>"}' | grep -i '^set-cookie'
   ```
-- [ ] **Health check green.** `curl -s "$ORIGIN/readyz"` is 200 with `db` and `room` `up`, and the Cloudflare Health Check (or the external monitor) reports healthy.
+- [ ] **Health check green.** `curl -s "$ORIGIN/readyz"` is 200 with `db`, `room` and `config` `up`, and the Cloudflare Health Check (or the external monitor) reports healthy.
 - [ ] **WAF rule on** (custom domain). Burst past the threshold and expect some 429s from Cloudflare:
   ```bash
   for i in $(seq 25); do curl -s -o /dev/null -w '%{http_code}\n' "$ORIGIN/api/auth/get-session"; done | sort | uniq -c
