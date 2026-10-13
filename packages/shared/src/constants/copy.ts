@@ -8,6 +8,8 @@ const MS_PER_SECOND = 1000;
 export const COPY = {
   APP: {
     NAME: 'Collaborative GIS',
+    /** Top-bar link to the reviewer guide (ROUTES.APP.GUIDE), on every page. */
+    GUIDE: 'Guide',
   },
   CONNECTION: {
     /** Banner while `degraded`: the socket keeps retrying with backoff. */

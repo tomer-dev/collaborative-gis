@@ -5,9 +5,55 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Collaborative GIS</title>
+    <!-- pre-mount skeleton; replaced by AppFrame. Paints before any JS, so the colours are the
+         tokens' values (tokens.css) written out, not the Tailwind classes. -->
+    <style>
+      html,
+      body,
+      #root {
+        height: 100%;
+        margin: 0;
+      }
+      #skeleton {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        font:
+          600 1.25rem/1.75rem 'Inter Variable',
+          ui-sans-serif,
+          system-ui,
+          sans-serif;
+      }
+      #skeleton header {
+        display: flex;
+        align-items: center;
+        flex-shrink: 0;
+        height: 3rem;
+        padding: 0 1rem;
+        border-bottom: 1px solid oklch(91.5% 0.005 97);
+        background: oklch(100% 0 0);
+        color: oklch(15% 0 0);
+      }
+      #skeleton main {
+        flex: 1;
+        background: oklch(91.5% 0.005 97);
+      }
+      @media (prefers-color-scheme: dark) {
+        #skeleton header {
+          border-color: oklch(28.9% 0.006 97);
+          background: oklch(21.7% 0.004 97);
+          color: oklch(97.9% 0.001 97);
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="skeleton">
+        <header>Collaborative GIS</header>
+        <main></main>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
