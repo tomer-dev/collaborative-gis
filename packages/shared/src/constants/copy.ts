@@ -99,11 +99,11 @@ export const COPY = {
     /** A failure without an API error body (network error, proxy page). */
     ERROR_GENERIC: 'Something went wrong. Try again.',
     /**
-     * A 429 from the per-user budget (`RATE_LIMIT`): the wait in whole seconds, from the
-     * response's `details.retryAfterMs` (else the whole window).
+     * A 429 from the per-user budget (`RATE_LIMIT`): `waitMs` is the response's
+     * `details.retryAfterMs` (else the whole window), stated in whole seconds, rounded up.
      */
-    RATE_LIMITED: (seconds: number) =>
-      `Too many changes in a short time. Try again in ${seconds} s.`,
+    RATE_LIMITED: (waitMs: number) =>
+      `Too many changes in a short time. Try again in ${Math.max(1, Math.ceil(waitMs / MS_PER_SECOND))} s.`,
     /** The area panel: its title, also the name of the list of the areas in the viewport. */
     LIST_TITLE: 'Areas in view',
     /** While the viewport's first answer is on its way (not "no areas"). */

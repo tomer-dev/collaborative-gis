@@ -2,6 +2,7 @@ import {
   COPY,
   ERROR_CODES,
   ERROR_REASONS,
+  RATE_LIMIT,
   type Area,
   type AreaList,
   type Bbox,
@@ -275,8 +276,19 @@ it('deletes the area after the confirm and reports it; a failed delete shows an 
   const alert = await screen.findByRole('alert');
   expect(alert.textContent).toContain(COPY.AREAS.DELETE_ERROR_TITLE);
   // The 429 says how long to wait (rounded up to whole seconds), not the raw message.
-  expect(alert.textContent).toContain(COPY.AREAS.RATE_LIMITED(13));
+  expect(alert.textContent).toContain('Try again in 13 s.');
   expect(failing.onDeleted).not.toHaveBeenCalled();
+});
+
+it('states the whole rate-limit window when a 429 carries no wait', async () => {
+  renderPanel(() =>
+    jsonResponse(429, { code: ERROR_CODES.RATE_LIMITED, message: 'Too many requests' }),
+  );
+
+  rename(selectedPanel(), 'Grove');
+
+  const alert = await screen.findByRole('alert');
+  expect(alert.textContent).toContain(COPY.AREAS.RATE_LIMITED(RATE_LIMIT.WINDOW_MS));
 });
 
 it('asks for a name instead of sending one made of spaces; Close closes', () => {
