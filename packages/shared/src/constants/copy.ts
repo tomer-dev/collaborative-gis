@@ -31,6 +31,13 @@ export const COPY = {
     /** govmap's aerial imagery on the EPSG:2039 grid. */
     AERIAL_LABEL: 'Aerial imagery',
   },
+  /** The framed page the router shows for a path no route matches (apps/web NotFound). */
+  NOT_FOUND: {
+    TITLE: 'Page not found',
+    BODY: 'There is nothing at this address.',
+    /** Links to ROUTES.APP.MAP; a signed-out visitor is sent on to /login by the route guard. */
+    LINK: 'Go to the map',
+  },
   PRESENCE: {
     TITLE: 'On this map',
     LABEL: 'People on this map',
