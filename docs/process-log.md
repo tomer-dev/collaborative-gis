@@ -129,13 +129,12 @@ Rulings and open questions:
 - Docs refresh (TOM-66, branch `docs/post-merge-refresh`, stacked on #50): the README run from scratch against the merged code and corrected, a Mermaid architecture diagram, every ADR linked by title, a documentation map; stale lines in `docs/deploy.md` and this log fixed.
 - 2026-10-13, later: PR #50 merged (b73d61d, carrying the docs refresh e8bba61); the runners pinned to `ubuntu-24.04` (#52) and the light checks moved to the slim image (#54); the reviewer-scope cleanup (#53); the UX fixes from the audit (#55, 2831a6c). History rewrite: three commit messages that broke the public-repo wording rule were reworded with `git filter-repo` on a fresh clone and `main` was force-pushed; the tree is unchanged, every hash is new. The hashes in this log and in the Linear closing comments were updated from the commit map; GitHub pull-request pages keep their own references to the old commits.
 - 2026-10-13, final: a second and last history rewrite cleaned the early documentation's file versions the same way the messages were cleaned (tree unchanged, 454 commits); the hashes above follow the final history. A request to GitHub Support asks for the pre-rewrite objects still reachable through pull-request references to be purged; a fresh repository is the fallback (TOM-89, last).
-- M5 (TOM-79): Node pin 22.23.3 → 24.21.0 (PR #59, TOM-90) → 26.11.1 (PR #66, TOM-91, owner ruling 2026-10-13: no wait for the LTS date).
 
 ## 2026-10-13 — M5: post-deployment backlog (TOM-79)
 
 - Node: 22.23.3 → 24.21.0 (PR #59, TOM-90) → 26.11.1 (PR #66, TOM-91; owner ruling: no wait for the LTS date). Docker image, CI runners and `engines` follow the pin.
 - Telemetry (TOM-68, PRs #60, #64): Analytics Engine dataset `cgis_metrics` with `db_query`, `ws_open`, `ws_close` and batched `room_messages` datapoints; the brief's bar is "telemetry and performance metrics collection", so no dashboard and no alerting beyond the deploy doc.
-- Tests: every story runs as a browser test in CI (PR #61); the remaining unit and integration items from the test tickets (PR #62); flaky timeouts and the Storybook CI comment (PR #64).
+- Tests (TOM-80 and the test tickets): every story runs as a browser test in CI (PR #61); the remaining unit and integration items from the test tickets (PR #62); flaky timeouts and the Storybook CI comment (PR #64).
 - Sign-in flow: no login flash during the first session check (PR #63, TOM-88).
 - Durable Objects in production (TOM-72, PR #65): migration tag read from the live script, a seven-minute log tail showing hibernation wake-ups, the checks in `docs/deploy.md`; corrections in PR #68.
 - Docker compose (TOM-65, PR #67): the API runs under `wrangler dev` in a container behind `--profile api`; verified with a real run on a Linux host (the log is `apps/web/public/guide/evidence/docker-run.txt`).
