@@ -1,5 +1,5 @@
 // The leading '-' keeps the TanStack Router generator from treating this file as a route.
-import { COPY, LIMITS, ROUTES } from '@cgis/shared/constants';
+import { AUTH, COPY, LIMITS, ROUTES } from '@cgis/shared/constants';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -104,6 +104,7 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   vi.resetAllMocks();
+  localStorage.clear();
 });
 
 describe('/login', () => {
@@ -331,11 +332,13 @@ describe('cold load', () => {
     expect(router.state.location.pathname).toBe(ROUTES.APP.MAP);
   });
 
-  it('signed out: lands on /login with a single redirect', async () => {
+  it('signed out, nothing remembered: shows the status, then lands on /login with a single redirect', async () => {
     const { router, resolved, visited } = renderAppAt(ROUTES.APP.MAP, {
       data: null,
       isPending: true,
     });
+    expect(screen.getByRole('status').textContent).toBe(COPY.AUTH.SESSION_CHECKING);
+    expect(screen.queryByRole('heading', { name: COPY.APP.NAME })).toBeNull();
     await sessionRoundTrip();
     await act(async () => auth.set(signedOut));
 
@@ -344,6 +347,49 @@ describe('cold load', () => {
     expect(visited).toEqual([ROUTES.APP.LOGIN]);
     expect(resolved).toEqual([ROUTES.APP.LOGIN]);
     expect(router.state.location.pathname).toBe(ROUTES.APP.LOGIN);
+  });
+
+  it('remembers a signed-in browser and forgets a signed-out one', async () => {
+    renderAppAt(ROUTES.APP.MAP, { data: null, isPending: true });
+    await act(async () => auth.set(signedIn));
+    expect(localStorage.getItem(AUTH.SIGNED_IN_HINT_KEY)).toBe(AUTH.SIGNED_IN_HINT_VALUE);
+
+    await act(async () => auth.set(signedOut));
+    expect(localStorage.getItem(AUTH.SIGNED_IN_HINT_KEY)).toBeNull();
+  });
+
+  it('remembered as signed in: shows the app frame at once instead of the status, then the map', async () => {
+    localStorage.setItem(AUTH.SIGNED_IN_HINT_KEY, AUTH.SIGNED_IN_HINT_VALUE);
+    const { router, resolved, visited } = renderAppAt(ROUTES.APP.MAP, {
+      data: null,
+      isPending: true,
+    });
+    expect(screen.getByRole('heading', { name: COPY.APP.NAME })).toBeTruthy();
+    expect(screen.queryByText(COPY.AUTH.SESSION_CHECKING)).toBeNull();
+    await sessionRoundTrip();
+    await act(async () => auth.set(signedIn));
+
+    expect(await screen.findByTestId('map-root')).toBeTruthy();
+    expect(visited).not.toContain(ROUTES.APP.LOGIN);
+    expect(resolved).toEqual([ROUTES.APP.MAP]);
+    expect(router.state.location.pathname).toBe(ROUTES.APP.MAP);
+  });
+
+  it('remembered as signed in but the session ended: one redirect to /login and the hint is cleared', async () => {
+    localStorage.setItem(AUTH.SIGNED_IN_HINT_KEY, AUTH.SIGNED_IN_HINT_VALUE);
+    const { router, resolved, visited } = renderAppAt(ROUTES.APP.MAP, {
+      data: null,
+      isPending: true,
+    });
+    expect(screen.queryByText(COPY.AUTH.SESSION_CHECKING)).toBeNull();
+    await sessionRoundTrip();
+    await act(async () => auth.set(signedOut));
+
+    await screen.findByRole('heading', { name: COPY.AUTH.LOGIN_TITLE });
+    expect(visited).toEqual([ROUTES.APP.LOGIN]);
+    expect(resolved).toEqual([ROUTES.APP.LOGIN]);
+    expect(router.state.location.pathname).toBe(ROUTES.APP.LOGIN);
+    expect(localStorage.getItem(AUTH.SIGNED_IN_HINT_KEY)).toBeNull();
   });
 });
 

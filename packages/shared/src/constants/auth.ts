@@ -18,4 +18,12 @@ export const AUTH = {
    * one client; the zone's WAF rate rule (docs/deploy.md) is the global cap.
    */
   RATE_LIMIT_MAX: 10,
+  /**
+   * `localStorage` key the web app sets while this browser holds a session and removes once it
+   * holds none. On a cold load it decides whether the app frame shows before the first session
+   * check answers (set) or the session status does (unset). Never carries who was signed in.
+   */
+  SIGNED_IN_HINT_KEY: 'cgis.signedIn',
+  /** The only value `SIGNED_IN_HINT_KEY` holds; any other (or none) means nothing remembered. */
+  SIGNED_IN_HINT_VALUE: '1',
 } as const;
