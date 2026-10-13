@@ -21,8 +21,6 @@ import {
   isQueryableBbox,
   removeArea,
   replaceArea,
-  replaceOlderArea,
-  versionsKey,
 } from './areas-query';
 import { ringAreaKm2 } from './geo/geodesic';
 
@@ -178,11 +176,12 @@ export function useRevertArea() {
       }
       return readBody(res, 201, AreaSchema);
     },
-    onSuccess: (area) => replaceOlderArea(queryClient, area),
+    onSuccess: (area) => replaceArea(queryClient, area),
     onError: (error, { id }) => {
       if (!(error instanceof ApiRequestError) || error.code !== ERROR_CODES.NOT_FOUND) return;
       void queryClient.invalidateQueries(ALL_AREAS);
-      void queryClient.invalidateQueries({ queryKey: versionsKey(id) });
+      // A prefix: the area's history at any version.
+      void queryClient.invalidateQueries({ queryKey: [QUERY.VERSIONS_KEY, id] });
     },
   });
 }

@@ -1,4 +1,5 @@
-// Parses src/styles/tokens.css so the Foundations pages render from the token file itself.
+// Parses src/styles/tokens.css so the Foundations pages render from the token file itself;
+// styles/tokens.test.ts checks the file with the same parser.
 import tokensCss from '../styles/tokens.css?raw';
 
 export interface Token {
@@ -8,15 +9,18 @@ export interface Token {
   note: string | undefined;
 }
 
-const DECLARATION = /^\s*(--[\w-]+):\s*([^;]+);\s*(?:\/\*\s*(.*?)\s*\*\/)?/;
+const DECLARATION = /^\s*(--[\w-]+(?:-\*)?):\s*([^;]+);\s*(?:\/\*\s*(.*?)\s*\*\/)?/;
 
-function parse(css: string): Token[] {
+/** Every `--name: value;` line of `css` in order (its trailing comment as `note`), resets included. */
+export function parseTokens(css: string): Token[] {
   return css.split('\n').flatMap((line) => {
     const match = DECLARATION.exec(line);
-    if (!match || match[2]!.trim() === 'initial') return [];
-    return [{ name: match[1]!, value: match[2]!.trim(), note: match[3] }];
+    return match ? [{ name: match[1]!, value: match[2]!.trim(), note: match[3] }] : [];
   });
 }
+
+/** The declarations that set a value (`initial` only resets a Tailwind default). */
+const parse = (css: string) => parseTokens(css).filter((token) => token.value !== 'initial');
 
 const darkStart = tokensCss.indexOf('@variant dark {');
 const themeEnd = tokensCss.indexOf('@layer base');

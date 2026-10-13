@@ -14,13 +14,23 @@
  * - Components never reference a ramp step (neutral-*, primary-*); they use the semantic tokens,
  *   which pick a step per theme. Interactive colours come as base / hover (+1 step) /
  *   active (+2 steps); disabled is the base at 40 % (opacity-disabled).
- * - Dark theme: the .dark class on <html> (Storybook's theme toolbar, or syncColorScheme() from
- *   src/ui/theme.ts in the app). The dark values are in the @variant dark block at the end.
+ * - Dark theme: the OS preference (prefers-color-scheme), or the .dark class on <html>
+ *   (Storybook's theme toolbar); a .light class on <html> keeps the light values on a dark OS.
+ *   The dark values are in the @variant dark block at the end.
  * - The map pane z-indexes mirror MAP in packages/shared/src/constants/map.ts;
  *   tokens.test.ts fails when they drift.
  */
 
-@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant dark {
+  &:where(.dark, .dark *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:not(.light, .light *)) {
+      @slot;
+    }
+  }
+}
 
 /* `static`: emit every variable even when no utility uses it (Leaflet classes, stories). */
 @theme static {

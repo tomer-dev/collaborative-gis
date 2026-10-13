@@ -22,12 +22,11 @@ const USERS: PresenceUser[] = NAMES.map((name, index) => ({
   state: index === 0 || index === 2 ? 'drawing' : 'viewing',
 }));
 
-/** Who is on the map. `list` for the side panel, `stack` for the top bar. */
+/** Who is on the map, for the side panel. */
 const meta = {
   title: 'Components/PresenceList',
   component: PresenceList,
   args: { users: USERS.slice(0, 3), selfId: 'u1' },
-  argTypes: { variant: { control: 'inline-radio', options: ['list', 'stack'] } },
   decorators: [
     (Story) => (
       <div className="w-xs">
@@ -44,9 +43,5 @@ export const List: Story = {};
 
 /** Nine users on an eight-colour palette: two share a colour; names tell them apart. */
 export const Crowded: Story = { args: { users: USERS } };
-
-export const Stack: Story = { args: { variant: 'stack' } };
-
-export const StackOverflow: Story = { args: { variant: 'stack', users: USERS, max: 4 } };
 
 export const Empty: Story = { args: { users: [] } };
