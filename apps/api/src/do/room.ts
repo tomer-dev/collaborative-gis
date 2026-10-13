@@ -1,9 +1,17 @@
-import { ERROR_CODES, PresenceStateSchema, ROUTES, WS } from '@cgis/shared';
+import {
+  type AreaEvent,
+  AreaEventSchema,
+  ERROR_CODES,
+  PresenceStateSchema,
+  ROUTES,
+  WS,
+} from '@cgis/shared';
 import { DurableObject } from 'cloudflare:workers';
+import { z } from 'zod';
 import type { Env } from '../app';
 import { apiErrorResponse } from '../errors';
 import { DraftStore, fullDraftBucket } from './drafts';
-import { parseClientFrame, type RoomEvent, SWITCHING_PROTOCOLS } from './frames';
+import { parseClientFrame, SWITCHING_PROTOCOLS } from './frames';
 import {
   departed,
   draftUpdate,
@@ -16,13 +24,14 @@ import {
 } from './handlers';
 import { isWebSocketUpgrade, readRoomUser, type RoomUser } from './handoff';
 import { attachmentOf, type PresenceAttachment, presenceColor } from './presence';
-import { createSeqCounter, sendAll, sockets } from './sockets';
+import { bump, createSeqCounter, sendAll, sockets } from './sockets';
 
 /**
  * The single map room (id `ROOM.DEFAULT_ROOM_ID`). Sockets use the WebSocket Hibernation API:
  * the runtime keeps them open while the object is evicted, so per-socket state lives in
- * attachments and nothing presence-related is kept in instance memory. Drafts and the outgoing
- * `seq` counter live in SQLite. This class holds only the entry points; handlers.ts does the work.
+ * attachments and nothing presence-related is kept in instance memory. Drafts, the outgoing
+ * `seq` counter and the map version (`mapVersion`) live in SQLite. This class holds only the
+ * entry points; handlers.ts does the work.
  */
 export class Room extends DurableObject<Env> {
   private readonly room: RoomCtx;
@@ -61,9 +70,37 @@ export class Room extends DurableObject<Env> {
     }
   }
 
-  /** RPC (T8 fan-out): stamps `seq` and `ts`, sends to every open socket but `exceptUserId`'s. */
-  async broadcast(event: RoomEvent, exceptUserId?: string): Promise<void> {
-    sendAll(this.ctx, event, exceptUserId);
+  /**
+   * RPC from `fanout` (T8): a committed area change for every open socket. The event is checked
+   * against the shared `AreaEventSchema` first; an invalid one is logged and dropped (nothing
+   * sent, version unchanged) and never thrown back to the Worker. A valid one bumps the map
+   * version and goes out stamped with that `mapVersion`, the next `seq` and `ts = Date.now()`.
+   * Both counters are written synchronously, so they commit together before any frame leaves.
+   */
+  async broadcast(event: AreaEvent): Promise<void> {
+    const parsed = AreaEventSchema.safeParse(event);
+    if (!parsed.success) {
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          msg: 'room broadcast rejected an invalid event',
+          issues: z.prettifyError(parsed.error),
+        }),
+      );
+      return;
+    }
+    sendAll(this.ctx, { ...parsed.data, mapVersion: bump(this.ctx.storage.sql, 'mapVersion') });
+  }
+
+  /**
+   * RPC: the map version, 0 until the first area change, then one more per `broadcast`. Kept in
+   * the SQLite `counters` table, so it survives eviction (D6: M2 keys the viewport cache on it).
+   */
+  async getVersion(): Promise<number> {
+    const [row] = this.ctx.storage.sql
+      .exec<{ value: number }>(`SELECT value FROM counters WHERE name = 'mapVersion'`)
+      .toArray();
+    return row?.value ?? 0;
   }
 
   /**

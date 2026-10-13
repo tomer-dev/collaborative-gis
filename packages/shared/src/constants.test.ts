@@ -19,6 +19,8 @@ describe('constants', () => {
       'ERROR_MESSAGES',
       'ERROR_REASONS',
       'WS_MESSAGES',
+      'OPENAPI',
+      'AUDIT',
       'COPY',
     ] as const;
     for (const name of groups) {

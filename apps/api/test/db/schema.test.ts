@@ -169,8 +169,8 @@ describe('audit_log', () => {
       'entity_id text null',
       'ip text null',
       'user_agent text null',
-      'payload_hash text null',
       'at timestamp with time zone not null default now()',
+      'version integer null',
     ]);
     expect(await constraints('audit_log')).toEqual(['PRIMARY KEY (id)']);
   });
