@@ -2,7 +2,18 @@
 
 Real-time collaborative polygon drawing on Leaflet with OpenStreetMap and govmap aerial imagery. Hono on Cloudflare Workers + Durable Objects, PostGIS on Neon via Hyperdrive, Better Auth, React + Vite + TanStack.
 
-Planning and decisions: `docs/roadmap.md`, `docs/research-notes.md`, `docs/superpowers/specs/2026-10-12-collaborative-gis-design.md` (decision log in §10), `docs/decisions-brief.html`, `docs/process-log.md` (how the work was done, task by task), ADRs in `docs/adr/`, tunable values in `docs/constants.md`.
+## Documentation map
+
+- [`docs/roadmap.md`](docs/roadmap.md): epics, tickets, milestones and the critical path.
+- [`docs/research-notes.md`](docs/research-notes.md): the pre-roadmap reading per technology, each fact with the decision it drives.
+- [`docs/superpowers/specs/2026-10-12-collaborative-gis-design.md`](docs/superpowers/specs/2026-10-12-collaborative-gis-design.md): the design spec; §10 is the decision log (D1–D25). The milestone plans are in [`docs/superpowers/plans/`](docs/superpowers/plans/), and `docs/decisions-brief.html` is the decisions brief (open it locally).
+- [`docs/adr/`](docs/adr/): architecture decision records, listed under [Technical decisions](#technical-decisions-and-architecture).
+- [`docs/process-log.md`](docs/process-log.md): how the work was done, task by task, with the rulings that changed scope.
+- [`docs/benchmarks.md`](docs/benchmarks.md): the bounds query with and without the GiST index (`db:explain`).
+- [`docs/benchmarks-load.md`](docs/benchmarks-load.md): k6 load results for REST and WebSocket; scripts in [`bench/README.md`](bench/README.md).
+- [`docs/deploy.md`](docs/deploy.md): production deploy, owner checklist, smoke checks, rollback and hardening.
+- [`docs/constants.md`](docs/constants.md): every tunable value, generated from `packages/shared/src/constants/`.
+- [`apps/web/e2e/README.md`](apps/web/e2e/README.md): the two-browser Playwright run.
 
 ## Setup
 
@@ -11,7 +22,7 @@ Prerequisites: Node 22 (`.node-version` pins 22.23.3; `engines` requires `>=22.2
 Workspace:
 
 - `packages/shared` (`@cgis/shared`): Zod 4 contracts used by both apps (polygon, area, bounds query, API error, WebSocket protocol) and every tunable value, one file per domain under `src/constants/`. `docs/constants.md` is generated from them (`pnpm constants:docs`; CI fails when it is stale).
-- `apps/api` (`@cgis/api`): Hono 4 Worker with two Durable Objects (`Room`: presence, live drafts, area fan-out; `RateLimiter`: the per-user budget), PostGIS through the `HYPERDRIVE` binding, Better Auth. `GET /healthz` is liveness; `GET /readyz` pings the database and the Room (`getVersion()` within `TIMEOUTS.DO_PING_MS`) and answers 503 `NOT_READY` with `details: { db, room }` when either does not answer.
+- `apps/api` (`@cgis/api`): Hono 4 Worker with two Durable Objects (`Room`: presence, live drafts, area fan-out; `RateLimiter`: the per-user budget), PostGIS through the `HYPERDRIVE` binding, Better Auth. `GET /healthz` is liveness; `GET /readyz` pings the database and the Room (`getVersion()` within `TIMEOUTS.DO_PING_MS`), checks that `CLIENT_ORIGIN` and `BETTER_AUTH_URL` are absolute URLs, and answers 200 `{ status: ready, db, room, config }` or 503 `NOT_READY` with `details: { db, room, config }` naming the one that is `down`.
 - `apps/web` (`@cgis/web`): Vite 8 + React 19 + TanStack Router/Query + Leaflet 1.9.4 SPA; Storybook for the design system.
 
 First run:
@@ -25,7 +36,7 @@ pnpm typecheck                                     # also generates apps/api/wor
 pnpm dev                                           # wrangler dev on :8787 and Vite on :5173
 ```
 
-Open http://localhost:5173, create an account and draw on `/map`; a second browser profile (or a private window) is a second user. Vite proxies `/api` and `/ws` to `wrangler dev`, so the SPA and the API share one origin. `CLIENT_ORIGIN` in `apps/api/wrangler.jsonc` must be the SPA's origin: the CORS policy, Better Auth's trusted origins and the WebSocket origin gate all read it. If 5173 is taken, run Vite on another port and pass `wrangler dev --var CLIENT_ORIGIN:http://localhost:<port>`.
+Open http://localhost:5173, create an account and draw on `/map`; a second browser profile (or a private window) is a second user. Vite proxies `/api` and `/ws` to `wrangler dev`, so the SPA and the API share one origin. `CLIENT_ORIGIN` in `apps/api/wrangler.jsonc` must be the SPA's origin: the CORS policy, Better Auth's trusted origins and the WebSocket origin gate all read it. If 5173 is taken, run the two servers yourself instead of `pnpm dev`, with the SPA's port in `CLIENT_ORIGIN`: `pnpm --filter @cgis/api dev --var CLIENT_ORIGIN:http://localhost:<port>` and `pnpm --filter @cgis/web dev --port <port> --strictPort`.
 
 Day to day:
 
@@ -51,7 +62,7 @@ Migrations always run against a **direct** database URL, never through Hyperdriv
 - Locally, the direct URL is `postgresql://cgis:cgis@127.0.0.1:5433/cgis`; migrate it before running the workerd tests that need tables. A lane database from `scripts/db-lane.sh` works the same way.
 - In production, use the Neon direct (non-pooled) URL (`NEON_DATABASE_URL` in `.env.example`), injected from 1Password with `op run`.
 - CI migrates the runner's PostGIS before `pnpm test`.
-- `apps/api/test/db` is a Node Vitest project (`db` in `apps/api/vitest.config.ts`), because `migrate()` reads the SQL files from disk. On every run, its global setup creates `cgis_db_<lane>` and `cgis_db_seed_<lane>` (the seed test's own) with `scripts/db-lane.sh`, empties them and migrates them from scratch.
+- `apps/api/test/db` is a Node Vitest project (`db` in `apps/api/vitest.config.ts`), because `migrate()` reads the SQL files from disk. On every run, its global setup creates `cgis_db_<lane>` and `cgis_db_seed_<lane>` (the seed test's own) with `scripts/db-lane.sh`, empties them and migrates them from scratch; the workerd project's global setup (`apps/api/test/lane-setup.ts`) does the same for its five lane databases.
 - Seed: `DATABASE_URL=<direct URL> pnpm --filter @cgis/api db:seed [--count N]` tops the random `seed-*` polygons (created by the `seed` user) up to N (default 50; `--count 10000` for the benchmark set), so a rerun adds nothing. `db:explain` seeds 10,000 and writes the bounds-query EXPLAIN table to [`docs/benchmarks.md`](docs/benchmarks.md).
 
 Coordinate order: all GeoJSON in this project is `[longitude, latitude]`; Leaflet's own API is `[lat, lng]`. The shared schema cannot detect a swap when both values are in range.
@@ -65,12 +76,43 @@ Coordinate order: all GeoJSON in this project is `[longitude, latitude]`; Leafle
 ## Deploy
 
 One Worker, `collaborative-gis-api-production` (`env.production` in `apps/api/wrangler.jsonc`), serves the built SPA as static assets and the API, the WebSocket and both Durable Objects on one origin; Neon is reached through Hyperdrive with query caching off.
-`.github/workflows/deploy.yml` deploys each push to `main` once `ci` has passed on it, and on demand: it migrates Neon over the direct URL, builds the web and runs `wrangler deploy --env production`, passing the origin from the repository variable `PRODUCTION_ORIGIN` (the origin is never in the repository). It is skipped until the repository variable `DEPLOY_ENABLED` is `true`; it needs the `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` and `DATABASE_URL` secrets.
+`.github/workflows/deploy.yml` deploys each push to `main` once `ci` has passed on it, and on demand: it migrates Neon over the direct URL, builds the web and runs `wrangler deploy --env production`, passing the origin from the repository variable `PRODUCTION_ORIGIN` (the origin is never in the repository). It is skipped until the repository variable `DEPLOY_ENABLED` is `true`; it needs the `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` and `DATABASE_URL` secrets. Production is live and deployed this way from `main`, on a custom domain attached in the Cloudflare dashboard, outside the repository, which never names the hostname. A Worker deployed without the origin vars answers `/readyz` with 503 and `config: down`.
 The one-time owner checklist (Hyperdrive caching, production origin, `BETTER_AUTH_SECRET`, first deploy), smoke checks and rollback: [`docs/deploy.md`](docs/deploy.md).
 
 ## Technical decisions and architecture
 
-The decision log is §10 of the design spec, [`docs/superpowers/specs/2026-10-12-collaborative-gis-design.md`](docs/superpowers/specs/2026-10-12-collaborative-gis-design.md) (D1–D25), with ADRs 0001–0005 in `docs/adr/` (0003 superseded by 0005). The ones that shape the code most:
+```mermaid
+flowchart LR
+  B["Browser: Vite SPA, React, Leaflet"]
+  subgraph CF["Cloudflare: one Worker, one origin"]
+    W["Worker: Hono API and static assets"]
+    R["Room DO: presence, drafts, fan-out (WebSocket hibernation)"]
+    L["RateLimiter DO: per-user budget"]
+    C[("Workers Cache: bounds reads")]
+    H["Hyperdrive"]
+  end
+  N[("Neon PostGIS")]
+  G["GitHub Actions"]
+  B -- "HTTPS: /api, SPA files" --> W
+  B -- "WebSocket /ws" --> W
+  W -- "upgrade, map version, broadcast" --> R
+  W -- "REST mutation budget" --> L
+  R -- "draft session budget" --> L
+  W -- "GET /api/areas by tile and version" --> C
+  W --> H --> N
+  G -- "wrangler deploy --env production" --> W
+  G -- "migrations, direct URL" --> N
+```
+
+The decision log is §10 of the design spec, [`docs/superpowers/specs/2026-10-12-collaborative-gis-design.md`](docs/superpowers/specs/2026-10-12-collaborative-gis-design.md) (D1–D25). The architecture decision records:
+
+- [ADR-0001: Cloudflare Workers + Durable Objects instead of Vercel](docs/adr/0001-cloudflare-over-vercel.md)
+- [ADR-0002: Hono instead of Fastify](docs/adr/0002-hono-over-fastify.md)
+- [ADR-0003: Leaflet 1.9.4 and a hand-rolled EPSG:2039 CRS on proj4](docs/adr/0003-leaflet-1-9-4-and-proj4-crs.md) (superseded by ADR-0005)
+- [ADR-0004: Horizontal scaling on Cloudflare](docs/adr/0004-horizontal-scaling-on-cloudflare.md)
+- [ADR-0005: govmap aerial imagery through a CRS swap to EPSG:2039](docs/adr/0005-govmap-crs-swap.md)
+
+The decisions that shape the code most:
 
 - Cloudflare Workers + Durable Objects (ADR-0001), Hono (ADR-0002), Leaflet 1.9.4 with Proj4Leaflet for the EPSG:2039 aerial layer, swapped in with the map's CRS (ADR-0005, D3, D22).
 - One `Room` Durable Object per map (D7, D11): presence, live drafts and area fan-out over the WebSocket Hibernation API. The realtime protocol is our own code.
@@ -82,7 +124,7 @@ The decision log is §10 of the design spec, [`docs/superpowers/specs/2026-10-12
 ## Performance considerations
 
 - Spatial index: a GiST index on `areas.geom`. With 10,000 areas the viewport query runs at p50 0.17 ms / p95 0.22 ms on the index, against 1.18 ms / 1.33 ms with index scans off (server execution time; [`docs/benchmarks.md`](docs/benchmarks.md), `pnpm --filter @cgis/api db:explain`).
-- Load, measured locally against `wrangler dev` with k6 (`pnpm bench`, not run in CI; [`docs/benchmarks-load.md`](docs/benchmarks-load.md)): 10 users for 1 minute, 1600 viewport reads and 400 creates, read p95 86 ms, write p95 132 ms, no errors and no 429; 5 sockets drawing, every draft frame reached every other user within 1 s (delay p95 10 ms).
+- Load, measured locally against `wrangler dev` with k6 (`pnpm bench`, not run in CI; [`docs/benchmarks-load.md`](docs/benchmarks-load.md)): 10 users for 1 minute, 1600 viewport reads and 400 creates, read p95 86 ms, write p95 132 ms, no errors and no 429; 5 sockets drawing at 10 frames per second for 30 s, every draft frame reached every other user within 1 s (6000 of 6000; delay p95 8 ms).
 - Bounded payloads: a viewport answers at most `LIMITS.BOUNDS_LIMIT` (500) areas, an area's history at most `LIMITS.VERSIONS_PAGE` (200) versions, and a mutation body at most `LIMITS.BODY_MAX_BYTES` (64 KiB, else 413).
 - Geodesic area: `ST_Area(geom::geography)` on every write, stored with the row and each version, so reads never compute it.
 
@@ -97,7 +139,7 @@ Hyperdrive's own query cache stays off for this config ([ADR-0004](docs/adr/0004
 - WebSocket origin gate: `GET /ws` needs a session, then an `Origin` equal to `CLIENT_ORIGIN` (403 otherwise). Better Auth's session lookup ignores Origin, so without the gate another site could open a socket with a visitor's cookie.
 - Sign-in rate limit: once deployed (https `BETTER_AUTH_URL`), Better Auth answers 429 after `AUTH.RATE_LIMIT_MAX` (10) sign-in attempts per client IP per 60 s, counted per Worker isolate; a Cloudflare WAF rate rule on `/api/auth/*` is the global limit. The production checklist (WAF rule, `/readyz` health check, logs, rollback) is in [`docs/deploy.md`](docs/deploy.md#production-hardening).
 - Mutation guards: every area mutation (create, update, delete, revert) mounts `mutationGuards()`, in this order: a session (401), one action from the user's budget (429), and the body cap `LIMITS.BODY_MAX_BYTES` (413) before anything parses the body; then validation (422). Rejected attempts therefore spend budget too.
-- Rate limit (D5): one exact per-user sliding window in the `RateLimiter` Durable Object, 50 actions per 60 s (`RATE_LIMIT`), shared by REST mutations and every `draft:update` frame on the socket. Over it the API answers 429 with `Retry-After` and the Room answers `error RATE_LIMITED` with `retryAfter`. A limiter failure fails closed. Each socket also has a token bucket in the Room (`WS.DRAFT_RATE_PER_SEC`).
+- Rate limit (D5): one exact per-user sliding window in the `RateLimiter` Durable Object, 50 actions per 60 s (`RATE_LIMIT`), shared by REST mutations and draft sessions on the socket (one action when a draft starts, not per `draft:update` frame; see Known limitations). Over it the API answers 429 with `Retry-After` and the Room answers `error RATE_LIMITED` with `retryAfter`. A limiter failure fails closed. Each socket also has a fixed one-second window of `WS.DRAFT_RATE_PER_SEC` (10) frames in the Room.
 - Audit trail (D20): one `audit_log` row per action with user, IP (`cf-connecting-ip`), user agent and request id: area create, update, delete and revert (in the same transaction as the write, pointing at the version row), sign-in, failed sign-in, sign-up and sign-out, every 422 and 429 under `/api`, each saved draft (a `draw.session` row with its vertex count, in the create's transaction), and each retention purge run. Details are redacted like logs.
 - Timeouts: a 10 s budget per request (`TIMEOUTS.REQUEST_MS`, 504 `TIMEOUT`) whose abort ends the request's open database clients; each connect and query has its own 3 s limit. The `enable_request_signal` compatibility flag is on, so the runtime also aborts that signal when the client disconnects; neither `wrangler dev` nor the test pool forwards a client's disconnect, so that path is unverified locally (a disconnected `/readyz` under `wrangler dev` ran to its 3 s query limit).
 - Input: every body, query and path parameter is parsed with the shared Zod schemas (422 `UNPROCESSABLE` with the issues), and PostGIS validates every polygon (`ST_IsValidReason` in a 422). All SQL values are bound parameters.
@@ -123,8 +165,8 @@ See [ADR-0004: Horizontal scaling on Cloudflare](docs/adr/0004-horizontal-scalin
 ## Testing approach
 
 - Unit and component tests (Vitest) in all three packages; the api's run in workerd (`@cloudflare/vitest-plugin`) against the local PostGIS, Durable Objects included, and its migrations and seed in a Node project.
-- API contract: `apps/api/batch/areas.jsonl` through `hono batch` on workerd. The OpenAPI document is validated in a test (`@readme/openapi-parser`) and served at `/openapi.json`, with a reference UI at `/docs`.
+- API contract: `apps/api/batch/areas.jsonl` through `hono batch` on workerd. The OpenAPI document is validated in a test (`@readme/openapi-parser`) and served at `/openapi.json`; `/docs` is a hand-written page that renders it with Scalar's pinned standalone build, loaded with Subresource Integrity.
 - End to end: Playwright, two browser contexts on one map against `wrangler dev` and Vite (`pnpm e2e`, [`apps/web/e2e/README.md`](apps/web/e2e/README.md)); the govmap layer-switch specs need the internet and run locally only.
-- CI (`.github/workflows/ci.yml`) on every pull request and push to `main`: lint, format check, `constants:docs --check`, typecheck (the e2e specs included), tests with a PostGIS service, the contract batch, web and Storybook builds and the production `wrangler deploy --dry-run`; a second job runs the e2e. Load tests (`pnpm bench`, k6) stay manual.
+- CI (`.github/workflows/ci.yml`) on every pull request and push to `main`: lint, format check, `constants:docs --check`, typecheck (the e2e specs included), `drizzle-kit generate` with no change to `apps/api/drizzle` (migrations match the schema), tests with a PostGIS service, the contract batch, web and Storybook builds and the production `wrangler deploy --dry-run`; a second job runs the e2e. Load tests (`pnpm bench`, k6) stay manual.
 
 Test databases are per lane: every api test database is named `<base>_<lane>` (`cgis_auth_<lane>`, `cgis_api_<lane>`, `cgis_db_<lane>`, ...), where the lane is `CGIS_TEST_LANE` or, unset, the current git branch (`m2/integration` → `cgis_api_m2_integration`). Worktrees on different branches share the one compose PostGIS without resetting each other's databases; set `CGIS_TEST_LANE` to run two checkouts of one branch side by side (`apps/api/test/lane.ts`).
