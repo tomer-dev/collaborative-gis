@@ -219,10 +219,20 @@ it('discards the sketch from Cancel', () => {
   expect(document.activeElement).toBe(button(DRAW.START_LABEL));
 });
 
-it('discards the sketch on Escape, as Cancel does', () => {
+it('discards the sketch on Escape, as Cancel does, unless a text field or a dialog has it', () => {
   const { handler, onDone } = renderOnMap();
   startDrawing();
   act(() => clickOn(map, 32, 35));
+
+  // The rename field's (or a dialog's) Escape is theirs: the sketch stays.
+  const field = document.createElement('input');
+  const dialog = document.createElement('dialog');
+  document.body.append(field, dialog);
+  fireEvent.keyDown(field, { key: 'Escape' });
+  fireEvent.keyDown(dialog, { key: 'Escape' });
+  expect(handler().enabled()).toBe(true);
+  field.remove();
+  dialog.remove();
 
   fireEvent.keyDown(document, { key: 'Escape' });
 
