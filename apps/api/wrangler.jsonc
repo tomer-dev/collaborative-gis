@@ -37,7 +37,9 @@
     // main, compatibility flags, observability and the DO `migrations` (and any `triggers`) from
     // the top level; bindings, vars and secrets are never inherited, so they are repeated here.
     "production": {
-      "name": "collaborative-gis",
+      // Worker name is wrangler's default for this env (collaborative-gis-api-production).
+      // Served on the custom domain below; the workers.dev name is not the public origin.
+      "routes": [{ "pattern": "collaborative-gis.tomersharoni.com", "custom_domain": true }],
       // Only here: `wrangler dev` and the tests run without a web build (Vite serves the SPA).
       "assets": {
         "directory": "../web/dist",
@@ -52,11 +54,11 @@
           { "name": "RATE_LIMITER", "class_name": "RateLimiter" },
         ],
       },
-      // Placeholders: the owner sets the deployed origin once (docs/deploy.md); the deploy workflow
-      // refuses to run while REPLACE-WITH- is still here. SPA and API share it, so both are equal.
+      // The public origin (custom domain in the tomersharoni.com zone). SPA and API share it, so both
+      // are equal: CORS, Better Auth's trusted origins and the WebSocket origin gate compare against it.
       "vars": {
-        "CLIENT_ORIGIN": "https://collaborative-gis.REPLACE-WITH-ACCOUNT-SUBDOMAIN.workers.dev",
-        "BETTER_AUTH_URL": "https://collaborative-gis.REPLACE-WITH-ACCOUNT-SUBDOMAIN.workers.dev",
+        "CLIENT_ORIGIN": "https://collaborative-gis.tomersharoni.com",
+        "BETTER_AUTH_URL": "https://collaborative-gis.tomersharoni.com",
       },
       // Set with `wrangler secret put BETTER_AUTH_SECRET --env production`, never in this file.
       "secrets": { "required": ["BETTER_AUTH_SECRET"] },

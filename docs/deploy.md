@@ -1,6 +1,6 @@
 # Deploy
 
-One Worker, `collaborative-gis`, serves the built SPA (`apps/web/dist`) as static assets and the API, the WebSocket and both Durable Objects (`Room`, `RateLimiter`) on one origin. Postgres is the Neon project `winter-credit-61110991`, reached through the Hyperdrive config `cgis-neon` (`ffdceaec4c3b4c70a324ebf9da6cb7a9`). Its configuration is `env.production` in `apps/api/wrangler.jsonc`; nothing in the repository is a secret. Checked with wrangler 4.149.0.
+One Worker, `collaborative-gis-api-production` (wrangler's default name for the `production` env), on the custom domain `collaborative-gis.tomersharoni.com`, serves the built SPA (`apps/web/dist`) as static assets and the API, the WebSocket and both Durable Objects (`Room`, `RateLimiter`) on one origin. Postgres is the Neon project `winter-credit-61110991`, reached through the Hyperdrive config `cgis-neon` (`ffdceaec4c3b4c70a324ebf9da6cb7a9`). Its configuration is `env.production` in `apps/api/wrangler.jsonc`; nothing in the repository is a secret. Checked with wrangler 4.149.0.
 
 Commands run from the repository root. `wrangler` below is the pinned dev dependency: `pnpm --filter @cgis/api exec wrangler …`, signed in with `wrangler login` or with `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in the shell. Deploying needs the Workers Paid plan: Better Auth's scrypt hashing exceeds the Free plan's CPU limit (D21).
 
@@ -35,7 +35,7 @@ Never run `wrangler deploy` without `--env production`: the top level would crea
    ```bash
    DATABASE_URL='<Neon direct URL>' pnpm --filter @cgis/api db:migrate
    ```
-3. **Production origin.** In `apps/api/wrangler.jsonc` `env.production.vars`, replace `REPLACE-WITH-ACCOUNT-SUBDOMAIN` in `CLIENT_ORIGIN` and `BETTER_AUTH_URL` with the account's workers.dev subdomain (Cloudflare dashboard, Workers & Pages), giving `https://collaborative-gis.<subdomain>.workers.dev`: https, no trailing slash, the same value in both. The CORS policy, Better Auth's trusted origins and the WebSocket origin gate compare against `CLIENT_ORIGIN`; an https `BETTER_AUTH_URL` turns on `Secure` `__Secure-` cookies. Merge it to `main`; the deploy workflow refuses to run while the placeholder is there. For a custom domain, add a `routes` entry with `custom_domain: true` to `env.production` and use that origin instead.
+3. **Production origin.** `env.production` sets `CLIENT_ORIGIN` and `BETTER_AUTH_URL` to `https://collaborative-gis.tomersharoni.com` and a `routes` entry with `custom_domain: true` for that hostname; the first `wrangler deploy --env production` creates the DNS record and the certificate in the `tomersharoni.com` zone (the zone is on this Cloudflare account). The CORS policy, Better Auth's trusted origins and the WebSocket origin gate compare against `CLIENT_ORIGIN`; an https `BETTER_AUTH_URL` turns on `Secure` `__Secure-` cookies. Merge it to `main`; the deploy workflow refuses to run while the placeholder is there. For a custom domain, add a `routes` entry with `custom_domain: true` to `env.production` and use that origin instead.
 4. **Auth secret.** Random, at least 32 characters, different from every local value:
    ```bash
    openssl rand -base64 32 | pnpm --filter @cgis/api exec wrangler secret put BETTER_AUTH_SECRET --env production
@@ -63,7 +63,7 @@ Migrations run before the new Worker goes live, so the running Worker meets the 
 ## Smoke checks
 
 ```bash
-ORIGIN=https://collaborative-gis.<subdomain>.workers.dev
+ORIGIN=https://collaborative-gis.tomersharoni.com
 curl -s "$ORIGIN/healthz"                                       # 200 {"ok":true}
 curl -s "$ORIGIN/readyz"                                        # 200 {"ok":true,"db":"up"}; 503 NOT_READY when Neon is unreachable
 curl -s -o /dev/null -w '%{http_code}\n' "$ORIGIN/openapi.json" # 200
@@ -171,7 +171,7 @@ Workers Logs (`observability.enabled`) keeps 7 days on Workers Paid (3 on Free) 
 Run these against the deployed origin (`ORIGIN=https://…`, no trailing slash).
 
 - [ ] **Secrets set.** `wrangler secret list --env production` lists `BETTER_AUTH_SECRET`; `gh secret list` lists `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` and `DATABASE_URL`.
-- [ ] **Placeholder origin replaced.** `grep -c REPLACE-WITH- apps/api/wrangler.jsonc` prints `0` on `main`; `CLIENT_ORIGIN` and `BETTER_AUTH_URL` in `env.production` are the same https origin.
+- [ ] **Production origin set.** `CLIENT_ORIGIN` and `BETTER_AUTH_URL` in `env.production` are both `https://collaborative-gis.tomersharoni.com` and the `routes` entry names the same hostname.
 - [ ] **Hyperdrive caching off.** `wrangler hyperdrive get ffdceaec4c3b4c70a324ebf9da6cb7a9` shows `"disabled": true` under `caching`.
 - [ ] **Cookies and origins.** A sign-in with `-H "Origin: $ORIGIN"` sets `__Secure-better-auth.session_token` with `Secure; HttpOnly; SameSite=Lax` and no `Domain`. The same request with `-H 'Origin: https://evil.example'` answers 403.
   ```bash
