@@ -9,6 +9,24 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  # The checks that need no database or browser run on the slim image (1 vCPU, a 15-minute limit):
+  # install, lint, format, the constants doc and the typecheck finish in a few minutes there.
+  checks:
+    runs-on: ubuntu-slim
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm format:check
+      # docs/constants.md is generated from packages/shared/src/constants/; fails when it is stale.
+      - run: pnpm constants:docs --check
+      - run: pnpm typecheck
+  # Tests, the API contract batch and the builds need the PostGIS service container, so a full VM.
   ci:
     runs-on: ubuntu-24.04
     services:
@@ -30,11 +48,6 @@ jobs:
           node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
-      - run: pnpm format:check
-      # docs/constants.md is generated from packages/shared/src/constants/; fails when it is stale.
-      - run: pnpm constants:docs --check
-      - run: pnpm typecheck
       # Generating from apps/api/src/db/*schema.ts writes nothing: drizzle/ matches the schema.
       - name: migrations match the schema
         run: |
