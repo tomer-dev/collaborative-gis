@@ -1,0 +1,20 @@
+docker compose --profile api up --build: the owner's run on 2026-10-13, on the merged PR #67
+(compose lane, "Fix round 2 (owner run)").
+
+How this file was made: the compose lane recorded the owner's terminal result in its report; the raw
+log was not kept, and the guide lane's user has no access to the Docker socket on this machine
+(permission denied on /var/run/docker.sock), so this file transcribes the recorded facts rather than a
+captured transcript.
+
+  build                              67 s (apps/api/Dockerfile.dev, node:26.11.1-slim)
+  api start                          after postgis reported healthy; "migrations applied" logged
+                                     before wrangler dev started
+  wrangler                           Ready on 0.0.0.0:8787, no login or metrics prompt (no TTY)
+  GET /readyz                        200, all three up: db, room, config
+  docker compose ps                  postgis healthy, api healthy (image HEALTHCHECK on /healthz)
+  ports                              127.0.0.1:5433 and 127.0.0.1:8787 only (loopback)
+  docker compose --profile api down  stopped in 2 s
+
+Leftover seen in that log: wrangler warned "Cannot find base config file ../../tsconfig.base.json".
+Fixed by commit dd3560d, which copies the root tsconfig.base.json into the image's manifests layer
+(validated with docker compose config, lint and format:check; not rebuilt on this machine).

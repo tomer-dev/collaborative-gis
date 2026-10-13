@@ -550,9 +550,8 @@
         fill: var(--ink-2);
         font-size: 18px;
       }
-      .chart svg .tick {
+      .chart svg .tick text {
         fill: var(--muted);
-        font-size: 16px;
         font-variant-numeric: tabular-nums;
       }
       .chart svg .val {
@@ -773,6 +772,12 @@
         }
       }
       @media (max-width: 480px) {
+        .chart {
+          overflow-x: auto;
+        }
+        .chart svg {
+          min-width: 460px;
+        }
         body {
           font-size: 16px;
         }
@@ -2709,10 +2714,9 @@ vary: Origin</pre>
                 Source: Analytics Engine SQL over the <code>db_query</code> dataset, captured
                 2026-10-13 16:40 UTC (<a href="evidence/analytics-db-latency.json"
                   >evidence/analytics-db-latency.json</a
-                >); 31 points for <code>areas.list</code>, 2 for <code>areas.write</code>. The query
-                is in the README, Performance considerations. These saved samples are small (two
-                write points, 31 read points): they show that collection works, not production
-                capacity.
+                >); 31 points for <code>areas.list</code>, 2 for <code>areas.write</code>. These
+                saved samples are small (two write points, 31 read points): they show that
+                collection works, not production capacity.
               </p>
               <details>
                 <summary>Table</summary>
@@ -2745,7 +2749,7 @@ vary: Origin</pre>
               <h3>Production datapoints per event</h3>
               <p class="sub">Analytics Engine points written, as of 2026-10-13 16:40 UTC.</p>
               <svg
-                viewBox="0 0 640 150"
+                viewBox="-10 0 650 150"
                 role="img"
                 aria-label="Bar chart of datapoints per event: db_query 33, ws_open 24, room_messages 24, ws_close 23."
               >
@@ -3483,7 +3487,10 @@ vary: Origin</pre>
                   health check and, since PR #67 (merged 2026-10-13), an <code>api</code> service
                   that runs the Worker under <code>wrangler dev</code> in a container
                   (<code>apps/api/Dockerfile.dev</code>). Verified on 2026-10-13 with a real Docker
-                  run: build, migrate, <code>/readyz</code> ready, container healthy.
+                  run: build, migrate, <code>/readyz</code> ready, container healthy (<a
+                    href="evidence/docker-run.txt"
+                    >evidence/docker-run.txt</a
+                  >).
                 </dd>
                 <dt>Was missing at audit time</dt>
                 <dd>
@@ -3585,7 +3592,8 @@ vary: Origin</pre>
               ><span
                 >Docker containerization with docker-compose: PostGIS and, since PR #67 (merged
                 2026-10-13), the API under <code>wrangler dev</code> in a container; verified with a
-                real run (build, migrate, <code>/readyz</code> ready, healthy).</span
+                real run (build, migrate, <code>/readyz</code> ready, healthy;
+                <a href="evidence/docker-run.txt">evidence/docker-run.txt</a>).</span
               >
             </li>
             <li>
@@ -3696,7 +3704,10 @@ vary: Origin</pre>
               <a
                 href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/superpowers/specs/2026-10-12-collaborative-gis-design.md"
                 >docs/superpowers/specs/…design.md</a
-              ><span>The design spec; §10 is the decision log D1–D25 with the owner rulings.</span>
+              ><span
+                >The design spec; §10 is the decision log D1–D25 with the decisions behind
+                them.</span
+              >
             </li>
             <li>
               <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/deploy.md"
