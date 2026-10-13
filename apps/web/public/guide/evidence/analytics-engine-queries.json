@@ -1,0 +1,69 @@
+[
+  {
+    "meta": [
+      {
+        "name": "event",
+        "type": "String"
+      },
+      {
+        "name": "points",
+        "type": "UInt64"
+      },
+      {
+        "name": "sampled_rows",
+        "type": "UInt64"
+      }
+    ],
+    "data": [
+      {
+        "event": "db_query",
+        "points": "33",
+        "sampled_rows": "44"
+      },
+      {
+        "event": "ws_open",
+        "points": "24",
+        "sampled_rows": "26"
+      },
+      {
+        "event": "room_messages",
+        "points": "24",
+        "sampled_rows": "24"
+      },
+      {
+        "event": "ws_close",
+        "points": "23",
+        "sampled_rows": "23"
+      }
+    ],
+    "rows": 4,
+    "rows_before_limit_at_least": 104
+  },
+  {
+    "meta": [
+      {
+        "name": "event",
+        "type": "String"
+      },
+      {
+        "name": "detail",
+        "type": "String"
+      },
+      {
+        "name": "p50_ms",
+        "type": "Float64"
+      },
+      {
+        "name": "p95_ms",
+        "type": "Float64"
+      },
+      {
+        "name": "points",
+        "type": "UInt64"
+      }
+    ],
+    "data": [],
+    "rows": 0,
+    "rows_before_limit_at_least": 0
+  }
+]

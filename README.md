@@ -2,7 +2,7 @@
 
 Real-time collaborative polygon drawing on Leaflet with OpenStreetMap and govmap aerial imagery. Hono on Cloudflare Workers + Durable Objects, PostGIS on Neon via Hyperdrive, Better Auth, React + Vite + TanStack.
 
-Reviewer guide (presentation): [`apps/web/public/guide/index.html`](apps/web/public/guide/index.html), one page with screenshots, numbers and file pointers for each requirement of the product brief; the deployed app serves it at `/guide/`.
+Reviewer guide (presentation): served by the app at `/guide/` (URL in the submission note); one page with screenshots, numbers and file pointers for each requirement of the product brief. On GitHub the file shows as source, so open [`apps/web/public/guide/index.html`](apps/web/public/guide/index.html) from a checkout.
 
 ## Documentation map
 
