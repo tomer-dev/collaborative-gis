@@ -123,13 +123,19 @@ Last checked on 2026-10-13 (script `collaborative-gis-api-production`, version `
 - `v1` creates `Room` (`new_sqlite_classes`).
 - `v2` creates `RateLimiter` (`new_sqlite_classes`).
 
-`wrangler deployments list --env production` and `wrangler versions list --env production` list the deployments and versions, but neither shows DO migrations. Two facts are the evidence instead. The deploy workflow uploads from this same `wrangler.jsonc`. Cloudflare also refuses an upload whose migrations disagree with the namespace's history.
+`wrangler deployments list --env production` and `wrangler versions list --env production` list the deployments and versions, but neither shows DO migrations. The Cloudflare API does: the scripts list carries each script's `migration_tag`.
 
-To add the next migration, append one entry and never edit or reorder the existing ones. For example, `{ "tag": "v3", "new_sqlite_classes": ["NewClass"] }`, or `renamed_classes` / `deleted_classes`. Bind the class in both `durable_objects` blocks (top level and `env.production`), since bindings are not inherited. Run `pnpm -F @cgis/api exec wrangler deploy --dry-run --env production`, then merge; the deploy job applies the migration. A `deleted_classes` migration destroys that class's stored data.
+```sh
+curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts | jq '.result[] | {id, migration_tag}'
+```
+
+Expected: `collaborative-gis-api-production` has `migration_tag` `v2` (read on 2026-10-13, script modified 2026-10-13T16:28Z). Cloudflare also refuses an upload whose migrations disagree with the namespace's history.
+
+To add the next migration, append one entry and never edit or reorder the existing ones. For example, `{ "tag": "v3", "new_sqlite_classes": ["NewClass"] }`, or `renamed_classes` / `deleted_classes`. Bind the class in both `durable_objects` blocks (top level and `env.production`), since bindings are not inherited. Run `pnpm --filter @cgis/api types && pnpm --filter @cgis/web build && pnpm -F @cgis/api exec wrangler deploy --dry-run --env production` (on a clean checkout the first two build `../web/dist`, the `assets.directory`, which must exist), then merge; the deploy job applies the migration. A dry run does not contact Cloudflare, so it checks the config shape, not the migration against the live namespace; the API check above does that. A `deleted_classes` migration destroys that class's stored data.
 
 ### Workers Logs
 
-The Worker and both DOs log to Workers Logs (`observability.enabled: true`, inherited by production). During the check, `wrangler tail --env production --format json` delivered the structured JSON lines (`requestId`, `userId`). Workers Logs keeps logs for 7 days on Workers Paid and 3 days on Workers Free ([Workers Logs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/), read 2026-10-13). See [Production hardening → Logs](#logs) for sampling and for keeping logs longer.
+The Worker and both DOs log to Workers Logs (`observability.enabled: true`, inherited by production). During the check, `wrangler tail --env production --format json` delivered the structured JSON lines (`requestId`, `userId`). For retention, sampling and keeping logs longer, see [Production hardening → Logs](#logs).
 
 ### Hibernation
 
@@ -139,18 +145,18 @@ The Room uses the WebSocket Hibernation API:
 - the `setWebSocketAutoResponse` ping/pong, answered without waking the Room (`room.ts:56`)
 - `webSocketMessage` / `webSocketClose` / `webSocketError` (`room.ts:133`, `203`, `212`)
 
-Observed in production: during a 7-minute tail with one browser session open, the Room got a `durableObject` event of type `getWebSocketEvent`, followed by `rpcMethod` events (area saves). The captured window had no `fetch` upgrade into the DO, so the socket had been accepted earlier and the message reached the Room through the hibernation path. The idle time before that event was not measured, so this check shows the hibernation path is in use. It is not a measurement of wake latency.
+Observed in production: during a 7-minute tail with one browser session open, the Room got a `durableObject` event of type `getWebSocketEvent`, followed by `rpcMethod` events (area saves). The captured window had no `fetch` upgrade into the DO, so the socket had been accepted before the tail started. A `getWebSocketEvent` is what the tail shows for any message delivered to a socket accepted with `ctx.acceptWebSocket`, so this confirms the Hibernation API handler path is in use. It does not show that the Room was evicted and woke: eviction was not observed. The Room's 30 s sweep alarm (`WS.ALARM_INTERVAL_MS`) runs while users are joined, and the idle time before the event was not measured.
 
 To repeat the check:
 
-1. `wrangler tail --env production --format json > tail.jsonl`; stop it after a few minutes.
-2. Open the map in a browser, signed in, and wait more than 10 s without interacting.
+1. `pnpm -F @cgis/api exec wrangler tail --env production --format json > tail.jsonl` (needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`); stop it after a few minutes. The file holds user ids: delete it afterwards and never commit it.
+2. Open the map in a browser, signed in, and wait more than 10 s without interacting (a DO becomes eligible for hibernation after 10 s idle, per [Durable Object lifecycle](https://developers.cloudflare.com/durable-objects/concepts/durable-object-lifecycle/)).
 3. Draw one shape.
-4. In `tail.jsonl`, look for a `getWebSocketEvent` event with no `fetch` into the DO just before it.
+4. In `tail.jsonl`, look for a `getWebSocketEvent` event with no `fetch` into the DO just before it. That confirms the handler path, not an eviction and wake.
 
 ### Cross-region
 
-All realtime traffic goes through one Room, reached as `ROOM.idFromName(ROOM.DEFAULT_ROOM_ID)` (`apps/api/src/ws.ts:34`, `apps/api/src/services/fanout.ts:7`). It lives near the location of its first request. Clients elsewhere reach it over Cloudflare's network (ADR-0004). The config sets no `placement` (Smart Placement is off), and the code passes no `locationHint`. None of this was tested across regions. A single machine can only confirm these settings.
+All realtime traffic goes through one Room, reached as `ROOM.idFromName(ROOM.DEFAULT_ROOM_ID)`: every caller resolves the Room by `ROOM.DEFAULT_ROOM_ID`. It lives near the location of its first request. Clients elsewhere reach it over Cloudflare's network (ADR-0004). The config sets no `placement` (Smart Placement is off), and the code passes no `locationHint`. None of this was tested across regions. A single machine can only confirm these settings.
 
 ## Production hardening
 
@@ -203,7 +209,7 @@ Then Notifications → Add → Health Checks status notification for this check.
 
 ### Logs
 
-Workers Logs (`observability.enabled`) keeps 7 days on Workers Paid (3 on Free) and includes 20 million log events a month, then $0.60 per million. If traffic grows past that, set `observability.head_sampling_rate` (0 to 1, default 1) in `wrangler.jsonc`. Anything that must be kept longer, such as incident evidence or audit questions, has to leave Cloudflare before then, either through Logpush or by querying `audit_log` in Neon, which keeps its own retention. Secrets never reach the logs (`LOG.REDACT_KEYS`). Live: `wrangler tail --env production`.
+Workers Logs (`observability.enabled`) keeps logs for 7 days on Workers Paid and 3 days on Workers Free ([Workers Logs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/), read 2026-10-13). For the included volume and the price beyond it, see Cloudflare's current [Workers Logs pricing](https://developers.cloudflare.com/workers/observability/logs/workers-logs/). If traffic grows past the included volume, set `observability.head_sampling_rate` (0 to 1, default 1) in `wrangler.jsonc`. Anything that must be kept longer, such as incident evidence or audit questions, has to leave Cloudflare before then, either through Logpush or by querying `audit_log` in Neon, which keeps its own retention. Secrets never reach the logs (`LOG.REDACT_KEYS`). Live: `wrangler tail --env production`.
 
 ### Checklist
 
