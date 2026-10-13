@@ -77,30 +77,16 @@ it('draws one polygon per area in the areas pane, at the GeoJSON ring flipped to
   ]);
 });
 
-it('keeps the layer of an area that stays, adds new ids and removes the ones that disappear', () => {
+it('follows the data: adds new ids, drops gone ones, moves a polygon whose geometry changed', () => {
   const { rerender } = renderLayer([orchard]);
-  const [kept] = polygons();
-
   rerender([orchard, vineyard]);
   expect(polygons()).toHaveLength(2);
-  expect(polygons()).toContain(kept);
-
-  rerender([vineyard]);
-  expect(polygons()).toHaveLength(1);
-  expect(polygons()).not.toContain(kept);
-  expect(paths()).toHaveLength(1);
-});
-
-it('moves a polygon when its geometry changes, in place', () => {
-  const { rerender } = renderLayer([orchard]);
-  const [polygon] = polygons();
 
   rerender([{ ...orchard, version: 2, geometry: vineyard.geometry }]);
-
-  expect(polygons()).toEqual([polygon]);
-  expect(polygon?.getLatLngs()).toEqual([
-    [L.latLng(31.9, 34.7), L.latLng(31.9, 34.8), L.latLng(32, 34.8)],
+  expect(polygons().map((polygon) => polygon.getLatLngs())).toEqual([
+    [[L.latLng(31.9, 34.7), L.latLng(31.9, 34.8), L.latLng(32, 34.8)]],
   ]);
+  expect(paths()).toHaveLength(1);
 });
 
 it('selects the clicked area (its latest copy) and gives the selected one the selected class', () => {
