@@ -1,9 +1,10 @@
 import type { AuthUser } from '@cgis/shared';
-import { COPY } from '@cgis/shared/constants';
+import { COPY, ROUTES } from '@cgis/shared/constants';
 import { useMutation } from '@tanstack/react-query';
 import { createContext, type ReactNode } from 'react';
 import { authClient } from '../../lib/auth-client';
 import { Avatar, Button } from '../../ui';
+import { focusRing } from '../../ui/focus';
 
 type AppFrameProps = {
   /** Right side of the top bar; the `_authed` layout puts `SessionMenu` here. */
@@ -14,18 +15,29 @@ type AppFrameProps = {
 };
 
 /**
- * Top bar with the app name, then a full-height main. Each layout route picks its header content.
- * The bar stays one line at phone width: the name and the user's name truncate.
+ * Top bar with the app name and the guide link, then a full-height main. Each layout route picks
+ * its header content. The bar stays one line at phone width: the name and the user's name truncate.
  */
 export function AppFrame({ headerEnd, mainClassName = '', children }: AppFrameProps) {
+  // Its own full-height column: the frame also renders outside the root route (the session check).
   return (
-    <>
+    <div className="flex h-full flex-col">
       <header className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-line bg-bg-raised px-4">
         <h1 className="min-w-0 truncate text-lg font-semibold">{COPY.APP.NAME}</h1>
-        {headerEnd}
+        <div className="flex min-w-0 items-center gap-3 text-sm">
+          <a
+            href={ROUTES.APP.GUIDE}
+            target="_blank"
+            rel="noopener"
+            className={`rounded-sm font-medium text-primary underline-offset-4 hover:underline ${focusRing}`}
+          >
+            {COPY.APP.GUIDE}
+          </a>
+          {headerEnd}
+        </div>
       </header>
       <main className={`relative min-h-0 flex-1 ${mainClassName}`}>{children}</main>
-    </>
+    </div>
   );
 }
 

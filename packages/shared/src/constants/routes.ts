@@ -22,8 +22,12 @@ export const ROUTES = {
   OPENAPI: '/openapi.json',
   /** API reference UI (Scalar) rendering OPENAPI; public and read-only, like the document. */
   DOCS: '/docs',
-  /** SPA routes: redirect/Link/navigate targets (file-route ids in createFileRoute stay literal). */
-  APP: { HOME: '/', LOGIN: '/login', REGISTER: '/register', MAP: '/map' },
+  /**
+   * SPA routes: redirect/Link/navigate targets (file-route ids in createFileRoute stay literal).
+   * GUIDE is not a router route: the static reviewer guide under apps/web/public/guide/, opened
+   * from the top bar in a new tab.
+   */
+  APP: { HOME: '/', LOGIN: '/login', REGISTER: '/register', MAP: '/map', GUIDE: '/guide/' },
 } as const;
 
 /** SPA router: how the app frame covers a route whose chunk (autoCodeSplitting) is still loading. */

@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { FakeSocket } from '../lib/fake-websocket';
 import { AppRouterProvider, createAppRouter } from '../router';
 
@@ -373,6 +375,9 @@ describe('cold load', () => {
     expect(screen.getByRole('heading', { name: COPY.APP.NAME })).toBeTruthy();
     // The gap is the session round trip: a map-coloured surface, not the page background.
     expect(screen.getByRole('main').className).toContain('bg-map-bg');
+    expect(screen.getByRole('link', { name: COPY.APP.GUIDE }).getAttribute('href')).toBe(
+      ROUTES.APP.GUIDE,
+    );
     // Still announced to a screen reader, just not shown.
     expect(screen.getByRole('status').textContent).toBe(COPY.AUTH.SESSION_CHECKING);
     expect(screen.queryByTestId('map-root')).toBeNull();
@@ -405,6 +410,13 @@ describe('cold load', () => {
     expect(resolved).toEqual([ROUTES.APP.LOGIN]);
     expect(router.state.location.pathname).toBe(ROUTES.APP.LOGIN);
     expect(localStorage.getItem(AUTH.SIGNED_IN_HINT_KEY)).toBeNull();
+  });
+});
+
+describe('index.html', () => {
+  it('carries the pre-mount skeleton with the app name, for the first paint before React', () => {
+    const html = readFileSync(join(import.meta.dirname, '../../index.html'), 'utf8');
+    expect(html).toContain(`<header>${COPY.APP.NAME}</header>`);
   });
 });
 
