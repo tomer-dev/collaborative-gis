@@ -13,6 +13,16 @@ import worker from '../../src/index';
 import { scheduled } from '../../src/scheduled';
 import { laneEnv } from '../auth/lane-db';
 
+declare global {
+  interface ImportMeta {
+    // Vite's glob import; vitest inlines the file before workerd runs the test (no vite/client types here).
+    glob<T>(
+      pattern: string,
+      options: { query: '?raw'; import: 'default'; eager: true },
+    ): Record<string, T>;
+  }
+}
+
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 /** The run's clock: a fixed instant, so cutoffs are exact. */
 const NOW = new Date('2026-10-12T03:00:00.000Z');
