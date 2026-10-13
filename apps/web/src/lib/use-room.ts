@@ -176,20 +176,28 @@ export function useRoom({ selfId, map }: UseRoomOptions): Room {
   }, [queryClient, selfId]);
 
   // Degraded or offline: no area events arrive, so the viewport lists are refetched on a timer
-  // instead, from the first failed reconnects on. A refetch the API answers means the network is
-  // back: the socket is retried at once, so the banner does not outlive the outage by a backoff
-  // wait (up to `WS.RECONNECT_BACKOFF_MS.max`). The poll stops once the API answers 401: polling
-  // cannot fix a session that ended (the app's query client sends the visitor to sign in).
+  // instead, from the first failed reconnects on. The first refetch the API answers after none
+  // did means the network is back: the socket is retried at once, so the banner does not outlive
+  // the outage by a backoff wait (up to `WS.RECONNECT_BACKOFF_MS.max`). Only on that edge: while
+  // the API answers and the Room does not, the socket keeps its jittered backoff (spec §5). The
+  // poll stops once the API answers 401: polling cannot fix a session that ended (the app's query
+  // client sends the visitor to sign in).
   useEffect(() => {
     if (state !== 'degraded' && state !== 'offline') return;
+    let lastPollFailed = true;
     const timer = setInterval(() => {
       if (sessionEnded(queryClient)) clearInterval(timer);
       else {
         void queryClient
           .invalidateQueries({ queryKey: [QUERY.AREAS_KEY] }, { throwOnError: true })
           .then(
-            () => connectionRef.current?.retryNow(),
-            () => {},
+            () => {
+              if (lastPollFailed) connectionRef.current?.retryNow();
+              lastPollFailed = false;
+            },
+            () => {
+              lastPollFailed = true;
+            },
           );
       }
     }, WS.OFFLINE_POLL_MS);
