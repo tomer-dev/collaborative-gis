@@ -11,6 +11,7 @@ import { authClient } from './lib/auth-client';
 import { readSignedInHint, writeSignedInHint } from './lib/signed-in-hint';
 import { routeTree } from './routeTree.gen';
 import { AppFrame } from './routes/-components/AppFrame';
+import { NotFound } from './routes/-components/NotFound';
 
 /** Builds the app router; tests pass a memory history. */
 export function createAppRouter(
@@ -25,6 +26,8 @@ export function createAppRouter(
     // While a route's chunk (autoCodeSplitting) loads, the frame stays: the hand-off from the
     // checking frame to the map never blanks the screen, and no navigation does either.
     defaultPendingComponent: EmptyFrame,
+    // An unknown path stays in the frame too, with a link back to the map.
+    defaultNotFoundComponent: NotFound,
     defaultPendingMs: ROUTER.PENDING_MS,
     defaultPendingMinMs: ROUTER.PENDING_MIN_MS,
   });

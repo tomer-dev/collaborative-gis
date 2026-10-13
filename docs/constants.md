@@ -371,6 +371,16 @@ The base-layer switch on /map (LayerSwitch): the toolbar's name and its two togg
 | `OSM_LABEL` | `'Street map'` | OpenStreetMap on Web Mercator. |
 | `AERIAL_LABEL` | `'Aerial imagery'` | govmap's aerial imagery on the EPSG:2039 grid. |
 
+### COPY.NOT_FOUND
+
+The framed page the router shows for a path no route matches (apps/web NotFound).
+
+| Name | Value | Notes |
+|---|---|---|
+| `TITLE` | `'Page not found'` |  |
+| `BODY` | `'There is nothing at this address.'` |  |
+| `LINK` | `'Go to the map'` | Links to ROUTES.APP.MAP; a signed-out visitor is sent on to /login by the route guard. |
+
 ### COPY.PRESENCE
 
 | Name | Value | Notes |
