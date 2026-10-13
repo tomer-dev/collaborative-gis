@@ -11,15 +11,15 @@ import { signUp } from './auth.js';
 
 const env = (name, fallback) => __ENV[name] ?? fallback;
 
-/** Every tunable value; each one can be overridden with `-e NAME=value`. */
+/** Every tunable value; the ones read with `env` can be overridden with `-e NAME=value`. */
 const CONFIG = {
   /** The Worker under test (`wrangler dev` default port). */
   BASE_URL: env('BASE_URL', 'http://localhost:8787'),
   /** Must equal the Worker's `CLIENT_ORIGIN`, or the upgrade is refused with 403. */
   ORIGIN: env('ORIGIN', 'http://localhost:5173'),
-  SIGN_UP_PATH: env('SIGN_UP_PATH', '/api/auth/sign-up/email'),
-  WS_PATH: env('WS_PATH', '/ws'),
-  MAP_ID: env('MAP_ID', 'default'),
+  SIGN_UP_PATH: '/api/auth/sign-up/email',
+  WS_PATH: '/ws',
+  MAP_ID: 'default',
   VUS: Number(env('VUS', 5)),
   /**
    * Per VU: the Room's limit of 10 `draft:update` frames per second per socket (`WS`). A VU's
@@ -29,18 +29,16 @@ const CONFIG = {
   FRAMES_PER_SEC: Number(env('FRAMES_PER_SEC', 10)),
   SEND_SECONDS: Number(env('SEND_SECONDS', 30)),
   /** A frame counts as echoed to a VU when it arrives there within this many ms of being sent. */
-  ECHO_WINDOW_MS: Number(env('ECHO_WINDOW_MS', 1000)),
+  ECHO_WINDOW_MS: 1000,
   /** Lowest share of (frame, other VU) pairs echoed within the window before the run fails. */
-  MIN_ECHO_RATIO: Number(env('MIN_ECHO_RATIO', 0.95)),
+  MIN_ECHO_RATIO: 0.95,
   /** How long a VU waits for every other VU to show up in presence before it gives up. */
-  READY_TIMEOUT_MS: Number(env('READY_TIMEOUT_MS', 15000)),
+  READY_TIMEOUT_MS: 15000,
   /** How long a VU keeps listening after its last frame, so the others' last frames arrive. */
-  LINGER_MS: Number(env('LINGER_MS', 3000)),
+  LINGER_MS: 3000,
   /** [lng, lat] the draft vertices start from; the frame number and send time are added to it. */
-  VERTEX_ORIGIN: JSON.parse(env('VERTEX_ORIGIN', '[34.78, 32.08]')),
-  PASSWORD: env('PASSWORD', 'load-test-password'),
-  /** Prefix of every generated email and user name; a fresh one per run unless set. */
-  RUN_ID: env('RUN_ID', ''),
+  VERTEX_ORIGIN: [34.78, 32.08],
+  PASSWORD: 'load-test-password',
 };
 
 const FRAMES = Math.floor(CONFIG.FRAMES_PER_SEC * CONFIG.SEND_SECONDS);
@@ -89,7 +87,7 @@ const echoWithinWindow = new Rate('ws_echo_within_window');
 const errorFrames = new Counter('ws_error_frames');
 
 export function setup() {
-  return { runId: CONFIG.RUN_ID || `load-${Date.now().toString(36)}` };
+  return { runId: `load-${Date.now().toString(36)}` };
 }
 
 function encodeVertex(n, sentAt) {

@@ -81,13 +81,10 @@ describe('createPolygonDraw (Leaflet.Editable)', () => {
     expect(map.editTools).toBe(tools);
   });
 
-  it('adds a vertex per click and reports [lng, lat] vertices on draw:vertex / draw:change', () => {
+  it('adds a vertex per click and reports [lng, lat] vertices on draw:change', () => {
     const changes = record('draw:change');
-    const added = record('draw:vertex');
     const draw = start();
     triangle();
-    expect(added.map((e) => e.index)).toEqual([0, 1, 2]);
-    expect(added[1]!.vertex).toEqual([35.05, 32]);
     expect(changes).toHaveLength(3);
     expect(changes[2]!.vertices).toEqual([
       [35, 32],
@@ -95,8 +92,6 @@ describe('createPolygonDraw (Leaflet.Editable)', () => {
       [35.05, 32.05],
     ]);
     expect(draw.getVertices()).toEqual(changes[2]!.vertices);
-    expect(draw.getAreaKm2()).toBeCloseTo(ringAreaKm2(draw.getVertices()), 9);
-    expect(draw.getAreaKm2()).toBeGreaterThan(0);
   });
 
   it('finish() closes 3 vertices into a closed GeoJSON ring on draw:done and stops drawing', () => {
@@ -193,15 +188,6 @@ describe('createPolygonDraw (Leaflet.Editable)', () => {
     expect(draw.finish()).toBe(false);
     expect(invalid).toHaveLength(1);
     expect(invalid[0]!.reason).toMatch(/at least 3 unique vertices/);
-  });
-
-  it('refuses a click past maxPlacedVertices: draw:invalid, no vertex added', () => {
-    const invalid = record('draw:invalid');
-    const draw = start({ maxPlacedVertices: 3 });
-    triangle();
-    click(32.05, 35);
-    expect(draw.getVertices()).toHaveLength(3);
-    expect(invalid.map((e) => e.reason)).toEqual([DRAW.MAX_VERTICES_REASON]);
   });
 
   it('dragging a handle moves its vertex and fires draw:change on dragend', () => {

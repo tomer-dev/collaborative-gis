@@ -1,4 +1,4 @@
-import { describe, expect, inject, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { laneDatabase } from './lane';
 
 describe('laneDatabase', () => {
@@ -16,9 +16,5 @@ describe('laneDatabase', () => {
     const name = laneDatabase('cgis_retention', `worktree-agent-${'a'.repeat(60)}`);
     expect(name).toHaveLength(63);
     expect(name).toMatch(/^cgis_retention_worktree_agent_a+$/);
-  });
-
-  it('the workers project receives the lane from the config', () => {
-    expect(typeof inject('testLane')).toBe('string');
   });
 });

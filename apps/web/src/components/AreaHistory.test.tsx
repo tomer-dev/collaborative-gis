@@ -14,7 +14,6 @@ import type { AreaEdit } from '../lib/areas-mutations';
 import { areasKey } from '../lib/areas-query';
 import {
   AREA_ID,
-  deferred,
   jsonResponse,
   makeArea,
   makeVersion,
@@ -105,7 +104,7 @@ it("lists the versions newest first: number, name, area, who and when; the area'
 });
 
 it('reverts to the chosen version and patches the 201 area into the cache', async () => {
-  const response = deferred<Response>();
+  const response = Promise.withResolvers<Response>();
   const reverted = makeArea(AREA_ID, { name: 'Orchard v1', version: 4 });
   const { history, requests, queryClient } = renderHistory(() => response.promise);
   const [, middle, oldest] = await rows(history);

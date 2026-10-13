@@ -134,18 +134,11 @@ Dashboard: the zone → Security → WAF → Rate limiting rules → Create rule
 |---|---|
 | Rule name | `auth rate limit` |
 | Expression (Edit expression) | `(starts_with(http.request.uri.path, "/api/auth/"))` |
-| With the same characteristics | IP |
+| With the same characteristics | IP (Cloudflare also counts per data center, `cf.colo.id`) |
 | When rate exceeds | 20 requests per 10 seconds |
 | Then take action | Block, for 10 seconds (Cloudflare answers 429) |
 
-The same rule over the API. Wrangler has no WAF command, so use the API directly. You need an API token with Zone WAF Edit on the zone, and the zone id from the zone's Overview page. `cf.colo.id` is mandatory in `characteristics`: Cloudflare counts per data center. This `PUT` replaces every rule in the zone's rate limiting phase; on a zone that already has other rate limiting rules, use the dashboard instead.
-
-```bash
-ZONE_ID=<zone id>
-curl -s "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/rulesets/phases/http_ratelimit/entrypoint" \
-  --request PUT --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-  --json '{"rules":[{"description":"auth rate limit","expression":"(starts_with(http.request.uri.path, \"/api/auth/\"))","action":"block","ratelimit":{"characteristics":["cf.colo.id","ip.src"],"period":10,"requests_per_period":20,"mitigation_timeout":10}}]}'
-```
+Wrangler has no WAF command. Over the API (a token with Zone WAF Edit on the zone), `characteristics` must list `cf.colo.id` with `ip.src`, and a `PUT` to the zone's `http_ratelimit` phase entrypoint replaces every rate limiting rule in it: on a zone with other rate limiting rules, use the dashboard.
 
 ### Health check on `/readyz`
 
@@ -162,23 +155,15 @@ Dashboard: the zone → Traffic → Health Checks → Create (newer dashboards l
 | Expected codes | `200` |
 | Response body | `"db":"up","room":"up"`: a case-insensitive substring of the first 10 KB |
 | Interval, retries, timeout | 60 s, 2, 5 s |
+| Consecutive fails | 2 |
+| Follow redirects | off |
+| Request header | `Host`: the custom domain's hostname |
 
-Then Notifications → Add → Health Checks status notification for this check. Each probe runs one query on Neon. An interval shorter than Neon's autosuspend delay (5 minutes by default) keeps its compute running around the clock, so on Neon's free plan use a longer interval. Over the API (a token with Health Checks Edit):
-
-```bash
-HOST=<custom domain hostname>
-curl -s "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/healthchecks" \
-  --request POST --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-  --json '{"name":"readyz","address":"'"$HOST"'","type":"HTTPS","interval":60,"retries":2,"timeout":5,"consecutive_fails":2,"http_config":{"method":"GET","path":"/readyz","port":443,"expected_codes":["200"],"expected_body":"\"db\":\"up\",\"room\":\"up\"","follow_redirects":false,"header":{"Host":["'"$HOST"'"]}}}'
-```
+Then Notifications → Add → Health Checks status notification for this check. Each probe runs one query on Neon. An interval shorter than Neon's autosuspend delay (5 minutes by default) keeps its compute running around the clock, so on Neon's free plan use a longer interval. Over the API, the same check needs a token with Health Checks Edit.
 
 ### Logs
 
 Workers Logs (`observability.enabled`) keeps 7 days on Workers Paid (3 on Free) and includes 20 million log events a month, then $0.60 per million. If traffic grows past that, set `observability.head_sampling_rate` (0 to 1, default 1) in `wrangler.jsonc`. Anything that must be kept longer, such as incident evidence or audit questions, has to leave Cloudflare before then, either through Logpush or by querying `audit_log` in Neon, which keeps its own retention. Secrets never reach the logs (`LOG.REDACT_KEYS`). Live: `wrangler tail --env production`.
-
-### Rollback
-
-`wrangler rollback [<version-id>] --env production -m "<reason>"`. See [Rollback](#rollback) above: it swaps the Worker version only, never Neon, and cannot cross a Durable Object migration. After the first deploy, `wrangler deployments list --env production` shows the version ids to return to.
 
 ### Checklist
 

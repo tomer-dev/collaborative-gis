@@ -11,31 +11,26 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 export type PurgeCounts = { areas: number; versions: number };
 
 /**
- * Retention (D8): hard-deletes the areas soft-deleted before `now - days` together with their
- * `area_versions`, `batch` areas per statement, until a batch comes back short. Each batch is one
+ * Retention (D8): hard-deletes the areas soft-deleted before `now - RETENTION.DAYS` together with
+ * their `area_versions`, `RETENTION.BATCH` areas per statement, until a batch comes back short. Each batch is one
  * transaction with its own `audit_log` row (`AUDIT.ACTIONS.RETENTION_PURGE`, no user, counts in
  * `details`), so every delete is audited and a large backlog commits in steps, each well inside
  * the query timeout. Live areas and their versions are never touched; a second run with the same
  * `now` deletes nothing (and still writes one row). Returns the run's totals.
  */
-export async function purgeDeleted(
-  client: pg.Client,
-  now = new Date(),
-  days: number = RETENTION.DAYS,
-  batch: number = RETENTION.BATCH,
-): Promise<PurgeCounts> {
-  const cutoff = new Date(now.getTime() - days * MS_PER_DAY);
+export async function purgeDeleted(client: pg.Client, now: Date): Promise<PurgeCounts> {
+  const cutoff = new Date(now.getTime() - RETENTION.DAYS * MS_PER_DAY);
   const total: PurgeCounts = { areas: 0, versions: 0 };
   for (;;) {
-    const counts = await purgeBatch(client, cutoff, batch);
+    const counts = await purgeBatch(client, cutoff);
     total.areas += counts.areas;
     total.versions += counts.versions;
-    if (counts.areas < batch) return total;
+    if (counts.areas < RETENTION.BATCH) return total;
   }
 }
 
-/** One batch: up to `batch` expired areas and their versions, and the batch's audit row. */
-function purgeBatch(client: pg.Client, cutoff: Date, batch: number): Promise<PurgeCounts> {
+/** One batch: up to `RETENTION.BATCH` expired areas and their versions, and the batch's audit row. */
+function purgeBatch(client: pg.Client, cutoff: Date): Promise<PurgeCounts> {
   return db(client).transaction(async (tx) => {
     // Both deletes are one builder-made statement (two data-modifying CTEs): one snapshot, so the
     // version rows removed are exactly those of the areas removed, and the area_versions foreign
@@ -45,7 +40,7 @@ function purgeBatch(client: pg.Client, cutoff: Date, batch: number): Promise<Pur
       .select({ id: areas.id })
       .from(areas)
       .where(lt(areas.deletedAt, cutoff))
-      .limit(batch);
+      .limit(RETENTION.BATCH);
     const purged = tx
       .$with('purged')
       .as(tx.delete(areas).where(inArray(areas.id, expired)).returning({ id: areas.id }));
