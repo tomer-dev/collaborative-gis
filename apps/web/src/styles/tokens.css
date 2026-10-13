@@ -134,6 +134,9 @@
   --color-primary-fg: var(--color-white); /* text on primary */
   --color-accent-500: oklch(67.1% 0.175 40.6); /* #eb6834: fixed, for the map (light basemap) */
   --color-accent: var(--color-accent-500); /* the draft you are drawing */
+  /* Under the map tiles and on the empty frame before they mount: a warm grey close to OSM land,
+     the same in both themes so the hand-off from placeholder to tiles has no step. */
+  --color-map-bg: var(--color-neutral-200);
   --color-scrim: oklch(15% 0 0 / 40%); /* dialog backdrop */
   --color-shadow: oklch(15% 0 0 / 12%);
 
