@@ -1,0 +1,945 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Collaborative GIS: reviewer guide</title>
+<meta name="description" content="A presentation-style walk through the collaborative GIS project for a reviewer of the product brief: what to try in five minutes, each requirement block with screenshots and file pointers, real numbers, the architecture, and the honest limitations.">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  color-scheme: light;
+  --paper: #f5f3ed; --card: #fffdf9; --ink: #16150f; --ink-2: #4e4d47; --muted: #6a6963;
+  --line: #e2dfd5; --line-2: #cfccc2; --link: #1c5cab; --accent: #2a78d6;
+  --series-1: #2a78d6; --series-2: #eb6834; --good: #0ca30c; --warn: #fab219; --grey-mark: #c3c2b7;
+  --grid: #e1e0d9; --axis: #c3c2b7;
+  --sans: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --serif: "Fraunces", Georgia, "Times New Roman", serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --paper: #121311; --card: #1b1c19; --ink: #ecebe4; --ink-2: #c0bfb6; --muted: #9b9a91;
+    --line: #2c2d2a; --line-2: #3a3b38; --link: #6da7ec; --accent: #3987e5;
+    --series-1: #3987e5; --series-2: #d95926; --grey-mark: #4a4b47;
+    --grid: #2c2c2a; --axis: #383835;
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation: none !important; transition: none !important; } }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 400 17px/1.55 var(--sans); -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: .55;
+  background-image: radial-gradient(circle at 1px 1px, var(--line) 1px, transparent 1.5px); background-size: 28px 28px; }
+a { color: var(--link); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+code { font: 500 .86em/1.4 var(--mono); background: color-mix(in srgb, var(--ink) 6%, transparent); padding: .08em .35em; border-radius: 4px; }
+pre { font: 400 .82rem/1.5 var(--mono); background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.1rem; overflow-x: auto; margin: 0; color: var(--ink-2); }
+pre b { color: var(--ink); font-weight: 500; }
+h1, h2, h3 { font-family: var(--serif); font-weight: 600; letter-spacing: -.01em; margin: 0; }
+h1 { font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1.02; font-variation-settings: "opsz" 144; }
+h2 { font-size: clamp(1.8rem, 3.2vw, 2.6rem); line-height: 1.12; font-variation-settings: "opsz" 72; max-width: 22ch; }
+h3 { font: 600 1.02rem/1.3 var(--sans); letter-spacing: .01em; text-transform: uppercase; color: var(--ink-2); font-size: .8rem; margin-bottom: .6rem; }
+p { margin: 0 0 .9rem; max-width: 66ch; }
+ul, ol { margin: 0 0 1rem; padding-left: 1.2rem; }
+li { margin: .25rem 0; }
+small, .small { font-size: .86rem; color: var(--ink-2); }
+.lede { font-size: 1.25rem; line-height: 1.45; max-width: 46ch; color: var(--ink); }
+
+#progress { position: fixed; top: 0; left: 0; height: 3px; width: 100%; background: var(--accent); transform-origin: 0 50%; transform: scaleX(0); z-index: 30; }
+
+.toc { position: fixed; left: 0; top: 0; bottom: 0; width: 212px; padding: 2.2rem 0 2rem 1.4rem; z-index: 20; display: flex; flex-direction: column; justify-content: center; }
+.toc ol { list-style: none; padding: 0; margin: 0; }
+.toc li { margin: 0; }
+.toc a { display: grid; grid-template-columns: 2ch 1fr; gap: .6rem; align-items: baseline; padding: .28rem .6rem .28rem 0; text-decoration: none; color: var(--muted); font-size: .84rem; border-left: 2px solid transparent; padding-left: .6rem; margin-left: -.6rem; }
+.toc a span:first-child { font: 500 .72rem/1 var(--mono); }
+.toc a:hover { color: var(--ink); }
+.toc a[aria-current="true"] { color: var(--ink); border-left-color: var(--accent); font-weight: 600; }
+.toc .hint { margin-top: 1.4rem; font-size: .74rem; color: var(--muted); }
+.toc kbd { font: 500 .72rem/1 var(--mono); border: 1px solid var(--line-2); border-radius: 4px; padding: .1rem .3rem; }
+
+main { position: relative; z-index: 1; margin-left: 212px; }
+section.slide { min-height: 100svh; padding: clamp(2.5rem, 6vh, 5rem) clamp(1rem, 4vw, 4rem); border-top: 1px solid var(--line); scroll-margin-top: 0; }
+section.slide:first-child { border-top: 0; }
+.inner { max-width: 1120px; margin: 0 auto; }
+.eyebrow { font: 500 .78rem/1.5 var(--mono); color: var(--muted); letter-spacing: .04em; margin-bottom: 1.1rem; }
+.eyebrow::before { content: ""; display: inline-block; width: 2.2rem; height: 1px; background: var(--accent); vertical-align: middle; margin-right: 1rem; }
+.head { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 1.5rem 3rem; align-items: end; margin-bottom: 2rem; }
+.head p { margin: 0; color: var(--ink-2); }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1rem; margin: 2rem 0; }
+.tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1.1rem 1.2rem .95rem; }
+.tile .label { font-size: .84rem; color: var(--ink-2); margin-bottom: .35rem; }
+.tile .value { font: 600 2.4rem/1 var(--sans); letter-spacing: -.02em; }
+.tile .value small { font-size: 1.05rem; font-weight: 500; color: var(--ink-2); margin-left: .2rem; }
+.tile .src { font-size: .76rem; color: var(--muted); margin-top: .45rem; line-height: 1.35; }
+
+.checks { list-style: none; padding: 0; margin: 0 0 1.5rem; display: grid; gap: .3rem; }
+.checks li { display: grid; grid-template-columns: 5.4rem 1fr; gap: .7rem; align-items: baseline; padding: .45rem .7rem; background: var(--card); border: 1px solid var(--line); border-radius: 8px; font-size: .95rem; }
+.st { font: 600 .74rem/1 var(--sans); letter-spacing: .04em; text-transform: uppercase; display: inline-flex; align-items: center; gap: .4rem; color: var(--ink-2); white-space: nowrap; }
+.st::before { content: ""; width: .62rem; height: .62rem; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--ink) 35%, transparent); background: var(--good); flex: none; }
+.st.partial::before { background: linear-gradient(90deg, var(--warn) 50%, transparent 50%); }
+.checks li.partial { border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); }
+
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.4rem 2.5rem; align-items: start; }
+.shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.3rem; margin: 1.3rem 0 1.8rem; }
+.shots.one { grid-template-columns: 1fr; }
+figure { margin: 0; }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--line-2); border-radius: 10px; background: var(--card); box-shadow: 0 10px 30px -18px rgba(0,0,0,.45); }
+figure.narrow img { max-width: 380px; margin: 0 auto; }
+figcaption { font-size: .86rem; color: var(--ink-2); margin-top: .55rem; line-height: 1.45; max-width: 60ch; }
+.lives { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.2rem 2.5rem; margin-top: 1.3rem; }
+.lives dl { margin: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: .55rem; }
+.lives dt { font: 500 .8rem/1.4 var(--mono); word-break: break-word; }
+.lives dd { margin: 0 0 .2rem; font-size: .9rem; color: var(--ink-2); }
+.lives dt a { color: var(--link); }
+
+.path { counter-reset: step; list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.4rem; }
+.path li { counter-increment: step; display: grid; grid-template-columns: 2.2rem 1fr; gap: .8rem; align-items: start; }
+.path li::before { content: counter(step); font: 600 1.1rem/1 var(--serif); width: 2.2rem; height: 2.2rem; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--paper); font-variation-settings: "opsz" 20; }
+.path p { margin: 0 0 .6rem; font-size: .95rem; }
+.path img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line-2); display: block; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.1rem; margin: 1.3rem 0; }
+.card { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--warn); border-radius: 10px; padding: 1rem 1.1rem; font-size: .93rem; }
+.card h3 { text-transform: none; letter-spacing: 0; font-size: 1rem; color: var(--ink); margin-bottom: .6rem; }
+.card dl { margin: 0; }
+.card dt { font: 600 .72rem/1 var(--sans); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-top: .6rem; }
+.card dd { margin: .2rem 0 0; color: var(--ink-2); }
+.card dd code { font-size: .8em; }
+
+.chart { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1rem 1.1rem .8rem; }
+.chart h3 { margin-bottom: .2rem; }
+.chart .sub { font-size: .85rem; color: var(--ink-2); margin: 0 0 .6rem; }
+.chart svg { width: 100%; height: auto; display: block; font-family: var(--sans); }
+.chart svg text { fill: var(--ink-2); font-size: 12.5px; }
+.chart svg .tick { fill: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.chart svg .val { fill: var(--ink); font-weight: 500; }
+.chart svg .grid { stroke: var(--grid); stroke-width: 1; }
+.chart svg .axis { stroke: var(--axis); stroke-width: 1; }
+.chart .legend { display: flex; gap: 1rem; font-size: .8rem; color: var(--ink-2); margin: .2rem 0 .4rem; }
+.legend i { display: inline-block; width: .7rem; height: .7rem; border-radius: 2px; margin-right: .35rem; vertical-align: -1px; }
+.chart .cap { font-size: .78rem; color: var(--muted); margin: .6rem 0 0; line-height: 1.4; }
+.chart details { margin-top: .5rem; font-size: .82rem; }
+.chart summary { cursor: pointer; color: var(--link); }
+table { border-collapse: collapse; width: 100%; font-size: .84rem; margin-top: .4rem; }
+th, td { text-align: left; padding: .3rem .5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.2rem; margin: 1.3rem 0; }
+.strip { display: flex; flex-wrap: wrap; gap: 6px; margin: .4rem 0 .2rem; }
+.strip div { width: 64px; height: 30px; border-radius: 4px; background: var(--grey-mark); display: grid; place-items: center; font: 500 .66rem/1 var(--mono); color: var(--ink); }
+.strip div.ok { background: var(--good); color: #fff; }
+
+.arch svg { width: 100%; height: auto; display: block; font-family: var(--sans); }
+.arch .box { fill: var(--card); stroke: var(--line-2); stroke-width: 1.2; rx: 10; }
+.arch .box.hot { stroke: var(--accent); stroke-width: 1.6; }
+.arch text { fill: var(--ink); font-size: 13px; }
+.arch .t { font-weight: 600; font-size: 14px; }
+.arch .s { fill: var(--ink-2); font-size: 11.5px; }
+.arch .adr { fill: var(--link); font-family: var(--mono); font-size: 10.5px; }
+.arch .edge { stroke: var(--ink-2); stroke-width: 1.3; fill: none; }
+.arch .edge.dash { stroke-dasharray: 5 4; }
+.arch .el { fill: var(--muted); font-size: 10.5px; }
+
+.doclist { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: .35rem 2rem; font-size: .93rem; }
+.doclist li { display: grid; grid-template-columns: minmax(0, 15rem) 1fr; gap: .8rem; padding: .35rem 0; border-bottom: 1px solid var(--line); }
+.doclist code { font-size: .78rem; }
+.stack { font: 500 .84rem/1.6 var(--mono); color: var(--ink-2); margin: 1.4rem 0 0; }
+
+@media (max-width: 1100px) {
+  main { margin-left: 0; padding-bottom: 3.4rem; }
+  .toc { top: auto; bottom: 0; width: 100%; height: 3.1rem; padding: 0 .5rem; flex-direction: row; justify-content: flex-start; background: color-mix(in srgb, var(--paper) 88%, transparent); backdrop-filter: blur(8px); border-top: 1px solid var(--line); overflow-x: auto; }
+  .toc ol { display: flex; gap: .2rem; align-items: center; }
+  .toc a { grid-template-columns: auto; gap: .3rem; padding: .5rem .55rem; border-left: 0; margin: 0; border-bottom: 2px solid transparent; white-space: nowrap; }
+  .toc a[aria-current="true"] { border-bottom-color: var(--accent); }
+  .toc .hint { display: none; }
+  .head { grid-template-columns: 1fr; }
+  .checks li { grid-template-columns: 1fr; gap: .2rem; }
+}
+@media (max-width: 480px) {
+  body { font-size: 16px; }
+  section.slide { padding-left: 16px; padding-right: 16px; }
+  .toc a span:last-child { display: none; }
+  .toc a { padding: .5rem .5rem; }
+}
+</style>
+</head>
+<body>
+<div id="progress" aria-hidden="true"></div>
+
+<nav class="toc" aria-label="Sections">
+  <ol>
+    <li><a href="#start"><span>01</span><span>Start</span></a></li>
+    <li><a href="#tour"><span>02</span><span>Five minutes</span></a></li>
+    <li><a href="#backend"><span>03</span><span>Backend</span></a></li>
+    <li><a href="#backend-more"><span>04</span><span>Backend, more</span></a></li>
+    <li><a href="#database"><span>05</span><span>Database</span></a></li>
+    <li><a href="#security"><span>06</span><span>Security</span></a></li>
+    <li><a href="#frontend"><span>07</span><span>Map layers</span></a></li>
+    <li><a href="#realtime"><span>08</span><span>Real-time</span></a></li>
+    <li><a href="#challenges"><span>09</span><span>Challenges</span></a></li>
+    <li><a href="#numbers"><span>10</span><span>Numbers</span></a></li>
+    <li><a href="#architecture"><span>11</span><span>Architecture</span></a></li>
+    <li><a href="#limitations"><span>12</span><span>Limitations</span></a></li>
+    <li><a href="#bonus"><span>13</span><span>Bonus</span></a></li>
+    <li><a href="#docs"><span>14</span><span>Documents</span></a></li>
+  </ol>
+  <p class="hint"><kbd>←</kbd> <kbd>→</kbd> move between sections. Scrolling works too.</p>
+</nav>
+
+<main>
+
+<!-- 01 -->
+<section class="slide" id="start" aria-labelledby="h-start">
+  <div class="inner">
+    <p class="eyebrow">Reviewer guide · built 2026-10-13 from <code>main</code> at 1a581e7</p>
+    <h1 id="h-start">Collaborative GIS</h1>
+    <p class="lede" style="margin-top:1.2rem">Several people draw and measure areas on one map at the same time, on OpenStreetMap or on aerial imagery.</p>
+    <p class="small">The deployed app's URL is in the submission note; this page works without it. Every claim below points at a screenshot, a sourced number or a file in the repository.</p>
+    <div class="tiles">
+      <div class="tile"><div class="label">Unit and component tests</div><div class="value">615</div><div class="src">38 shared + 309 api + 268 web, counted from <code>it</code>/<code>test</code> declarations on 2026-10-13; 3 Playwright e2e tests besides. CI green on <code>main</code> (run on 9f072e6, 16:37 UTC).</div></div>
+      <div class="tile"><div class="label">Viewport read, production p95</div><div class="value">49<small>ms</small></div><div class="src">Database time of <code>areas.list</code>, Analytics Engine <code>db_query</code> datapoints, 31 points over the two days to 2026-10-13.</div></div>
+      <div class="tile"><div class="label">Draft frames delivered within 1 s</div><div class="value">6000<small>of 6000</small></div><div class="src">k6 WebSocket run, 5 sockets × 300 frames at 10/s, echo p95 8 ms (<a href="../benchmarks-load.md">docs/benchmarks-load.md</a>, local, 2026-10-13).</div></div>
+    </div>
+    <p>Against the product brief's requirement lines: <strong>73 of 78 met, 5 partial, 0 not met</strong> (criteria matrix, 2026-10-13). The five partial rows have their own section: <a href="#limitations">12 · Limitations</a>.</p>
+    <p class="stack">Hono on Cloudflare Workers + Durable Objects · PostGIS 3.6 on Neon via Hyperdrive · React 19 + Leaflet 1.9.4 · Better Auth · Drizzle · Zod</p>
+  </div>
+</section>
+
+<!-- 02 -->
+<section class="slide" id="tour" aria-labelledby="h-tour">
+  <div class="inner">
+    <p class="eyebrow">02 / 14 · the demo</p>
+    <div class="head">
+      <h2 id="h-tour">What to do in five minutes</h2>
+      <p>Two accounts, two windows. Each step below is a screenshot from the running app (local, seeded with 50 areas).</p>
+    </div>
+    <ol class="path">
+      <li><div><p><strong>Register.</strong> Name, email, a password of 8 characters or more. You land on the map, signed in.</p><img src="img/01-register.png" width="360" height="490" alt="The Create an account form with name, a covered email field, password and the hint At least 8 characters." loading="lazy"></div></li>
+      <li><div><p><strong>Draw.</strong> Press the polygon button, click vertices. The New area panel shows the area in km² and the vertex count as you go.</p><img src="img/05-drawing-live-area.png" width="1440" height="900" alt="A dashed orange polygon with five vertices being drawn over Mount Carmel; the New area panel reads Area 32.997 km², Vertices 5 of 999; the presence list marks Alice Demo as Drawing." loading="lazy"></div></li>
+      <li><div><p><strong>Open a second window</strong> with the other account. The first user's draft appears there as a dashed ghost in their colour, and the presence list says who is drawing.</p><img src="img/06-realtime-ghost.png" width="1440" height="900" alt="Bob's view: Alice's unfinished polygon drawn as a dashed blue ghost over the same area; the presence list shows Alice Demo marked Drawing and Bob Demo marked you." loading="lazy"></div></li>
+      <li><div><p><strong>Save.</strong> Finish, give it a name. The dialog shows the client estimate; the server measures with PostGIS and both windows get the saved polygon.</p><img src="img/07-save-dialog.png" width="1440" height="900" alt="The Save area dialog with the name Carmel survey block and Area (estimate) 32.997 km², over a dimmed map." loading="lazy"></div></li>
+      <li><div><p><strong>Rename, then revert.</strong> History lists every version. Reverting to version 1 creates version 3 with version 1's content; nothing is deleted.</p><img src="img/10-revert.png" width="1440" height="900" alt="The area panel after a revert: Area 32.979 km², History with Version 3 marked Current carrying the original name and Version 2 below it with a Revert to this version button; author ids are covered." loading="lazy"></div></li>
+      <li><div><p><strong>Switch to aerial imagery.</strong> The polygon stays on the same ground. govmap has no imagery over the sea, which renders black.</p><img src="img/04-map-satellite.png" width="1120" height="700" alt="The same Haifa and Galilee viewport on govmap aerial imagery, with the seeded polygons at the same screen positions and the Areas in view list unchanged." loading="lazy"></div></li>
+    </ol>
+    <p class="small" style="margin-top:1.4rem">If something looks wrong: <code>GET /readyz</code> reports the database, the Room and the configuration; the API reference is at <code>/docs</code>.</p>
+  </div>
+</section>
+
+<!-- 03 -->
+<section class="slide" id="backend" aria-labelledby="h-backend">
+  <div class="inner">
+    <p class="eyebrow">03 / 14 · the brief, section 1</p>
+    <div class="head">
+      <h2 id="h-backend">Backend core</h2>
+      <p>One Worker serves the API, the static app, the WebSocket upgrade and two Durable Objects. Areas live in PostGIS; the room state lives in a Durable Object.</p>
+    </div>
+    <ul class="checks">
+      <li><b class="st">Met</b><span>WebSocket server for real-time updates</span></li>
+      <li><b class="st">Met</b><span>endpoints for: saving drawn areas with metadata (area name, size calculation)</span></li>
+      <li class="partial"><b class="st partial">Partial</b><span>retrieving all areas within current map bounds: at most 500 per 0.1° tile, no truncation flag (<a href="#limitations">see 12</a>)</span></li>
+      <li><b class="st">Met</b><span>user authentication and session management</span></li>
+      <li><b class="st">Met</b><span>area versioning and edit history</span></li>
+      <li><b class="st">Met</b><span>calculate and return the area size in square kilometers</span></li>
+      <li><b class="st">Met</b><span>handle concurrent drawing from multiple users</span></li>
+    </ul>
+    <div class="shots">
+      <figure><img src="img/08-area-panel.png" width="1440" height="900" alt="A saved area selected: the panel shows Area 32.979 km², the name field, Delete and Rename buttons, and History with Version 1 marked Current; the author id is covered." loading="lazy"><figcaption>The server-measured size (32.979 km², <code>ST_Area(geom::geography)/1e6</code>) next to the client estimate from the previous step (32.997 km²): a 0.05 % difference.</figcaption></figure>
+      <figure><img src="img/09-history-versions.png" width="1440" height="900" alt="History after one rename: Version 2 marked Current with the new name, Version 1 with the old name, and a Revert to this version button; author ids are covered." loading="lazy"><figcaption>Every write inserts an <code>area_versions</code> row in the same statement. Revert is a new version, not a rollback.</figcaption></figure>
+    </div>
+    <div class="two">
+      <div>
+        <h3>A viewport read, as captured</h3>
+<pre><b>GET /api/areas?bbox=34.6,32.42,34.73,32.5&amp;zoom=12</b>
+200  x-cache: MISS
+     etag: "3ea47cc8-….60:346,324,348,325"
+     cache-control: private, no-cache
+{ "areas_total": 2, "areas": [ { "name": "seed-27",
+  "geometry": { "type": "Polygon", … }, "areaKm2": 0.680746,
+  "version": 1, … }, … ] }
+
+<b>GET /api/areas?bbox=34.6,32.42,34.73,32.5&amp;zoom=12</b>   (repeat)
+200  x-cache: HIT   etag: (same)</pre>
+        <p class="small" style="margin-top:.6rem">Captured 2026-10-13 against the local Worker; session cookies redacted. The ETag is the room's map version plus the snapped tile range.</p>
+      </div>
+      <div>
+        <h3>Concurrent drawing</h3>
+        <p class="small">Each user has one draft in the Room's SQLite. Frames from one user run in order in a per-user queue; the Room relays them to everyone else and never back to the sender. Two users on the same area resolve by version (<a href="#backend-more">section 04</a>).</p>
+      </div>
+    </div>
+    <div class="lives">
+      <div><h3>Where it lives</h3><dl>
+        <dt><a href="../../apps/api/src/ws.ts">apps/api/src/ws.ts</a> · <a href="../../apps/api/src/do/room.ts">apps/api/src/do/room.ts</a></dt><dd>The upgrade gate, then the Room: <code>acceptWebSocket</code> (hibernatable), <code>webSocketMessage</code>, ping answered without waking the object.</dd>
+        <dt><a href="../../apps/api/src/routes/areas.ts">apps/api/src/routes/areas.ts</a> · <a href="../../apps/api/src/services/areas.ts">apps/api/src/services/areas.ts</a></dt><dd>POST, GET, PUT, DELETE. A create writes the area, version 1 and the audit row in one transaction.</dd>
+        <dt><a href="../../apps/api/src/db/spatial-read.ts">apps/api/src/db/spatial-read.ts</a></dt><dd>The bounds query: <code>geom &amp;&amp; ST_MakeEnvelope(…)</code> over live rows, through the Drizzle query builder.</dd>
+        <dt><a href="../../apps/api/src/db/geometry.ts">apps/api/src/db/geometry.ts</a></dt><dd><code>ST_Area(geom::geography) / 1e6</code>: square kilometres on the WGS 84 spheroid, stored as <code>area_km2</code>.</dd>
+        <dt><a href="../../apps/api/src/routes/versions.ts">apps/api/src/routes/versions.ts</a> · <a href="../../apps/api/src/db/spatial.ts">apps/api/src/db/spatial.ts</a></dt><dd><code>GET /api/areas/:id/versions</code>, <code>POST …/revert/:version</code>; every write CTE inserts the version row.</dd>
+        <dt><a href="../../apps/api/src/auth.ts">apps/api/src/auth.ts</a> · <a href="../../apps/api/src/middleware/require-user.ts">apps/api/src/middleware/require-user.ts</a></dt><dd>Better Auth email and password at <code>/api/auth/*</code>; a 5-minute cookie cache; 401 once signed out.</dd>
+        <dt><a href="../../apps/api/src/do/drafts.ts">apps/api/src/do/drafts.ts</a> · <a href="../../apps/api/src/do/handlers.ts">apps/api/src/do/handlers.ts</a></dt><dd>One draft per user; relay to all but the sender.</dd>
+      </dl></div>
+      <div><h3>What the tests prove</h3><dl>
+        <dt><a href="../../apps/api/test/room/upgrade.test.ts">apps/api/test/room/upgrade.test.ts</a></dt><dd>A signed-in user gets 101 and a usable socket; sockets, attachments and the ping auto-response survive hibernation.</dd>
+        <dt><a href="../../apps/api/test/areas/areas.test.ts">apps/api/test/areas/areas.test.ts</a></dt><dd>Create answers 201 with version 1, <code>areaKm2 &gt; 0</code> and one audit row; the bbox read returns the areas inside and excludes a far one.</dd>
+        <dt><a href="../../apps/api/test/areas/versions.test.ts">apps/api/test/areas/versions.test.ts</a></dt><dd>Three saves give three versions, newest first; revert to 1 gives version 4 with version 1's name, geometry and area, history kept.</dd>
+        <dt><a href="../../apps/api/test/db/spatial.test.ts">apps/api/test/db/spatial.test.ts</a></dt><dd><code>area_km2</code> is the geodesic area on the WGS 84 ellipsoid for a 0.1° square at 32° N.</dd>
+        <dt><a href="../../apps/api/test/room/protocol.test.ts">apps/api/test/room/protocol.test.ts</a></dt><dd>A sends three draft frames: B receives three with A's id, A receives none.</dd>
+        <dt><a href="../../apps/web/e2e/collaboration.spec.ts">apps/web/e2e/collaboration.spec.ts</a></dt><dd>Two browsers share presence, drafts, saves and a version conflict. Runs in CI.</dd>
+      </dl></div>
+    </div>
+  </div>
+</section>
+
+<!-- 04 -->
+<section class="slide" id="backend-more" aria-labelledby="h-backend-more">
+  <div class="inner">
+    <p class="eyebrow">04 / 14 · the brief, section 1, additional challenges</p>
+    <div class="head">
+      <h2 id="h-backend-more">Additional backend challenges</h2>
+      <p>Limits, cache, conflicts, validation, audit, degradation and health. Each one has a screenshot or a captured response.</p>
+    </div>
+    <ul class="checks">
+      <li><b class="st">Met</b><span>rate limiting (max 50 drawing actions per minute per user)</span></li>
+      <li><b class="st">Met</b><span>spatial indexing for efficient area queries within map bounds</span></li>
+      <li><b class="st">Met</b><span>caching layer for frequently accessed geographic data</span></li>
+      <li><b class="st">Met</b><span>conflict resolution when multiple users edit the same area simultaneously</span></li>
+      <li><b class="st">Met</b><span>data validation for polygon coordinates and prevent invalid shapes</span></li>
+      <li class="partial"><b class="st partial">Partial</b><span>log all user actions for audit trail and analytics: the Room writes no audit rows (<a href="#limitations">see 12</a>)</span></li>
+      <li><b class="st">Met</b><span>graceful degradation when WebSocket connections fail</span></li>
+      <li><b class="st">Met</b><span>health check endpoints for monitoring system status</span></li>
+    </ul>
+    <div class="shots">
+      <figure><img src="img/12-rate-limit.png" width="1440" height="900" alt="The Save area dialog showing the error Could not save the area: Too many changes in a short time. Try again in 55 s." loading="lazy"><figcaption>The 51st action in a minute. 50 saves went through <code>POST /api/areas</code> with the same session (all 201); the next save from the UI got 429 with <code>Retry-After</code>. One sliding window per user, shared by REST writes and draft sessions.</figcaption></figure>
+      <figure><img src="img/11-conflict-dialog.png" width="1440" height="900" alt="A dialog titled Someone else changed this area, showing Yours: Carmel block - B edit and Theirs: Carmel block - A edit, with Load theirs and Overwrite with mine buttons." loading="lazy"><figcaption>Both users opened version 3. B's rename arrived after A's and carried the stale version: the server answered 409 with the current copy, and B chooses.</figcaption></figure>
+      <figure><img src="img/13-degraded-banner.png" width="1440" height="900" alt="The map with a warning banner: Reconnecting… Live updates are paused. Your drawing is kept. The map and the Areas in view list stay on screen." loading="lazy"><figcaption>The room socket blocked. After two failed connects the client is degraded: the map stays, the banner says so, and the draft is kept.</figcaption></figure>
+      <figure><img src="img/13b-offline-polling.png" width="1440" height="900" alt="The map with a red banner: Offline. Showing the last saved areas; polling every 10 s. Your drawing is kept. A Retry button. A new area saved by the other user appears in the list." loading="lazy"><figcaption>After five failed connects: offline, polling <code>GET /api/areas</code> every 10 s. The other user saved an area over REST and it arrived by polling alone.</figcaption></figure>
+    </div>
+    <div class="two">
+      <div>
+        <h3>Health, as captured</h3>
+<pre><b>GET /healthz</b>  200  { "ok": true }
+<b>GET /readyz</b>   200  { "status": "ready", "db": "up",
+                     "room": "up", "config": "up" }</pre>
+        <p class="small" style="margin-top:.6rem">Production <code>/readyz</code> gave the same body at 2026-10-13 16:40 UTC. A missing origin variable answers 503 with <code>config: down</code>; an unreachable database, 503 with <code>db: down</code>.</p>
+      </div>
+      <div>
+        <h3>Cache, as captured</h3>
+        <p class="small">Two identical viewport reads: <code>x-cache: MISS</code> then <code>HIT</code> with the same ETag (<a href="#backend">section 03</a>). The key is the quantised tile plus the Room's map version, so a write retires the entry before its response returns; when the Room is late the read bypasses the cache rather than wait.</p>
+      </div>
+    </div>
+    <div class="lives">
+      <div><h3>Where it lives</h3><dl>
+        <dt><a href="../../apps/api/src/do/rate-limiter.ts">apps/api/src/do/rate-limiter.ts</a> · <a href="../../apps/api/src/middleware/rate-limit.ts">apps/api/src/middleware/rate-limit.ts</a></dt><dd>Exact sliding window in a per-user Durable Object; 50 per 60 s from <a href="../../packages/shared/src/constants/rate-limit.ts"><code>constants/rate-limit.ts</code></a>. A draft session spends one action; frames are capped at 10/s per socket.</dd>
+        <dt><a href="../../apps/api/src/db/schema.ts">apps/api/src/db/schema.ts</a></dt><dd>Partial GiST index <code>areas_geom_gist … WHERE deleted_at IS NULL</code>; the read predicate matches it.</dd>
+        <dt><a href="../../apps/api/src/cache/bounds.ts">apps/api/src/cache/bounds.ts</a></dt><dd>Workers Cache API keyed by tile and map version; ETag and 304; <code>BYPASS</code> when the Room is late.</dd>
+        <dt><a href="../../apps/api/src/db/spatial.ts">apps/api/src/db/spatial.ts</a> · <a href="../../apps/web/src/components/ConflictDialog.tsx">apps/web/src/components/ConflictDialog.tsx</a></dt><dd><code>UPDATE … WHERE version = $expected</code>; a miss is 409 <code>VERSION_CONFLICT</code> with <code>details.current</code>.</dd>
+        <dt><a href="../../packages/shared/src/geo.ts">packages/shared/src/geo.ts</a></dt><dd>Ring rules in Zod: closed, 3 or more unique vertices, lng/lat ranges, at most 1,000 vertices. PostGIS <code>ST_IsValid</code> inside the write gives 422 with the reason.</dd>
+        <dt><a href="../../apps/api/src/middleware/audit.ts">apps/api/src/middleware/audit.ts</a></dt><dd>Audit rows for sign-in, sign-up, sign-out, failed sign-in, every 422 and 429; writes audit in their own transaction.</dd>
+        <dt><a href="../../apps/web/src/lib/ws.ts">apps/web/src/lib/ws.ts</a> · <a href="../../apps/web/src/lib/use-room.ts">apps/web/src/lib/use-room.ts</a></dt><dd>connecting → open → degraded → offline with jittered backoff; polling while down; resync on reopen.</dd>
+        <dt><a href="../../apps/api/src/routes/health.ts">apps/api/src/routes/health.ts</a></dt><dd><code>/healthz</code> and <code>/readyz</code> (database ping, Room ping, origin configuration).</dd>
+      </dl></div>
+      <div><h3>What the tests prove</h3><dl>
+        <dt><a href="../../apps/api/test/rate-limit/guards.test.ts">apps/api/test/rate-limit/guards.test.ts</a></dt><dd>The 51st mutation in the window is 429 with an integer <code>Retry-After</code>; after the window refills the next one is 201. REST shares the WebSocket budget.</dd>
+        <dt><a href="../../apps/api/test/db/spatial.test.ts">apps/api/test/db/spatial.test.ts</a></dt><dd>The planner uses <code>areas_geom_gist</code> once the table is seeded and analysed.</dd>
+        <dt><a href="../../apps/api/test/cache/bounds.test.ts">apps/api/test/cache/bounds.test.ts</a></dt><dd>A second identical read is a HIT with no database call; a read right after a write misses the old key.</dd>
+        <dt><a href="../../apps/api/test/areas/areas.test.ts">apps/api/test/areas/areas.test.ts</a></dt><dd>Two parallel PUTs with version 1: one 200, one 409 carrying version 2. A bowtie is 422 with the <code>ST_IsValid</code> reason and writes nothing.</dd>
+        <dt><a href="../../apps/api/test/audit/middleware.test.ts">apps/api/test/audit/middleware.test.ts</a></dt><dd>A sign-in writes <code>auth.sign_in</code> with user, IP, user agent and request id; a 429 writes <code>request.rejected</code>.</dd>
+        <dt><a href="../../apps/web/src/lib/use-room.chaos.test.tsx">apps/web/src/lib/use-room.chaos.test.tsx</a></dt><dd>A Room killed mid-draft twice: one ghost per remote user, the local draft intact.</dd>
+        <dt><a href="../../apps/api/test/health/health.test.ts">apps/api/test/health/health.test.ts</a></dt><dd>503 <code>{ db: down }</code> when the connection string is unreachable; 503 <code>{ room: down }</code> within the ping deadline.</dd>
+      </dl></div>
+    </div>
+  </div>
+</section>
+
+<!-- 05 -->
+<section class="slide" id="database" aria-labelledby="h-database">
+  <div class="inner">
+    <p class="eyebrow">05 / 14 · the brief, section 2</p>
+    <div class="head">
+      <h2 id="h-database">Database design and performance</h2>
+      <p>PostGIS 3.6 on PostgreSQL 18. Geometry stays in the database; the API reads explicit columns through the query builder and only uses raw SQL for PostGIS fragments and the write CTEs.</p>
+    </div>
+    <ul class="checks">
+      <li><b class="st">Met</b><span>efficient schema for geospatial data</span></li>
+      <li><b class="st">Met</b><span>migrations</span></li>
+      <li><b class="st">Met</b><span>proper indexing for spatial queries</span></li>
+      <li class="partial"><b class="st partial">Partial</b><span>handle large datasets (10,000+ polygons per map region): a region is never served whole (<a href="#limitations">see 12</a>)</span></li>
+      <li><b class="st">Met</b><span>soft deletes and data retention policies</span></li>
+    </ul>
+    <div class="two">
+      <div class="chart">
+        <h3>Bounds query at 10,000 rows, p95</h3>
+        <p class="sub">Server execution time, 20 runs each, 30 rows returned.</p>
+        <svg viewBox="0 0 640 110" role="img" aria-label="Bar chart: with the GiST index the p95 is 0.22 ms; with index scans off, a sequential scan takes 1.33 ms.">
+          <g class="grid"><line x1="286.7" y1="8" x2="286.7" y2="78"/><line x1="433.3" y1="8" x2="433.3" y2="78"/><line x1="580" y1="8" x2="580" y2="78"/></g>
+          <line class="axis" x1="140" y1="8" x2="140" y2="78"/>
+          <text x="132" y="27" text-anchor="end">GiST index</text>
+          <path fill="var(--series-1)" d="M140,14 h60.5 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"><title>Bitmap index scan on areas_geom_gist: p95 0.22 ms (p50 0.17 ms)</title></path>
+          <text class="val" x="212" y="27">0.22 ms</text>
+          <text x="132" y="61" text-anchor="end">Seq scan</text>
+          <path fill="var(--grey-mark)" d="M140,48 h386.1 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"><title>Sequential scan with index scans off: p95 1.33 ms (p50 1.18 ms)</title></path>
+          <text class="val" x="538" y="61">1.33 ms</text>
+          <g class="tick"><text x="140" y="96" text-anchor="middle">0</text><text x="286.7" y="96" text-anchor="middle">0.5</text><text x="433.3" y="96" text-anchor="middle">1.0</text><text x="580" y="96" text-anchor="middle">1.5 ms</text></g>
+        </svg>
+        <p class="cap">Source: <a href="../benchmarks.md">docs/benchmarks.md</a>, <code>pnpm --filter @cgis/api db:explain</code>, 2026-10-12, PostgreSQL 18.1 / PostGIS 3.6.1 on an Apple M4 Pro.</p>
+        <details><summary>Table</summary><table><tr><th>Plan</th><th class="n">p50 ms</th><th class="n">p95 ms</th></tr><tr><td>Bitmap index scan on areas_geom_gist</td><td class="n">0.17</td><td class="n">0.22</td></tr><tr><td>Seq scan (index scans off)</td><td class="n">1.18</td><td class="n">1.33</td></tr></table></details>
+      </div>
+      <div>
+        <h3>Schema, in short</h3>
+<pre><b>areas</b>          id, name, geom geometry(Polygon, 4326),
+               area_km2, version, created_by,
+               created_at, updated_at, deleted_at
+               GiST(geom) WHERE deleted_at IS NULL
+<b>area_versions</b>  PK (area_id, version): name, geom,
+               area_km2, author, created_at
+<b>audit_log</b>      actor, action, entity, ip, user agent,
+               request id, details (redacted)
+<b>+ Better Auth</b>  user, session, account, verification
+<b>migrations</b>     0000_postgis … 0005_audit_request_id</pre>
+        <p class="small" style="margin-top:.6rem">Soft delete sets <code>deleted_at</code> and bumps the version. A daily cron purges areas deleted more than 7 days ago with their versions, in batches, and writes an audit row per batch.</p>
+      </div>
+    </div>
+    <div class="lives">
+      <div><h3>Where it lives</h3><dl>
+        <dt><a href="../../apps/api/src/db/schema.ts">apps/api/src/db/schema.ts</a> · <a href="../../apps/api/src/db/auth-schema.ts">apps/api/src/db/auth-schema.ts</a></dt><dd>Tables, the partial GiST index, the composite primary key on versions.</dd>
+        <dt><a href="../../apps/api/drizzle/">apps/api/drizzle/</a> · <a href="../../apps/api/src/db/migrate.ts">apps/api/src/db/migrate.ts</a></dt><dd>Six SQL migrations with the journal; CI fails if <code>drizzle-kit generate</code> would change them; the deploy migrates Neon first.</dd>
+        <dt><a href="../../apps/api/src/db/seed.ts">apps/api/src/db/seed.ts</a></dt><dd><code>db:seed --count 10000</code>: random valid polygons across Israel.</dd>
+        <dt><a href="../../apps/api/src/db/purge.ts">apps/api/src/db/purge.ts</a> · <a href="../../apps/api/src/scheduled.ts">apps/api/src/scheduled.ts</a></dt><dd>Retention purge on the cron in <code>wrangler.jsonc</code>; the window is <code>RETENTION.DAYS</code> in <a href="../../packages/shared/src/constants/db.ts"><code>constants/db.ts</code></a>.</dd>
+        <dt><a href="../../README.md">README.md</a> › Database access rules</dt><dd>Drizzle for reads and writes; <code>sql</code> only for PostGIS fragments and the write CTEs; an ESLint rule rejects a hand-written <code>SELECT</code>.</dd>
+      </dl></div>
+      <div><h3>What the tests prove</h3><dl>
+        <dt><a href="../../apps/api/test/db/schema.test.ts">apps/api/test/db/schema.test.ts</a></dt><dd>The GiST index covers live rows only; geometry is stored with SRID 4326; every journal entry is recorded and a second migration run is a no-op.</dd>
+        <dt><a href="../../apps/api/test/db/seed.test.ts">apps/api/test/db/seed.test.ts</a></dt><dd>1,000 rows insert in under 10 s.</dd>
+        <dt><a href="../../apps/api/test/retention/purge.test.ts">apps/api/test/retention/purge.test.ts</a></dt><dd>Removes areas soft-deleted before the cutoff and their versions, nothing else; idempotent; runs on the declared cron.</dd>
+      </dl></div>
+    </div>
+  </div>
+</section>
+
+<!-- 06 -->
+<section class="slide" id="security" aria-labelledby="h-security">
+  <div class="inner">
+    <p class="eyebrow">06 / 14 · the brief, section 3</p>
+    <div class="head">
+      <h2 id="h-security">Security and reliability</h2>
+      <p>Every input is parsed at the boundary, every response carries the same headers and a request id, and every error has a fixed shape.</p>
+    </div>
+    <ul class="checks">
+      <li><b class="st">Met</b><span>input sanitization and validation</span></li>
+      <li><b class="st">Met</b><span>CORS configuration</span></li>
+      <li><b class="st">Met</b><span>proper error logging and monitoring</span></li>
+      <li><b class="st">Met</b><span>request timeout handling</span></li>
+      <li><b class="st">Met</b><span>secure WebSocket connections with authentication tokens</span></li>
+    </ul>
+    <div class="two">
+      <div>
+        <h3>Response headers, as captured</h3>
+<pre><b>GET /healthz</b>  200
+strict-transport-security: max-age=15552000; includeSubDomains
+x-frame-options: SAMEORIGIN
+x-content-type-options: nosniff
+referrer-policy: no-referrer
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-origin
+x-permitted-cross-domain-policies: none
+x-request-id: 11a53eb3-7e0c-4707-93f8-002cb4f2b098
+vary: Origin</pre>
+        <p class="small" style="margin-top:.6rem">Hono's secure headers on every response. The request id is server-generated and appears on every log line of that request.</p>
+      </div>
+      <div>
+        <h3>The WebSocket gate</h3>
+        <p class="small">An upgrade needs the Better Auth session cookie (else 401) and an <code>Origin</code> equal to <code>CLIENT_ORIGIN</code> (else 403) before the Room sees it. The Worker passes the user to the Room in server-set headers and overwrites any copy the client sent. Cookies are <code>__Secure-</code>, <code>HttpOnly</code>, <code>SameSite=Lax</code> once deployed; the socket is <code>wss:</code>.</p>
+        <figure class="narrow"><img src="img/02-login.png" width="360" height="380" alt="The Sign in form with a covered email field, a password field and a Sign in button." loading="lazy"><figcaption>Email and password sign-in. The sign-in route is rate limited per isolate and audited, including failures.</figcaption></figure>
+      </div>
+    </div>
+    <div class="lives">
+      <div><h3>Where it lives</h3><dl>
+        <dt><a href="../../apps/api/src/validate.ts">apps/api/src/validate.ts</a></dt><dd>Body, query and path parsed by the shared Zod schemas; a failure is 422. Bodies over 64 KiB are 413 before parsing.</dd>
+        <dt><a href="../../apps/api/src/middleware/index.ts">apps/api/src/middleware/index.ts</a></dt><dd><code>cors()</code> echoes <code>CLIENT_ORIGIN</code> only, credentials on; secure headers; a fresh request id.</dd>
+        <dt><a href="../../apps/api/src/log.ts">apps/api/src/log.ts</a> · <a href="../../apps/api/src/app.ts">apps/api/src/app.ts</a></dt><dd>One JSON line per log with request id, user id and path, secrets redacted at any depth; <code>onError</code> logs the stack and answers a fixed 500.</dd>
+        <dt><a href="../../apps/api/src/middleware/request-timeout.ts">apps/api/src/middleware/request-timeout.ts</a> · <a href="../../apps/api/src/db/index.ts">apps/api/src/db/index.ts</a></dt><dd>A 10 s budget per request (504 <code>TIMEOUT</code>) whose abort ends the request's database clients; 3 s per connect and per query; Room calls under a deadline.</dd>
+        <dt><a href="../../apps/api/src/ws.ts">apps/api/src/ws.ts</a> · <a href="../../apps/api/src/do/handoff.ts">apps/api/src/do/handoff.ts</a></dt><dd>Session, then Origin, then the Room; user headers set by the server.</dd>
+        <dt><a href="../deploy.md">docs/deploy.md</a> › Production hardening</dt><dd>What the Worker does on its own, and the dashboard steps (WAF rule on <code>/api/auth/*</code>, a health check on <code>/readyz</code>).</dd>
+      </dl></div>
+      <div><h3>What the tests prove</h3><dl>
+        <dt><a href="../../apps/api/test/rate-limit/guards.test.ts">apps/api/test/rate-limit/guards.test.ts</a></dt><dd>A 65 KiB body is 413 on POST, PUT and revert before any database call.</dd>
+        <dt><a href="../../apps/api/test/auth/middleware.test.ts">apps/api/test/auth/middleware.test.ts</a></dt><dd>A preflight from any other origin gets no allow-origin header; the log line carries request id, user id and path with secrets redacted.</dd>
+        <dt><a href="../../apps/api/test/errors.test.ts">apps/api/test/errors.test.ts</a></dt><dd>Any other error is the fixed 500 <code>ApiError</code>, logged once with its stack.</dd>
+        <dt><a href="../../apps/api/test/request-timeout.test.ts">apps/api/test/request-timeout.test.ts</a></dt><dd>A stalled query through the real app answers 504 within the budget and ends its client.</dd>
+        <dt><a href="../../apps/api/test/auth/ws-gate.test.ts">apps/api/test/auth/ws-gate.test.ts</a></dt><dd>401 with a cookie that is not a session; 403 from a foreign Origin with no socket opened.</dd>
+        <dt><a href="../../apps/api/test/auth/hardening.test.ts">apps/api/test/auth/hardening.test.ts</a></dt><dd>Sign-in sets <code>__Secure-</code> cookies: Secure, HttpOnly, SameSite=Lax, no Domain.</dd>
+      </dl></div>
+    </div>
+  </div>
+</section>
+
+<!-- 07 -->
+<section class="slide" id="frontend" aria-labelledby="h-frontend">
+  <div class="inner">
+    <p class="eyebrow">07 / 14 · the brief, section 4</p>
+    <div class="head">
+      <h2 id="h-frontend">Frontend map integration</h2>
+      <p>OpenStreetMap in Web Mercator; govmap aerial imagery in Israel's grid (EPSG:2039). Switching swaps the map's CRS and re-projects every overlay from its WGS 84 coordinates.</p>
+    </div>
+    <ul class="checks">
+      <li><b class="st">Met</b><span>Leaflet.js with two base layers: OpenStreetMap default</span></li>
+      <li><b class="st">Met</b><span>satellite imagery from govmap.gov.il</span></li>
+      <li><b class="st">Met</b><span>smooth layer transition</span></li>
+      <li><b class="st">Met</b><span>drawn elements remain properly positioned when switching layers</span></li>
+    </ul>
+    <div class="shots">
+      <figure><img src="img/03-map-osm.png" width="1440" height="900" alt="The map over Haifa and the Galilee on OpenStreetMap at zoom 11, with several small seeded polygons, the Areas in view list naming four of them with their sizes, and one user in the presence list." loading="lazy"><figcaption>OSM, the default. Areas in view are listed with their sizes; the list and the polygons come from one bounds read.</figcaption></figure>
+      <figure><img src="img/04-map-satellite.png" width="1120" height="700" alt="The same viewport on govmap aerial imagery: the polygons sit at the same screen positions; the sea renders black where govmap has no imagery." loading="lazy"><figcaption>The same viewport on aerial imagery (govmap level 3). Polygons stay in place. A 300 ms crossfade over a still copy of the old tiles, skipped under reduced motion.</figcaption></figure>
+      <figure><img src="img/19-dark-map.png" width="1440" height="900" alt="The map in dark mode: dark app chrome and panels, OSM tiles unchanged, the area panel showing History with versions 4 and 3; author ids are covered." loading="lazy"><figcaption>Dark mode follows <code>prefers-color-scheme</code>; tiles stay as published.</figcaption></figure>
+      <figure class="narrow"><img src="img/18-mobile-map.png" width="390" height="844" alt="The map at phone width: the Areas in view list folded behind a chevron, the presence list visible, a saved polygon on the map." loading="lazy"><figcaption>390 px wide: the area list folds, the map stays free.</figcaption></figure>
+    </div>
+    <div class="lives">
+      <div><h3>Where it lives</h3><dl>
+        <dt><a href="../../apps/web/src/components/Map.tsx">apps/web/src/components/Map.tsx</a> · <a href="../../apps/web/src/lib/geo/osm-layer.ts">apps/web/src/lib/geo/osm-layer.ts</a></dt><dd>Leaflet 1.9.4 with OSM and attribution; overlays in their own panes.</dd>
+        <dt><a href="../../apps/web/src/lib/geo/govmap-layer.ts">apps/web/src/lib/geo/govmap-layer.ts</a> · <a href="../../apps/web/src/lib/geo/govmap-crs.ts">apps/web/src/lib/geo/govmap-crs.ts</a></dt><dd>The tile URL scheme on govmap's CDN (lowercase hex row and column) under a Proj4Leaflet EPSG:2039 CRS.</dd>
+        <dt><a href="../../apps/web/src/lib/geo/layer-switch.ts">apps/web/src/lib/geo/layer-switch.ts</a></dt><dd><code>switchBaseLayer</code>: nearest-resolution zoom mapping, the crossfade, overlays re-projected on <code>viewreset</code>; aerial modules lazy-loaded.</dd>
+        <dt><a href="../adr/0005-govmap-crs-swap.md">docs/adr/0005-govmap-crs-swap.md</a></dt><dd>Why a CRS swap and not a proxy; the tile scheme; the datum shift; the terms and the retirement risk.</dd>
+      </dl></div>
+      <div><h3>What the tests prove</h3><dl>
+        <dt><a href="../../apps/web/src/lib/geo/layer-switch.test.ts">apps/web/src/lib/geo/layer-switch.test.ts</a></dt><dd>Starts on OSM; fades for <code>CROSSFADE_MS</code>; no fade under reduced motion; the overlay panes' LatLngs survive a round trip; a draft in progress keeps its vertices.</dd>
+        <dt><a href="../../apps/web/src/lib/geo/govmap-crs.test.ts">apps/web/src/lib/geo/govmap-crs.test.ts</a></dt><dd>A known point lands in govmap tile column 164838, row 190501 at level 11; a pixel round-trips to the same lat/lng.</dd>
+        <dt><a href="../../apps/web/e2e/layer-switch.spec.ts">apps/web/e2e/layer-switch.spec.ts</a></dt><dd>Switching to aerial keeps the centre and the saved polygon in place; a draft survives the switch at street level. Needs the internet, so it runs locally, not in CI.</dd>
+      </dl></div>
+    </div>
+  </div>
+</section>
+
+<!-- 08 -->
+<section class="slide" id="realtime" aria-labelledby="h-realtime">
+  <div class="inner">
+    <p class="eyebrow">08 / 14 · the brief, section 5</p>
+    <div class="head">
+      <h2 id="h-realtime">Real-time drawing</h2>
+      <p>A draft is sent as deltas, at most 10 frames a second per socket. The Room relays each frame to everyone else; the author's colour follows the draft.</p>
+    </div>
+    <ul class="checks">
+      <li><b class="st">Met</b><span>draw polygons on both map types</span></li>
+      <li><b class="st">Met</b><span>show other users' drawing actions in real-time</span></li>
+      <li><b class="st">Met</b><span>display area calculations as the polygon is being drawn</span></li>
+      <li><b class="st">Met</b><span>maintain drawing accuracy when switching between satellite and regular views</span></li>
+      <li><b class="st">Met</b><span>show active users currently viewing/drawing</span></li>
+    </ul>
+    <div class="shots">
+      <figure><img src="img/05-drawing-live-area.png" width="1440" height="900" alt="Drawing in progress: five orange vertices with a dashed outline over Mount Carmel; the New area panel shows Area 32.997 km² and Vertices 5 of 999 with Undo, Cancel and Finish." loading="lazy"><figcaption>Live area on every edit, computed on the client by spherical excess; the server's geodesic value replaces it after the save.</figcaption></figure>
+      <figure><img src="img/06-realtime-ghost.png" width="1440" height="900" alt="The other user's view of the same draft: a dashed blue ghost polygon; the presence list shows Alice Demo as Drawing." loading="lazy"><figcaption>The same draft in the other window, as a ghost in the author's colour.</figcaption></figure>
+      <figure><img src="img/20-presence-two-users.png" width="1440" height="900" alt="The map with the On this map panel listing Alice Demo (you) with a blue avatar and Bob Demo with a green avatar." loading="lazy"><figcaption>Presence comes from the socket attachments, so it survives the Room hibernating. The colour is assigned by the server.</figcaption></figure>
+    </div>
+    <div class="lives">
+      <div><h3>Where it lives</h3><dl>
+        <dt><a href="../../apps/web/src/lib/geo/draw-tool.ts">apps/web/src/lib/geo/draw-tool.ts</a></dt><dd>A thin adapter over <code>leaflet-editable</code>, mounted independent of the base layer.</dd>
+        <dt><a href="../../apps/api/src/do/handlers.ts">apps/api/src/do/handlers.ts</a> · <a href="../../apps/web/src/components/GhostPolygons.tsx">apps/web/src/components/GhostPolygons.tsx</a></dt><dd><code>draft:update</code> relayed to all but the sender; drawn as dashed ghosts.</dd>
+        <dt><a href="../../apps/web/src/components/DrawControl.tsx">apps/web/src/components/DrawControl.tsx</a> · <a href="../../apps/web/src/lib/geo/geodesic.ts">apps/web/src/lib/geo/geodesic.ts</a></dt><dd>Live km² and vertex count on each <code>draw:change</code>.</dd>
+        <dt><a href="../../apps/web/src/lib/geo/projection.ts">apps/web/src/lib/geo/projection.ts</a></dt><dd>WGS 84 ⇄ EPSG:2039 through proj4 with the EPSG:9676 datum shift.</dd>
+        <dt><a href="../../apps/api/src/do/presence.ts">apps/api/src/do/presence.ts</a> · <a href="../../apps/web/src/components/PresenceList.tsx">apps/web/src/components/PresenceList.tsx</a></dt><dd>Viewing or drawing state per socket, broadcast on change.</dd>
+      </dl></div>
+      <div><h3>What the tests prove</h3><dl>
+        <dt><a href="../../apps/web/src/components/GhostPolygons.test.tsx">apps/web/src/components/GhostPolygons.test.tsx</a></dt><dd>Another user's draft is a dashed ghost in their colour; <code>clear</code> removes it.</dd>
+        <dt><a href="../../apps/web/src/components/DrawControl.test.tsx">apps/web/src/components/DrawControl.test.tsx</a></dt><dd>Shows the live area with three decimals and the vertex count on <code>draw:change</code> (14 cases in the file).</dd>
+        <dt><a href="../../apps/web/src/lib/geo/projection.test.ts">apps/web/src/lib/geo/projection.test.ts</a></dt><dd>Control points project within 0.01 m of PROJ; a grid across Israel round-trips.</dd>
+        <dt><a href="../../apps/api/test/room/protocol.test.ts">apps/api/test/room/protocol.test.ts</a> · <a href="../../apps/web/src/components/PresenceList.test.tsx">PresenceList.test.tsx</a></dt><dd><code>presence:set</code> updates the attachment and broadcasts to everyone; the list marks you and who is drawing.</dd>
+      </dl></div>
+    </div>
+  </div>
+</section>
+
+<!-- 09 -->
+<section class="slide" id="challenges" aria-labelledby="h-challenges">
+  <div class="inner">
+    <p class="eyebrow">09 / 14 · the brief, section 6</p>
+    <div class="head">
+      <h2 id="h-challenges">Technical challenges and backend optimization</h2>
+      <p>Projections, drawing state, message size, curvature; then pooling, queuing, scaling and telemetry.</p>
+    </div>
+    <ul class="checks">
+      <li><b class="st">Met</b><span>coordinate transformations between different map projections</span></li>
+      <li><b class="st">Met</b><span>manage drawing state across layer switches</span></li>
+      <li><b class="st">Met</b><span>optimize WebSocket messages for real-time updates</span></li>
+      <li><b class="st">Met</b><span>calculate areas accurately considering Earth's curvature</span></li>
+      <li><b class="st">Met</b><span>connection pooling for database access</span></li>
+      <li class="partial"><b class="st partial">Partial</b><span>message queuing for high-volume WebSocket traffic: ordering queues only, no broker (<a href="#limitations">see 12</a>)</span></li>
+      <li><b class="st">Met</b><span>horizontal scaling considerations (multiple server instances)</span></li>
+      <li><b class="st">Met</b><span>telemetry and performance metrics collection</span></li>
+    </ul>
+    <div class="tiles">
+      <div class="tile"><div class="label">Client area vs PostGIS, tested</div><div class="value">&lt; 0.5<small>%</small></div><div class="src">Spherical excess on the client against <code>ST_Area(geography)</code> for a 0.1° box at 32° N (<code>geodesic.test.ts</code>). In the screenshots: 32.997 estimate, 32.979 served.</div></div>
+      <div class="tile"><div class="label">Draft frame echo delay, p95</div><div class="value">8<small>ms</small></div><div class="src">k6, 5 sockets at 10 frames/s for 30 s, local Worker; p50 3, p99 15, max 31 ms. <a href="../benchmarks-load.md">docs/benchmarks-load.md</a>.</div></div>
+      <div class="tile"><div class="label">Frames per draft message</div><div class="value">1<small>op</small></div><div class="src"><code>add</code>, <code>move</code>, <code>remove</code> or <code>clear</code> with a sequence number, never the whole ring; stale sequences dropped by the Room.</div></div>
+    </div>
+    <div class="lives">
+      <div><h3>Where it lives</h3><dl>
+        <dt><a href="../../apps/web/src/lib/geo/projection.ts">apps/web/src/lib/geo/projection.ts</a> · <a href="../../apps/web/src/lib/geo/layer-switch.ts">apps/web/src/lib/geo/layer-switch.ts</a></dt><dd>WGS 84 ⇄ EPSG:2039; the CRS swap EPSG:3857 ⇄ EPSG:2039 maps zoom to the nearest resolution; overlays are never removed during a switch.</dd>
+        <dt><a href="../../apps/web/src/lib/draft-sender.ts">apps/web/src/lib/draft-sender.ts</a> · <a href="../../apps/api/src/do/room.ts">apps/api/src/do/room.ts</a></dt><dd>Delta ops, a 10/s client throttle, stale-<code>seq</code> drop, ping answered by the runtime without waking the Room.</dd>
+        <dt><a href="../../apps/api/src/db/geometry.ts">apps/api/src/db/geometry.ts</a> · <a href="../../apps/web/src/lib/geo/geodesic.ts">apps/web/src/lib/geo/geodesic.ts</a></dt><dd>Server: <code>ST_Area(geography)</code> on the spheroid. Client: <code>@turf/area</code>.</dd>
+        <dt><a href="../../apps/api/src/db/index.ts">apps/api/src/db/index.ts</a> · <a href="../../apps/api/wrangler.jsonc">apps/api/wrangler.jsonc</a></dt><dd>Hyperdrive pools the origin connections (transaction mode); the Worker opens one short-lived client per call; query cache off.</dd>
+        <dt><a href="../../apps/api/src/do/sockets.ts">apps/api/src/do/sockets.ts</a></dt><dd>Fan-out: a loop over every socket in the Room. Per-user frame queues keep order; nothing buffers bursts.</dd>
+        <dt><a href="../adr/0004-horizontal-scaling-on-cloudflare.md">docs/adr/0004-horizontal-scaling-on-cloudflare.md</a></dt><dd>Where state lives, the platform limits, a per-map budget, and the growth path: tile-sharded rooms, a router object, Queues, OTel export, multi-region, each with its trigger.</dd>
+        <dt><a href="../../apps/api/src/metrics.ts">apps/api/src/metrics.ts</a></dt><dd>Analytics Engine datapoints <code>ws_open</code>, <code>ws_close</code>, <code>room_messages</code> (batched per window), <code>db_query</code> (elapsed ms per path). Workers Logs on.</dd>
+      </dl></div>
+      <div><h3>What the tests prove</h3><dl>
+        <dt><a href="../../apps/web/src/lib/draft-sender.test.ts">apps/web/src/lib/draft-sender.test.ts</a> · <a href="../../apps/web/src/lib/use-room.test.tsx">use-room.test.tsx</a></dt><dd>One op per gesture; bursts of <code>draw:change</code> throttled to 10 <code>draft:update</code> a second.</dd>
+        <dt><a href="../../apps/api/test/room/protocol.test.ts">apps/api/test/room/protocol.test.ts</a></dt><dd>Frames whose <code>seq</code> is not above the last accepted one are dropped.</dd>
+        <dt><a href="../../apps/web/src/lib/geo/geodesic.test.ts">apps/web/src/lib/geo/geodesic.test.ts</a></dt><dd>Within 0.5 % of PostGIS for a 0.1° box at 32° N.</dd>
+        <dt><a href="../../apps/api/test/metrics/writer.test.ts">apps/api/test/metrics/writer.test.ts</a> · <a href="../../apps/api/test/room/datapoints.test.ts">room/datapoints.test.ts</a></dt><dd>A query writes one <code>db_query</code> datapoint with its elapsed time; client frames are batched into one datapoint per window.</dd>
+        <dt><a href="../../apps/api/test/room/degradation.test.ts">apps/api/test/room/degradation.test.ts</a></dt><dd>Two users mid-draft and the Room killed: state rebuilt from storage and attachments.</dd>
+      </dl></div>
+    </div>
+  </div>
+</section>
+
+<!-- 10 -->
+<section class="slide" id="numbers" aria-labelledby="h-numbers">
+  <div class="inner">
+    <p class="eyebrow">10 / 14 · measured, not estimated</p>
+    <div class="head">
+      <h2 id="h-numbers">Numbers</h2>
+      <p>Every chart names its source file and date. Production figures come from Analytics Engine over two days of light use, so the point counts are small and are shown.</p>
+    </div>
+    <div class="charts">
+      <div class="chart">
+        <h3>Production database time per path</h3>
+        <p class="sub">Milliseconds inside the query, by API path.</p>
+        <div class="legend"><span><i style="background:var(--series-1)"></i>p50</span><span><i style="background:var(--series-2)"></i>p95</span></div>
+        <svg viewBox="0 0 640 150" role="img" aria-label="Grouped bar chart. areas.list: p50 21 ms, p95 49 ms. areas.write: p50 92 ms, p95 168 ms.">
+          <g class="grid"><line x1="250" y1="8" x2="250" y2="122"/><line x1="360" y1="8" x2="360" y2="122"/><line x1="470" y1="8" x2="470" y2="122"/><line x1="580" y1="8" x2="580" y2="122"/></g>
+          <line class="axis" x1="140" y1="8" x2="140" y2="122"/>
+          <text x="132" y="42" text-anchor="end">areas.list</text>
+          <path fill="var(--series-1)" d="M140,20 h42.2 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"><title>areas.list p50: 21 ms (31 points)</title></path>
+          <text class="val" x="194" y="33">21</text>
+          <path fill="var(--series-2)" d="M140,40 h103.8 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"><title>areas.list p95: 49 ms (31 points, max 90)</title></path>
+          <text class="val" x="256" y="53">49</text>
+          <text x="132" y="102" text-anchor="end">areas.write</text>
+          <path fill="var(--series-1)" d="M140,80 h198.4 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"><title>areas.write p50: 92 ms (2 points)</title></path>
+          <text class="val" x="350" y="93">92</text>
+          <path fill="var(--series-2)" d="M140,100 h365.6 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"><title>areas.write p95: 168 ms (2 points, max 168)</title></path>
+          <text class="val" x="518" y="113">168</text>
+          <g class="tick"><text x="140" y="140" text-anchor="middle">0</text><text x="250" y="140" text-anchor="middle">50</text><text x="360" y="140" text-anchor="middle">100</text><text x="470" y="140" text-anchor="middle">150</text><text x="580" y="140" text-anchor="middle">200 ms</text></g>
+        </svg>
+        <p class="cap">Source: Analytics Engine SQL over the <code>db_query</code> dataset, captured 2026-10-13 16:40 UTC (handoff evidence <code>analytics-db-latency.json</code>); 31 points for <code>areas.list</code>, 2 for <code>areas.write</code>. The query is in the README, Performance considerations.</p>
+        <details><summary>Table</summary><table><tr><th>Path</th><th class="n">p50 ms</th><th class="n">p95 ms</th><th class="n">max ms</th><th class="n">points</th></tr><tr><td>areas.list</td><td class="n">21</td><td class="n">49</td><td class="n">90</td><td class="n">31</td></tr><tr><td>areas.write</td><td class="n">92</td><td class="n">168</td><td class="n">168</td><td class="n">2</td></tr></table></details>
+      </div>
+      <div class="chart">
+        <h3>Production datapoints per event</h3>
+        <p class="sub">Analytics Engine points written, two days.</p>
+        <svg viewBox="0 0 640 150" role="img" aria-label="Bar chart of datapoints per event: db_query 33, ws_open 24, room_messages 24, ws_close 23.">
+          <g class="grid"><line x1="250" y1="8" x2="250" y2="122"/><line x1="360" y1="8" x2="360" y2="122"/><line x1="470" y1="8" x2="470" y2="122"/><line x1="580" y1="8" x2="580" y2="122"/></g>
+          <line class="axis" x1="140" y1="8" x2="140" y2="122"/>
+          <text x="132" y="27" text-anchor="end">db_query</text>
+          <path fill="var(--series-1)" d="M140,14 h359 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"><title>db_query: 33 points (44 sampled rows)</title></path>
+          <text class="val" x="511" y="27">33</text>
+          <text x="132" y="57" text-anchor="end">ws_open</text>
+          <path fill="var(--series-1)" d="M140,44 h260 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"><title>ws_open: 24 points (26 sampled rows)</title></path>
+          <text class="val" x="412" y="57">24</text>
+          <text x="132" y="87" text-anchor="end">room_messages</text>
+          <path fill="var(--series-1)" d="M140,74 h260 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"><title>room_messages: 24 points (24 sampled rows)</title></path>
+          <text class="val" x="412" y="87">24</text>
+          <text x="132" y="117" text-anchor="end">ws_close</text>
+          <path fill="var(--series-1)" d="M140,104 h249 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"><title>ws_close: 23 points (23 sampled rows)</title></path>
+          <text class="val" x="401" y="117">23</text>
+          <g class="tick"><text x="140" y="140" text-anchor="middle">0</text><text x="250" y="140" text-anchor="middle">10</text><text x="360" y="140" text-anchor="middle">20</text><text x="470" y="140" text-anchor="middle">30</text><text x="580" y="140" text-anchor="middle">40</text></g>
+        </svg>
+        <p class="cap">Source: Analytics Engine SQL, captured 2026-10-13 16:40 UTC (handoff evidence <code>analytics-engine-queries.json</code>). Light traffic: a handful of sessions.</p>
+        <details><summary>Table</summary><table><tr><th>Event</th><th class="n">points</th><th class="n">sampled rows</th></tr><tr><td>db_query</td><td class="n">33</td><td class="n">44</td></tr><tr><td>ws_open</td><td class="n">24</td><td class="n">26</td></tr><tr><td>room_messages</td><td class="n">24</td><td class="n">24</td></tr><tr><td>ws_close</td><td class="n">23</td><td class="n">23</td></tr></table></details>
+      </div>
+      <div class="chart">
+        <h3>k6 REST, 10 users for one minute</h3>
+        <p class="sub">2,010 requests at 33 req/s; 0 errors, 0 × 429.</p>
+        <div class="legend"><span><i style="background:var(--series-1)"></i>p50</span><span><i style="background:var(--series-2)"></i>p95</span></div>
+        <svg viewBox="0 0 640 150" role="img" aria-label="Grouped bar chart. Viewport read: p50 50.83 ms, p95 86.34 ms. Area create: p50 68.15 ms, p95 131.78 ms.">
+          <g class="grid"><line x1="286.7" y1="8" x2="286.7" y2="122"/><line x1="433.3" y1="8" x2="433.3" y2="122"/><line x1="580" y1="8" x2="580" y2="122"/></g>
+          <line class="axis" x1="140" y1="8" x2="140" y2="122"/>
+          <text x="132" y="42" text-anchor="end">viewport read</text>
+          <path fill="var(--series-1)" d="M140,20 h145.1 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"><title>Read p50: 50.83 ms (1,600 reads)</title></path>
+          <text class="val" x="297" y="33">51</text>
+          <path fill="var(--series-2)" d="M140,40 h249.3 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"><title>Read p95: 86.34 ms (max 217.25)</title></path>
+          <text class="val" x="401" y="53">86</text>
+          <text x="132" y="102" text-anchor="end">area create</text>
+          <path fill="var(--series-1)" d="M140,80 h195.9 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"><title>Write p50: 68.15 ms (400 creates)</title></path>
+          <text class="val" x="348" y="93">68</text>
+          <path fill="var(--series-2)" d="M140,100 h382.6 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"><title>Write p95: 131.78 ms (max 278.36)</title></path>
+          <text class="val" x="535" y="113">132</text>
+          <g class="tick"><text x="140" y="140" text-anchor="middle">0</text><text x="286.7" y="140" text-anchor="middle">50</text><text x="433.3" y="140" text-anchor="middle">100</text><text x="580" y="140" text-anchor="middle">150 ms</text></g>
+        </svg>
+        <p class="cap">Source: <a href="../benchmarks-load.md">docs/benchmarks-load.md</a>, <code>k6 run bench/rest.js</code>, 2026-10-13, against <code>wrangler dev</code> and a local PostGIS on an Apple M4 Pro; not production.</p>
+        <details><summary>Table</summary><table><tr><th>Request</th><th class="n">p50 ms</th><th class="n">p95 ms</th><th class="n">max ms</th><th class="n">count</th></tr><tr><td>Viewport read</td><td class="n">50.83</td><td class="n">86.34</td><td class="n">217.25</td><td class="n">1,600</td></tr><tr><td>Area create</td><td class="n">68.15</td><td class="n">131.78</td><td class="n">278.36</td><td class="n">400</td></tr></table></details>
+      </div>
+      <div class="chart">
+        <h3>k6 WebSocket, 5 sockets drawing at 10 frames/s</h3>
+        <p class="sub">1,500 frames sent; each reached the other four sockets.</p>
+        <div class="tiles" style="margin:.4rem 0 .2rem">
+          <div class="tile"><div class="label">Echoed within 1 s</div><div class="value">6000<small>/ 6000</small></div></div>
+          <div class="tile"><div class="label">Echo delay p50 / p95 / p99 / max</div><div class="value">3 / 8 / 15 / 31<small>ms</small></div></div>
+          <div class="tile"><div class="label">Error frames from the Room</div><div class="value">0</div></div>
+        </div>
+        <p class="cap">Source: <a href="../benchmarks-load.md">docs/benchmarks-load.md</a>, <code>k6 run bench/ws.js</code>, 2026-10-13, local Worker, 30 s of frames then 3 s of listening. One draft session per socket spends one of the user's 50 actions.</p>
+      </div>
+      <div class="chart">
+        <h3>Tests per package</h3>
+        <p class="sub">Unit and component tests, counted from <code>it</code>/<code>test</code> declarations.</p>
+        <svg viewBox="0 0 640 120" role="img" aria-label="Bar chart of test counts: packages/shared 38 in 4 files, apps/api 309 in 40 files, apps/web 268 in 38 files.">
+          <g class="grid"><line x1="277.5" y1="8" x2="277.5" y2="92"/><line x1="415" y1="8" x2="415" y2="92"/><line x1="552.5" y1="8" x2="552.5" y2="92"/></g>
+          <line class="axis" x1="140" y1="8" x2="140" y2="92"/>
+          <text x="132" y="27" text-anchor="end">packages/shared</text>
+          <path fill="var(--series-1)" d="M140,14 h48.3 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"><title>packages/shared: 38 tests in 4 files</title></path>
+          <text class="val" x="200" y="27">38 · 4 files</text>
+          <text x="132" y="57" text-anchor="end">apps/api</text>
+          <path fill="var(--series-1)" d="M140,44 h420.9 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"><title>apps/api: 309 tests in 40 files, run in workerd against PostGIS</title></path>
+          <text class="val" x="572" y="57">309</text>
+          <text x="132" y="87" text-anchor="end">apps/web</text>
+          <path fill="var(--series-1)" d="M140,74 h364.5 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 H140 z"><title>apps/web: 268 tests in 38 files, plus 14 story files as browser tests</title></path>
+          <text class="val" x="516" y="87">268</text>
+          <g class="tick"><text x="140" y="110" text-anchor="middle">0</text><text x="277.5" y="110" text-anchor="middle">100</text><text x="415" y="110" text-anchor="middle">200</text><text x="552.5" y="110" text-anchor="middle">300</text></g>
+        </svg>
+        <p class="cap">Source: the criteria matrix's static count on <code>main</code> 1a581e7, 2026-10-13 (<code>it.each</code> counted once). Besides: 3 Playwright e2e tests in 2 specs, and 14 Storybook story files run as browser tests in CI.</p>
+        <details><summary>Table</summary><table><tr><th>Package</th><th class="n">tests</th><th class="n">files</th></tr><tr><td>packages/shared</td><td class="n">38</td><td class="n">4</td></tr><tr><td>apps/api</td><td class="n">309</td><td class="n">40</td></tr><tr><td>apps/web</td><td class="n">268</td><td class="n">38</td></tr></table></details>
+      </div>
+      <div class="chart">
+        <h3>CI and deploy runs on <code>main</code></h3>
+        <p class="sub">Oldest left. Green is success; grey is cancelled, skipped or still running when captured.</p>
+        <div class="strip" role="list" aria-label="Workflow runs">
+          <div class="ok" role="listitem" title="ci success, 20b628b, 16:28 UTC">20b628b</div>
+          <div class="ok" role="listitem" title="ci success, fd76c01, 16:28 UTC">fd76c01</div>
+          <div role="listitem" title="ci cancelled (superseded by the next push), edbda20, 16:31 UTC">edbda20</div>
+          <div class="ok" role="listitem" title="ci success, a4d3310, 16:31 UTC">a4d3310</div>
+          <div role="listitem" title="deploy skipped (waiting for ci), a4d3310, 16:32 UTC">deploy</div>
+          <div class="ok" role="listitem" title="deploy success, a4d3310, 16:35 UTC">deploy</div>
+          <div class="ok" role="listitem" title="ci success, 9f072e6, 16:37 UTC">9f072e6</div>
+          <div role="listitem" title="ci in progress when captured, e129e62, 16:38 UTC">e129e62</div>
+        </div>
+        <p class="cap">Source: <code>gh run list</code> captured 2026-10-13 16:40 UTC (handoff evidence <code>ci-runs.txt</code>). Production <code>/readyz</code> answered <code>ready</code> at 16:40:52 UTC.</p>
+        <details><summary>Table</summary><table><tr><th>Workflow</th><th>Status</th><th>Commit</th><th>Time (UTC)</th></tr><tr><td>ci</td><td>success</td><td>20b628b</td><td>16:28:18</td></tr><tr><td>ci</td><td>success</td><td>fd76c01</td><td>16:28:56</td></tr><tr><td>ci</td><td>cancelled</td><td>edbda20</td><td>16:31:19</td></tr><tr><td>ci</td><td>success</td><td>a4d3310</td><td>16:31:56</td></tr><tr><td>deploy</td><td>skipped</td><td>a4d3310</td><td>16:32:56</td></tr><tr><td>deploy</td><td>success</td><td>a4d3310</td><td>16:35:40</td></tr><tr><td>ci</td><td>success</td><td>9f072e6</td><td>16:37:23</td></tr><tr><td>ci</td><td>in progress</td><td>e129e62</td><td>16:38:26</td></tr></table></details>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 11 -->
+<section class="slide" id="architecture" aria-labelledby="h-architecture">
+  <div class="inner">
+    <p class="eyebrow">11 / 14 · one picture</p>
+    <div class="head">
+      <h2 id="h-architecture">Architecture</h2>
+      <p>One Worker, one origin. The Room coordinates the map; PostGIS keeps the truth; the cache sits between them. Numbers in blue are the decision records.</p>
+    </div>
+    <div class="arch">
+      <svg viewBox="0 0 960 444" role="img" aria-label="Architecture diagram: the browser (React and Leaflet) talks HTTPS and WebSocket to one Cloudflare Worker running Hono. The Worker forwards sockets to the Room Durable Object (WebSocket hibernation, presence, drafts, fan-out), spends actions in the RateLimiter Durable Object, reads viewport results from Workers Cache, and reaches Neon PostGIS through Hyperdrive. Workers Logs and Analytics Engine receive log lines and datapoints. GitHub Actions deploys the Worker. Tiles come to the browser directly from the OSM and govmap CDNs.">
+        <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--ink-2)"/></marker></defs>
+        <!-- tiles -->
+        <rect class="box" x="20" y="24" width="190" height="56"/>
+        <text class="t" x="115" y="47" text-anchor="middle">Tile CDNs</text>
+        <text class="s" x="115" y="66" text-anchor="middle">OpenStreetMap · govmap (EPSG:2039)</text>
+        <path class="edge dash" d="M115,80 V150" marker-end="url(#arr)"/>
+        <text class="el" x="122" y="120">tiles</text>
+        <!-- browser -->
+        <rect class="box" x="20" y="150" width="190" height="116"/>
+        <text class="t" x="115" y="176" text-anchor="middle">Browser</text>
+        <text class="s" x="115" y="196" text-anchor="middle">React 19 · Leaflet 1.9.4 · TanStack</text>
+        <text class="s" x="115" y="213" text-anchor="middle">Vite SPA, Proj4Leaflet CRS swap</text>
+        <text class="adr" x="115" y="248" text-anchor="middle">ADR-0003 → ADR-0005</text>
+        <!-- github -->
+        <rect class="box" x="20" y="334" width="190" height="70"/>
+        <text class="t" x="115" y="361" text-anchor="middle">GitHub Actions</text>
+        <text class="s" x="115" y="380" text-anchor="middle">ci → migrate Neon → wrangler deploy</text>
+        <!-- worker -->
+        <rect class="box hot" x="300" y="150" width="220" height="116"/>
+        <text class="t" x="410" y="176" text-anchor="middle">Cloudflare Worker</text>
+        <text class="s" x="410" y="196" text-anchor="middle">Hono API · static assets · /ws gate</text>
+        <text class="s" x="410" y="213" text-anchor="middle">Zod at the boundary · Drizzle</text>
+        <text class="adr" x="410" y="248" text-anchor="middle">ADR-0001 · ADR-0002</text>
+        <!-- observability -->
+        <rect class="box" x="300" y="334" width="220" height="70"/>
+        <text class="t" x="410" y="361" text-anchor="middle">Workers Logs · Analytics Engine</text>
+        <text class="s" x="410" y="380" text-anchor="middle">JSON log lines · ws/room/db datapoints</text>
+        <!-- room -->
+        <rect class="box hot" x="610" y="20" width="220" height="104"/>
+        <text class="t" x="720" y="45" text-anchor="middle">Room Durable Object</text>
+        <text class="s" x="720" y="65" text-anchor="middle">WebSocket hibernation · SQLite drafts</text>
+        <text class="s" x="720" y="82" text-anchor="middle">presence · fan-out · map version</text>
+        <text class="adr" x="720" y="108" text-anchor="middle">ADR-0004</text>
+        <!-- rate limiter -->
+        <rect class="box" x="610" y="144" width="220" height="56"/>
+        <text class="t" x="720" y="167" text-anchor="middle">RateLimiter Durable Object</text>
+        <text class="s" x="720" y="186" text-anchor="middle">50 actions / 60 s per user</text>
+        <!-- cache -->
+        <rect class="box" x="610" y="220" width="220" height="56"/>
+        <text class="t" x="720" y="243" text-anchor="middle">Workers Cache</text>
+        <text class="s" x="720" y="262" text-anchor="middle">viewport reads: tile + map version</text>
+        <!-- hyperdrive -->
+        <rect class="box" x="610" y="296" width="150" height="56"/>
+        <text class="t" x="685" y="319" text-anchor="middle">Hyperdrive</text>
+        <text class="s" x="685" y="338" text-anchor="middle">connection pool</text>
+        <!-- neon -->
+        <rect class="box hot" x="790" y="296" width="150" height="56"/>
+        <text class="t" x="865" y="319" text-anchor="middle">Neon PostGIS</text>
+        <text class="s" x="865" y="338" text-anchor="middle">PostgreSQL 18 · PostGIS 3.6</text>
+        <!-- edges -->
+        <path class="edge" d="M210,208 H300" marker-end="url(#arr)" marker-start="url(#arr)"/>
+        <text class="el" x="255" y="200" text-anchor="middle">HTTPS · WebSocket</text>
+        <path class="edge" d="M470,150 V72 H610" marker-end="url(#arr)" marker-start="url(#arr)"/>
+        <text class="el" x="478" y="52">socket forwarded</text>
+        <text class="el" x="478" y="65">broadcast after a write</text>
+        <path class="edge" d="M520,196 C560,196 570,172 610,172" marker-end="url(#arr)"/>
+        <path class="edge" d="M520,218 C560,218 570,248 610,248" marker-end="url(#arr)" marker-start="url(#arr)"/>
+        <path class="edge" d="M520,240 C570,240 560,324 610,324" marker-end="url(#arr)"/>
+        <text class="el" x="560" y="300" text-anchor="middle">one short-lived client per call</text>
+        <path class="edge" d="M760,324 H790" marker-end="url(#arr)"/>
+        <path class="edge" d="M410,266 V334" marker-end="url(#arr)"/>
+        <text class="el" x="418" y="306">logs · metrics</text>
+        <path class="edge dash" d="M210,369 H260 V266 H300" marker-end="url(#arr)"/>
+        <text class="el" x="268" y="330" text-anchor="middle">deploy</text>
+        <path class="edge dash" d="M115,404 V432 H880 V352" marker-end="url(#arr)"/>
+        <text class="el" x="560" y="426" text-anchor="middle">migrations run from CI over the direct URL, never through Hyperdrive</text>
+      </svg>
+    </div>
+    <p class="small" style="margin-top:1rem">Decision records: <a href="../adr/0001-cloudflare-over-vercel.md">ADR-0001</a> Cloudflare Workers and Durable Objects instead of Vercel · <a href="../adr/0002-hono-over-fastify.md">ADR-0002</a> Hono instead of Fastify · <a href="../adr/0003-leaflet-1-9-4-and-proj4-crs.md">ADR-0003</a> Leaflet 1.9.4 (superseded on the CRS point) · <a href="../adr/0004-horizontal-scaling-on-cloudflare.md">ADR-0004</a> horizontal scaling on Cloudflare · <a href="../adr/0005-govmap-crs-swap.md">ADR-0005</a> govmap imagery through a CRS swap. The design spec's decision log D1–D25 is in <a href="../superpowers/specs/2026-10-12-collaborative-gis-design.md">docs/superpowers/specs/2026-10-12-collaborative-gis-design.md</a>, §10.</p>
+  </div>
+</section>
+
+<!-- 12 -->
+<section class="slide" id="limitations" aria-labelledby="h-limitations">
+  <div class="inner">
+    <p class="eyebrow">12 / 14 · the five partial rows, and what was deferred</p>
+    <div class="head">
+      <h2 id="h-limitations">Honest limitations</h2>
+      <p>The criteria matrix marks 5 of 78 requirement lines as partial. One card each: the brief's line, what is delivered, what is missing, and where to look.</p>
+    </div>
+    <div class="cards">
+      <div class="card"><h3>“retrieving all areas within current map bounds”</h3><dl>
+        <dt>Delivered</dt><dd><code>GET /api/areas?bbox=…</code> over a partial GiST index, a per-tile cache with an ETag, and the list and polygons in the UI.</dd>
+        <dt>Missing</dt><dd>The query returns at most the 500 most recently updated areas of the snapped 0.1° tile, with no truncation flag and no paging, so a denser tile silently drops areas, possibly ones inside the viewport.</dd>
+        <dt>Where</dt><dd><a href="../../apps/api/src/db/spatial-read.ts"><code>apps/api/src/db/spatial-read.ts</code></a> · <code>LIMITS.BOUNDS_LIMIT</code> in <a href="../../packages/shared/src/constants/limits.ts"><code>packages/shared/src/constants/limits.ts</code></a></dd>
+      </dl></div>
+      <div class="card"><h3>“log all user actions for audit trail and analytics”</h3><dl>
+        <dt>Delivered</dt><dd><code>audit_log</code> rows for area create, update, delete and revert (in the write's transaction), each saved draft, sign-in, sign-up, sign-out and failed sign-in, every 422 and 429, and each purge run; viewport reads as JSON log lines.</dd>
+        <dt>Missing</dt><dd>The Room writes no audit rows, so WebSocket joins, leaves, presence changes and draft sessions that are never saved or are refused leave no per-user record; <code>audit_log</code> has no index and no retention.</dd>
+        <dt>Where</dt><dd><a href="../../apps/api/src/middleware/audit.ts"><code>apps/api/src/middleware/audit.ts</code></a> · <a href="../../apps/api/src/do/"><code>apps/api/src/do/</code></a> (no audit writer) · README, Security measures</dd>
+      </dl></div>
+      <div class="card"><h3>“handle large datasets (10,000+ polygons per map region)”</h3><dl>
+        <dt>Delivered</dt><dd>A seed to 10,000 rows; the bounds query at that size runs in 0.22 ms p95 on the index; k6 reads at 86 ms p95 end to end.</dd>
+        <dt>Missing</dt><dd>The 10,000 were spread over all of Israel (30 inside the benchmark viewport). A region that holds 10,000 is never served whole: each read stops at 500 per tile, and there is no zoom simplification, clustering or paging (<code>zoom</code> is accepted and ignored).</dd>
+        <dt>Where</dt><dd><a href="../../apps/api/src/cache/bounds.ts"><code>apps/api/src/cache/bounds.ts</code></a> · <a href="../benchmarks.md"><code>docs/benchmarks.md</code></a> · <a href="../../apps/api/src/db/seed.ts"><code>apps/api/src/db/seed.ts</code></a></dd>
+      </dl></div>
+      <div class="card"><h3>“message queuing for high-volume WebSocket traffic”</h3><dl>
+        <dt>Delivered</dt><dd>Ordering queues: a per-user frame queue in the Room, a client send queue while connecting, a 10 frames/s cap per socket, and batched frame metrics.</dd>
+        <dt>Missing</dt><dd>No queue or broker absorbs bursts: fan-out is a synchronous loop over every socket in the one Room, and Cloudflare Queues is a documented growth step in ADR-0004, not built.</dd>
+        <dt>Where</dt><dd><a href="../../apps/api/src/do/sockets.ts"><code>apps/api/src/do/sockets.ts</code></a> · <a href="../../apps/api/src/do/room.ts"><code>apps/api/src/do/room.ts</code></a> · <a href="../adr/0004-horizontal-scaling-on-cloudflare.md"><code>docs/adr/0004</code></a></dd>
+      </dl></div>
+      <div class="card"><h3>“Docker containerization with docker-compose” (bonus)</h3><dl>
+        <dt>Delivered</dt><dd><code>docker-compose.yml</code> runs PostGIS 18 / 3.6 on a loopback port with a health check; the Worker runs on the host under <code>wrangler dev</code>.</dd>
+        <dt>Missing</dt><dd>On <code>main</code> the application itself is not containerised. PR #67, “run the API with wrangler dev in a container”, was open and not merged when this page was built (2026-10-13).</dd>
+        <dt>Where</dt><dd><a href="../../docker-compose.yml"><code>docker-compose.yml</code></a> · <a href="../process-log.md"><code>docs/process-log.md</code></a>, “Deferred to M5” · roadmap ticket 6.4</dd>
+      </dl></div>
+    </div>
+    <h3>Also known, in one line each</h3>
+    <ul class="small" style="max-width:none; columns: 2; column-gap: 2.5rem; column-width: 300px;">
+      <li>The 50-per-minute limit counts REST writes and draft sessions, not frames (D5): one tab can send up to 600 frames a minute under the separate 10/s cap.</li>
+      <li>Aerial imagery depends on govmap's legacy tile cache (newest tiles 2024-01), which can be retired without notice; there is no fallback imagery. The aerial e2e specs need the internet and run locally only.</li>
+      <li>“No third-party plugins for the collaborative features” is read narrowly (D25): drawing adapts <code>leaflet-editable</code>, and area and self-intersection use <code>@turf</code>; the presence, relay, fan-out and limiter code is this repository's.</li>
+      <li>Switching base layers maps to the nearest resolution, so a round trip can change the zoom (z15 → L07 → z16).</li>
+      <li>Load was measured locally at 10 REST users and 5 sockets, never against production and not at the 50 to 100 users the spec planned.</li>
+      <li>Realtime is one Room for the whole app (D11). An area event between a viewport's first read and the socket's join is picked up at the next pan or reconnect.</li>
+      <li>A session revoked elsewhere keeps working for up to 5 minutes where its cookie cache is still valid (D24). Deploying needs Workers Paid (D21). The sign-in limiter counts per isolate.</li>
+      <li>The WAF rule and the Cloudflare health check with its alert are dashboard steps (<a href="../deploy.md">docs/deploy.md</a>); the repository cannot show them. Cross-region Room placement is untested.</li>
+      <li>Not built from the roadmap: a Neon branch and preview URL per pull request (7.3), and the workerd container (6.4, PR #67 above).</li>
+    </ul>
+  </div>
+</section>
+
+<!-- 13 -->
+<section class="slide" id="bonus" aria-labelledby="h-bonus">
+  <div class="inner">
+    <p class="eyebrow">13 / 14 · the brief's optional list</p>
+    <div class="head">
+      <h2 id="h-bonus">Bonus coverage</h2>
+      <p>Coverage only, one line each.</p>
+    </div>
+    <ul class="checks">
+      <li class="partial"><b class="st partial">Partial</b><span>Docker containerization with docker-compose: PostGIS only on <code>main</code>; the API container is PR #67, open at build time.</span></li>
+      <li><b class="st">Met</b><span>unit tests for critical backend functionality: 40 api test files on workerd plus a Node project for migrations and seed; limiter, conflicts, validation, cache, purge, audit and the Room protocol.</span></li>
+      <li><b class="st">Met</b><span>API documentation (OpenAPI/Swagger): <code>/openapi.json</code> (OpenAPI 3.1, validated in a test) and <code>/docs</code> rendered by Scalar's pinned build with Subresource Integrity. Auth routes and the WebSocket protocol are outside the document; the protocol is the Zod schemas in <code>packages/shared/src/ws.ts</code>.</span></li>
+      <li><b class="st">Met</b><span>performance benchmarking results: <a href="../benchmarks.md">docs/benchmarks.md</a> (index vs none) and <a href="../benchmarks-load.md">docs/benchmarks-load.md</a> (k6 REST and WebSocket).</span></li>
+      <li><b class="st">Met</b><span>load testing considerations: <code>bench/rest.js</code>, <code>bench/ws.js</code>, <code>bench/auth.js</code> with pass thresholds in <a href="../../bench/README.md">bench/README.md</a>; a per-map budget in ADR-0004. Run locally, not in CI.</span></li>
+    </ul>
+    <div class="shots">
+      <figure><img src="img/14-docs-scalar.png" width="1440" height="900" alt="The Scalar API reference page titled Collaborative GIS API, v0.1.0, OpenAPI 3.1, listing Liveness, Readiness, Create an area, Areas in a viewport, Update, Delete, Versions and Revert, with a curl example for GET /healthz." loading="lazy"><figcaption><code>/docs</code>: the OpenAPI document rendered by Scalar.</figcaption></figure>
+      <figure><img src="img/17-storybook.png" width="1440" height="900" alt="Storybook showing the PresenceList List story with three users and the Accessibility panel reading Violations 0, Passes 11, Inconclusive 0." loading="lazy"><figcaption>Beyond the list: Storybook 10 with axe on every component; the stories run as browser tests in CI.</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<!-- 14 -->
+<section class="slide" id="docs" aria-labelledby="h-docs">
+  <div class="inner">
+    <p class="eyebrow">14 / 14 · where to read more</p>
+    <div class="head">
+      <h2 id="h-docs">Documentation map</h2>
+      <p>One line per document. The README is the entry point and answers each item of the brief's submission list under its own heading.</p>
+    </div>
+    <ul class="doclist">
+      <li><a href="../../README.md">README.md</a><span>Setup (with the database), Migrations, Database access rules, Deploy, Technical decisions and architecture, Performance considerations, Security measures, Known limitations, Future improvements and scaling, Testing approach.</span></li>
+      <li><a href="../adr/">docs/adr/</a><span>Five decision records (ADR-0001 to ADR-0005) and a template; ADR-0003 is superseded by ADR-0005 on the CRS point.</span></li>
+      <li><a href="../superpowers/specs/2026-10-12-collaborative-gis-design.md">docs/superpowers/specs/…design.md</a><span>The design spec; §10 is the decision log D1–D25 with the owner rulings.</span></li>
+      <li><a href="../deploy.md">docs/deploy.md</a><span>Routing, the one-time owner checklist, CI deploy, smoke checks, rollback, Durable Objects in production, hardening.</span></li>
+      <li><a href="../constants.md">docs/constants.md</a><span>Every tunable value with its doc comment, generated from <code>packages/shared/src/constants/</code>; CI fails when it is stale.</span></li>
+      <li><a href="../process-log.md">docs/process-log.md</a><span>How the work was done, task by task, with the rulings that changed scope and what was deferred.</span></li>
+      <li><a href="../research-notes.md">docs/research-notes.md</a><span>The reading behind each technology choice, each fact tied to the decision it drives.</span></li>
+      <li><a href="../benchmarks.md">docs/benchmarks.md</a><span>The bounds query with and without the GiST index at 10,000 rows.</span></li>
+      <li><a href="../benchmarks-load.md">docs/benchmarks-load.md</a><span>k6 REST and WebSocket results, with the machine and versions.</span></li>
+      <li><a href="../roadmap.md">docs/roadmap.md</a><span>Epics, tickets, milestones, the critical path and the risk register.</span></li>
+      <li><a href="../../apps/web/e2e/README.md">apps/web/e2e/README.md</a><span>The two-browser Playwright run.</span></li>
+      <li><a href="../../bench/README.md">bench/README.md</a><span>The k6 scripts and what passes.</span></li>
+    </ul>
+    <p class="small" style="margin-top:2rem">This page: <code>docs/guide/index.html</code>, one file with its images in <code>docs/guide/img/</code>; emails and author ids in the screenshots are covered. Built 2026-10-13 from <code>main</code> at 1a581e7.</p>
+  </div>
+</section>
+
+</main>
+
+<script>
+(function () {
+  var sections = Array.prototype.slice.call(document.querySelectorAll('section.slide'));
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+  var bar = document.getElementById('progress');
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var ticking = false;
+  function progress() {
+    var max = document.documentElement.scrollHeight - window.innerHeight;
+    bar.style.transform = 'scaleX(' + (max > 0 ? window.scrollY / max : 0) + ')';
+    ticking = false;
+  }
+  window.addEventListener('scroll', function () { if (!ticking) { ticking = true; requestAnimationFrame(progress); } }, { passive: true });
+  progress();
+  function current() {
+    var y = window.scrollY + window.innerHeight * 0.35, i = 0;
+    for (var k = 0; k < sections.length; k++) if (sections[k].offsetTop <= y) i = k;
+    return i;
+  }
+  function mark() {
+    var i = current();
+    links.forEach(function (a, k) { if (k === i) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current'); });
+    var active = links[i]; if (active && active.scrollIntoView && window.innerWidth <= 1100) active.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'auto' });
+  }
+  window.addEventListener('scroll', mark, { passive: true });
+  mark();
+  function go(delta) {
+    var i = Math.min(sections.length - 1, Math.max(0, current() + delta));
+    sections[i].scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    history.replaceState(null, '', '#' + sections[i].id);
+  }
+  document.addEventListener('keydown', function (e) {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    if (e.key === 'ArrowRight') { e.preventDefault(); go(1); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1); }
+  });
+})();
+</script>
+</body>
+</html>

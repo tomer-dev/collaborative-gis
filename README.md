@@ -2,6 +2,8 @@
 
 Real-time collaborative polygon drawing on Leaflet with OpenStreetMap and govmap aerial imagery. Hono on Cloudflare Workers + Durable Objects, PostGIS on Neon via Hyperdrive, Better Auth, React + Vite + TanStack.
 
+Reviewer guide (presentation): [`docs/guide/index.html`](docs/guide/index.html), one page with screenshots, numbers and file pointers for each requirement of the product brief; open it from a checkout, or from GitHub Pages if enabled.
+
 ## Documentation map
 
 - [`docs/roadmap.md`](docs/roadmap.md): epics, tickets, milestones and the critical path.
