@@ -1,5 +1,7 @@
 import {
+  applyDraftOp,
   type Draft,
+  type DraftOp,
   ERROR_CODES,
   ERROR_MESSAGES,
   MAP,
@@ -13,7 +15,7 @@ import { act, cleanup, renderHook } from '@testing-library/react';
 import * as L from 'leaflet';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { applyDraftOp, DRAFT_INTERVAL_MS, type DraftOp } from './draft-sender';
+import { DRAFT_INTERVAL_MS } from './draft-sender';
 import { type FakeSocket, fakeSockets, serverFrame } from './fake-websocket';
 import { useRoom } from './use-room';
 import { backoffDelay } from './ws';
@@ -153,7 +155,7 @@ function setup() {
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
-  const view = renderHook(() => useRoom({ selfId: SELF, map, createSocket: fake.factory }), {
+  const view = renderHook(() => useRoom({ selfId: SELF, map }), {
     wrapper,
   });
   /** Time passes; the Room answers what arrived every `NETWORK_STEP_MS`. */

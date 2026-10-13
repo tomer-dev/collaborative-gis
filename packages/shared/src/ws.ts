@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { AreaSchema } from './area.ts';
 import { LIMITS } from './constants/index.ts';
-import { PositionSchema } from './geo.ts';
+import { type Position, PositionSchema } from './geo.ts';
 
 const base = { seq: z.number().int().nonnegative(), ts: z.number().int().nonnegative() };
 
@@ -49,6 +49,31 @@ const draftUpdate = z.object({
     z.object({ op: z.literal('clear'), ...draftAuthor }),
   ]),
 });
+
+/** The `payload` of a `draft:update`: one edit to the sender's in-progress polygon. */
+export type DraftOp = z.infer<typeof draftUpdate>['payload'];
+
+/**
+ * `vertices` after `op`, or `undefined` when the op does not fit them: an index past the end, or
+ * an `add` beyond `LIMITS.POLYGON_MAX_VERTICES`. `add` inserts at `index` (`index === length`
+ * appends), `move` replaces, `remove` deletes, `clear` empties. The Room and the client both
+ * apply ops with it, so their copies of a draft agree.
+ */
+export function applyDraftOp(vertices: readonly Position[], op: DraftOp): Position[] | undefined {
+  switch (op.op) {
+    case 'add':
+      if (op.index > vertices.length || vertices.length >= LIMITS.POLYGON_MAX_VERTICES) return;
+      return [...vertices.slice(0, op.index), op.vertex, ...vertices.slice(op.index)];
+    case 'move':
+      if (op.index >= vertices.length) return;
+      return vertices.map((vertex, i) => (i === op.index ? op.vertex : vertex));
+    case 'remove':
+      if (op.index >= vertices.length) return;
+      return vertices.filter((_, i) => i !== op.index);
+    case 'clear':
+      return [];
+  }
+}
 
 // Server → client
 const presence = z.object({

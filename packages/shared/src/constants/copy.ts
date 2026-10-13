@@ -18,10 +18,6 @@ export const COPY = {
     OFFLINE_TITLE: 'Offline',
     /** States the poll interval from `WS.OFFLINE_POLL_MS`. */
     OFFLINE_DETAIL: `Showing the last saved areas; polling every ${WS.OFFLINE_POLL_MS / MS_PER_SECOND} s. Your drawing is kept.`,
-    /** Banner while a re-join waits for the Room's state (after a reconnect or a `resync` error); brief. */
-    RESYNC_TITLE: 'Resyncing…',
-    /** Ghosts and presence are replaced by the Room's answer; the draft is resent. */
-    RESYNC_DETAIL: 'Catching up with the live map.',
     /** The offline banner's button: connect now. */
     RETRY: 'Retry',
   },

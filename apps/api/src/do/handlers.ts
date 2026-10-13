@@ -1,6 +1,14 @@
-import { ERROR_CODES, ERROR_MESSAGES, type PresenceState, WS, WS_MESSAGES } from '@cgis/shared';
+import {
+  applyDraftOp,
+  type DraftOp,
+  ERROR_CODES,
+  ERROR_MESSAGES,
+  type PresenceState,
+  WS,
+  WS_MESSAGES,
+} from '@cgis/shared';
 import { log } from '../log';
-import { applyDraftOp, type DraftOp, type DraftStore, takeDraftFrame } from './drafts';
+import { type DraftStore, takeDraftFrame } from './drafts';
 import type { DraftRelay } from './frames';
 import { presenceOf } from './presence';
 import type { TakeResult } from './rate-limiter';
