@@ -1,5 +1,5 @@
 import { COPY, LIMITS, type Area, type Bbox } from '@cgis/shared';
-import { useRef, useState, type FormEvent } from 'react';
+import { useRef, useState, type ComponentProps, type FormEvent, type RefObject } from 'react';
 import { flushSync } from 'react-dom';
 import { areaReadout } from '../lib/area-readout';
 import {
@@ -12,15 +12,7 @@ import {
 } from '../lib/areas-mutations';
 import { Banner, Button, Field, IconClose, Input, Panel, Stat } from '../ui';
 import { AreaHistory } from './AreaHistory';
-import {
-  AreasInViewPanel,
-  inView,
-  PANEL_SIZE,
-  type AreasListState,
-  type CardRef,
-} from './AreasInViewPanel';
-
-export type { AreasListState };
+import { AreasInViewPanel, inView, PANEL_SIZE } from './AreasInViewPanel';
 
 type SelectedAreaProps = {
   onClose: () => void;
@@ -36,7 +28,7 @@ export type AreaPanelProps = SelectedAreaProps & {
    */
   areas: readonly Area[];
   /** The viewport query's state: loading and a failed load each say so, rather than "none". */
-  list: AreasListState;
+  list: ComponentProps<typeof AreasInViewPanel>['list'];
   /** The current viewport; the list shows the areas whose bounds meet it. */
   bbox: Bbox | null;
   /** Optimistic areas whose create is in flight (`usePendingAreaIds`): never listed or opened. */
@@ -63,6 +55,9 @@ export function AreaPanel({
   ...selectedProps
 }: AreaPanelProps) {
   const card = useRef<HTMLElement>(null);
+  // Here, not in the list card: a pick unmounts that card, and Close must bring it back as it was
+  // (on a phone, a refolded list would hide the row that Close puts focus on).
+  const [unfolded, setUnfolded] = useState(false);
   const saved = areas.filter((area) => !pendingIds.has(area.id));
   const selected = saved.find((area) => area.id === selectedId);
   // A pick or a Close swaps the card under the button that had focus: the other card renders now
@@ -89,16 +84,19 @@ export function AreaPanel({
       cardRef={card}
       areas={inView(saved, bbox)}
       list={list}
+      unfolded={unfolded}
+      onToggleFold={() => setUnfolded(!unfolded)}
       onSelect={(area) => swapTo(() => onSelect(area), area.id)}
     />
   );
 }
 
-type SelectedAreaPanelProps = SelectedAreaProps &
-  CardRef & {
-    /** The selected area, as the viewport query has it now. */
-    area: Area;
-  };
+type SelectedAreaPanelProps = SelectedAreaProps & {
+  /** The card's section, for AreaPanel's focus moves. */
+  cardRef: RefObject<HTMLElement | null>;
+  /** The selected area, as the viewport query has it now. */
+  area: Area;
+};
 
 /**
  * The selected area: its server-measured size, a rename form (`PUT` with the version shown here),
