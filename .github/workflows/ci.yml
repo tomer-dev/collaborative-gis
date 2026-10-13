@@ -9,6 +9,26 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  # The checks that need no database or browser run on the slim image (1 vCPU, a 15-minute limit):
+  # install, lint, format, the constants doc and the typecheck finish in about three minutes there.
+  checks:
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm format:check
+      # docs/constants.md is generated from packages/shared/src/constants/; fails when it is stale.
+      - run: pnpm constants:docs --check
+      - run: pnpm typecheck
+  # The tests and the API contract batch need the PostGIS service container (Docker, so a full VM);
+  # the builds follow them because the wrangler dry run reads the web build from the same checkout.
   ci:
     runs-on: ubuntu-24.04
     services:
@@ -30,11 +50,6 @@ jobs:
           node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
-      - run: pnpm format:check
-      # docs/constants.md is generated from packages/shared/src/constants/; fails when it is stale.
-      - run: pnpm constants:docs --check
-      - run: pnpm typecheck
       # Generating from apps/api/src/db/*schema.ts writes nothing: drizzle/ matches the schema.
       - name: migrations match the schema
         run: |
@@ -59,6 +74,10 @@ jobs:
           pnpm exec hono batch --compact batch/areas.jsonl --runtime workerd > "$RUNNER_TEMP/batch.json"
           cat "$RUNNER_TEMP/batch.json"
           jq -e '.data.summary.failed == 0' "$RUNNER_TEMP/batch.json"
+      # The web project's `tsc -b` references the api project, whose bindings come from the
+      # generated Worker types (`pnpm types`); the checks job generates them on its own runner.
+      - name: worker types
+        run: pnpm --filter @cgis/api types
       - name: web build
         run: pnpm --filter @cgis/web build
       # Static build only (D18 reduced): proves every story and .storybook file compiles. Story
