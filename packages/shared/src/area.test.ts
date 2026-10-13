@@ -21,12 +21,14 @@ describe('AreaVersionSchema', () => {
     geometry: polygon,
     areaKm2: 12.3,
     changedBy: 'user-1',
+    authorName: 'Ada',
     changedAt: '2026-10-12T10:00:00Z',
   };
 
   it('parses a valid history entry and rejects version 0', () => {
     expect(AreaVersionSchema.safeParse(entry).success).toBe(true);
     expect(AreaVersionSchema.safeParse({ ...entry, version: 0 }).success).toBe(false);
+    expect(AreaVersionSchema.safeParse({ ...entry, authorName: null }).success).toBe(true);
   });
 });
 

@@ -1,6 +1,7 @@
 import { GEO, LIMITS, type Area, type AreaVersion, type Bbox, type Polygon } from '@cgis/shared';
 import { and, desc, eq, isNull, sql, type AnyColumn, type SQL } from 'drizzle-orm';
 import type pg from 'pg';
+import { user } from './auth-schema.ts';
 import { db } from './index.ts';
 import { areas, areaVersions } from './schema.ts';
 
@@ -70,7 +71,8 @@ export async function selectAreasInBounds(
 /**
  * A live area's saved versions, newest first and at most `LIMITS.VERSIONS_PAGE` of them, each
  * geometry as GeoJSON; empty when the area is missing or soft-deleted (a live area always has at
- * least its version 1 row). A builder select (D23):
+ * least its version 1 row), with the saver's display name (null when the user row is gone). A
+ * builder select (D23):
  * `ST_AsGeoJSON` is its one `sql` fragment.
  */
 export async function listVersions(c: pg.Client, areaId: string): Promise<AreaVersion[]> {
@@ -82,10 +84,12 @@ export async function listVersions(c: pg.Client, areaId: string): Promise<AreaVe
       geometry: sql<Polygon>`ST_AsGeoJSON(${areaVersions.geom})::json`,
       areaKm2: areaVersions.areaKm2,
       changedBy: areaVersions.changedBy,
+      authorName: user.name,
       changedAt: areaVersions.changedAt,
     })
     .from(areaVersions)
     .innerJoin(areas, eq(areas.id, areaVersions.areaId))
+    .leftJoin(user, eq(user.id, areaVersions.changedBy))
     .where(and(eq(areaVersions.areaId, areaId), isNull(areas.deletedAt)))
     .orderBy(desc(areaVersions.version))
     .limit(LIMITS.VERSIONS_PAGE);

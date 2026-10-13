@@ -41,7 +41,11 @@ const ISRAEL: Bbox = [34.2, 29.5, 35.9, 33.3];
 const EDITOR = 'user_2zyxwvutsrqpon';
 const area = makeArea(AREA_ID, { name: 'Orchard v3', version: 3 });
 const versions = [
-  makeVersion(AREA_ID, 3, { changedAt: '2026-10-12T11:59:30.000Z', changedBy: EDITOR }),
+  makeVersion(AREA_ID, 3, {
+    changedAt: '2026-10-12T11:59:30.000Z',
+    changedBy: EDITOR,
+    authorName: 'Alice (demo)',
+  }),
   makeVersion(AREA_ID, 2, { changedAt: '2026-10-12T11:55:00.000Z', areaKm2: 0.5 }),
   makeVersion(AREA_ID, 1, { changedAt: '2026-10-10T12:00:00.000Z', areaKm2: 2.25 }),
 ];
@@ -77,9 +81,7 @@ it("lists the versions newest first: number, name, area, who and when; the area'
   expect(newest?.textContent).toContain(COPY.AREAS.VERSION_LABEL(3));
   expect(newest?.textContent).toContain('Orchard v3');
   expect(newest?.textContent).toContain(formatArea(104.97));
-  expect(newest?.textContent).toContain(
-    COPY.AREAS.VERSION_BY(EDITOR.slice(0, LIMITS.USER_ID_PREFIX)),
-  );
+  expect(newest?.textContent).toContain(COPY.AREAS.VERSION_BY('Alice (demo)'));
   // date-fns formatDistanceToNow: 30 s rounds to a minute.
   expect(newest?.textContent).toContain('1 minute ago');
   expect(newest?.textContent).toContain(COPY.AREAS.VERSION_CURRENT);
@@ -87,6 +89,10 @@ it("lists the versions newest first: number, name, area, who and when; the area'
 
   expect(middle?.textContent).toContain(COPY.AREAS.VERSION_LABEL(2));
   expect(middle?.textContent).toContain(formatArea(0.5));
+  // No user row left for the saver: the id prefix stands in for the name.
+  expect(middle?.textContent).toContain(
+    COPY.AREAS.VERSION_BY(versions[1]!.changedBy.slice(0, LIMITS.USER_ID_PREFIX)),
+  );
   expect(middle?.textContent).toContain('5 minutes ago');
   expect(oldest?.textContent).toContain(COPY.AREAS.VERSION_LABEL(1));
   expect(oldest?.textContent).toContain(formatArea(2.25));

@@ -41,6 +41,8 @@ export const AreaVersionSchema = z.object({
   geometry: PolygonSchema,
   areaKm2: z.number(),
   changedBy: z.string(),
+  /** The saver's display name; null when their user row is gone. */
+  authorName: z.string().nullable(),
   changedAt: z.iso.datetime(),
 });
 export type AreaVersion = z.infer<typeof AreaVersionSchema>;
