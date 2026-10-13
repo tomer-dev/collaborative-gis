@@ -17,7 +17,7 @@ Real-time collaborative polygon drawing on Leaflet with OpenStreetMap and govmap
 
 ## Setup
 
-Prerequisites: Node 22 (`.node-version` pins 22.23.3; `engines` requires `>=22.22.2`), pnpm 12.5.1 (pinned by `packageManager`), Docker. Wrangler and the Hono CLI (`@hono/cli`) are dev dependencies of `apps/api` and are installed by pnpm.
+Prerequisites: Node 24 (`.node-version` pins 24.21.0; `engines` requires `>=24.21.0`), pnpm 12.5.1 (pinned by `packageManager`), Docker. Wrangler and the Hono CLI (`@hono/cli`) are dev dependencies of `apps/api` and are installed by pnpm.
 
 Workspace:
 
