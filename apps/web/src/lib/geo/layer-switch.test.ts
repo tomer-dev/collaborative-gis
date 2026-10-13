@@ -6,7 +6,9 @@ import { onDraw } from './draw-events';
 import { createPolygonDraw } from './draw-tool';
 import { govmapCrs } from './govmap-crs';
 import { GovmapTileLayer } from './govmap-layer';
+import { createOsmLayer } from './osm-layer';
 import {
+  baseLayers,
   currentBaseLayer,
   mapZoom,
   SNAPSHOT_CLASS,
@@ -113,10 +115,7 @@ describe('switchBaseLayer', () => {
     document.body.append(container);
     // As MapView builds it: OSM base layer, then the overlay panes.
     map = L.map(container, { center: FOUNTAIN, zoom: 16 });
-    L.tileLayer(MAP.OSM_TILE_URL, {
-      attribution: MAP.OSM_ATTRIBUTION,
-      maxZoom: MAP.OSM_MAX_ZOOM,
-    }).addTo(map);
+    createOsmLayer().addTo(map);
     map.createPane(MAP.AREAS_PANE);
     map.createPane(MAP.DRAFTS_PANE);
   });
@@ -128,13 +127,7 @@ describe('switchBaseLayer', () => {
     vi.restoreAllMocks();
   });
 
-  const gridLayers = () => {
-    const layers: L.GridLayer[] = [];
-    map.eachLayer((layer) => {
-      if (layer instanceof L.GridLayer) layers.push(layer);
-    });
-    return layers;
-  };
+  const gridLayers = () => baseLayers(map);
   /** Pixels between where `latlng` is drawn and the container's centre. */
   const offCentre = (latlng: L.LatLng) =>
     map.latLngToContainerPoint(latlng).distanceTo(L.point(SIZE.width / 2, SIZE.height / 2));

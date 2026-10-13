@@ -195,7 +195,7 @@ describe('auditRejections', () => {
         version: 1,
         details: null,
       },
-      // A square: four vertices besides the closing one (test/audit/draw-session.test.ts).
+      // A square: four vertices besides the closing one.
       {
         ...common,
         action: 'draw.session',

@@ -17,15 +17,11 @@ const { min, max } = WS.RECONNECT_BACKOFF_MS;
 
 let connection: RoomConnection;
 
-/** A connection on fake sockets with no jitter (`random` = 0: every delay is the full backoff). */
+/** A connection on fake sockets with no jitter (`Math.random` = 0: every delay is the full backoff). */
 function connect(options: Pick<RoomConnectionOptions, 'shouldRetry'> = {}) {
   const fake = fakeSockets();
-  connection = createRoomConnection({
-    url: URL,
-    createSocket: fake.factory,
-    random: () => 0,
-    ...options,
-  });
+  vi.spyOn(Math, 'random').mockReturnValue(0);
+  connection = createRoomConnection({ url: URL, ...options });
   const states: ConnectionState[] = [];
   connection.onState((state) => states.push(state));
   return { ...fake, states };

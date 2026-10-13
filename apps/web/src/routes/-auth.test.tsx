@@ -50,11 +50,9 @@ vi.mock('../lib/auth-client', async () => {
 const ada = { id: 'user_1', name: 'Ada Lovelace' };
 const signedIn: BetterAuthSession = { data: { user: ada }, isPending: false };
 const signedOut: BetterAuthSession = { data: null, isPending: false };
-const ok = (data: unknown) => ({ data, error: null });
-const failed = (status: number, message?: string) => ({
-  data: null,
-  error: { status, statusText: '', ...(message ? { message } : {}) },
-});
+// The client throws on an error answer (fetchOptions.throw): a BetterFetchError with the body.
+const failed = (status: number, message?: string) =>
+  Object.assign(new Error(String(status)), { status, error: message ? { message } : {} });
 
 /**
  * What Better Auth's client does after a successful sign-in, sign-up or sign-out: refetch
@@ -119,7 +117,7 @@ describe('/login', () => {
   });
 
   it('signs in through authClient, then lands on /map once Better Auth has the session', async () => {
-    auth.signInEmail.mockResolvedValue(ok({ redirect: false, token: 'tok_1', user: ada }));
+    auth.signInEmail.mockResolvedValue({ redirect: false, token: 'tok_1', user: ada });
     const { router, resolved } = renderAppAt(ROUTES.APP.LOGIN, signedOut);
     await screen.findByRole('heading', { name: COPY.AUTH.LOGIN_TITLE });
 
@@ -146,7 +144,7 @@ describe('/login', () => {
   });
 
   it('shows the server message in an alert on a wrong password and stays on /login', async () => {
-    auth.signInEmail.mockResolvedValue(failed(401, 'Invalid email or password'));
+    auth.signInEmail.mockRejectedValue(failed(401, 'Invalid email or password'));
     const { router } = renderAppAt(ROUTES.APP.LOGIN, signedOut);
     await screen.findByRole('heading', { name: COPY.AUTH.LOGIN_TITLE });
 
@@ -170,7 +168,7 @@ describe('/login', () => {
   });
 
   it('shows the generic copy when the failure carries no message', async () => {
-    auth.signInEmail.mockResolvedValue(failed(502));
+    auth.signInEmail.mockRejectedValue(failed(502));
     renderAppAt(ROUTES.APP.LOGIN, signedOut);
     await screen.findByRole('heading', { name: COPY.AUTH.LOGIN_TITLE });
 
@@ -211,7 +209,7 @@ describe('/login', () => {
     const busy = await screen.findByRole('button', { name: COPY.AUTH.LOGIN_PENDING });
     expect(busy).toHaveProperty('disabled', true);
 
-    await act(async () => respond(ok({ redirect: false, token: 'tok_1', user: ada })));
+    await act(async () => respond({ redirect: false, token: 'tok_1', user: ada }));
     expect(await screen.findByRole('button', { name: COPY.AUTH.LOGIN_SUBMIT })).toHaveProperty(
       'disabled',
       false,
@@ -245,7 +243,7 @@ describe('/login', () => {
 
 describe('/register', () => {
   it('signs up through authClient with name, then lands on /map once Better Auth has the session', async () => {
-    auth.signUpEmail.mockResolvedValue(ok({ token: 'tok_1', user: ada }));
+    auth.signUpEmail.mockResolvedValue({ token: 'tok_1', user: ada });
     const { router } = renderAppAt(ROUTES.APP.REGISTER, signedOut);
     await screen.findByRole('heading', { name: COPY.AUTH.REGISTER_TITLE });
 
@@ -309,7 +307,7 @@ describe('signed-in visitor', () => {
 
 describe('sign-out', () => {
   it('calls authClient.signOut, then lands on /login once Better Auth drops the session', async () => {
-    auth.signOut.mockResolvedValue(ok({ success: true }));
+    auth.signOut.mockResolvedValue({ success: true });
     const { router } = renderAppAt(ROUTES.APP.MAP, signedIn);
     await screen.findByTestId('map-root');
 
@@ -324,7 +322,7 @@ describe('sign-out', () => {
   });
 
   it('keeps the user on /map with an alert when sign-out fails', async () => {
-    auth.signOut.mockResolvedValue(failed(500, 'Internal Server Error'));
+    auth.signOut.mockRejectedValue(failed(500, 'Internal Server Error'));
     const { router } = renderAppAt(ROUTES.APP.MAP, signedIn);
     await screen.findByTestId('map-root');
 

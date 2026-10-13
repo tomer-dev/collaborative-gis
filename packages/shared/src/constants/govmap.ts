@@ -35,12 +35,10 @@ export const GOVMAP = {
   /** Legacy tile CDN: no Referer or Origin check, no CORS headers, missing tiles answer 403. */
   TILE_HOST: 'https://cdn.govmap.gov.il',
   /**
-   * Aerial caches on `TILE_HOST`, newest first by tile `Last-Modified`: 2024-01 (the newest that
-   * answers), 2023-03 (govmap's published national orthophoto config), 2022-05 (the 2021 national
-   * orthophoto). The layer uses the first; the others are documented alternatives, not a runtime
-   * fallback.
+   * Aerial cache on `TILE_HOST`: 2024-01, the newest that answers by tile `Last-Modified`. Older
+   * ones: `M2023ORT3TS` (2023-03, govmap's published config), `020522B0B20R` (2021 orthophoto).
    */
-  CACHES: ['B0BZ1ORTO23', 'M2023ORT3TS', '020522B0B20R'],
+  CACHE: 'B0BZ1ORTO23',
   /** Tile path level `L08`: decimal, zero-padded to this many digits. */
   TILE_LEVEL_DIGITS: 2,
   /** Tile path row `R…` and column `C…`: lowercase hex (uppercase answers 403), zero-padded. */
