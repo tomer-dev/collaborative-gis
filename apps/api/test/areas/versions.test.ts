@@ -110,6 +110,24 @@ describe('GET /api/areas/:id/versions', () => {
     ]);
   });
 
+  it("carries the author's display name; null when no user row has the id", async () => {
+    const author = signedIn();
+    await withClient(env, (client) =>
+      client.query('insert into "user" (id, name, email) values ($1, $2, $3)', [
+        author.user.id,
+        'Alice (demo)',
+        `${author.user.id}@example.test`,
+      ]),
+    );
+    const { area } = await threeVersions(author.api);
+    const ghost = await threeVersions(signedIn().api);
+
+    expect((await versionsOf(author.api, area.id)).map((v) => v.authorName)).toEqual(
+      Array(3).fill('Alice (demo)'),
+    );
+    expect((await versionsOf(author.api, ghost.area.id))[0]?.authorName).toBeNull();
+  });
+
   it('lists at most LIMITS.VERSIONS_PAGE versions: the newest ones', async () => {
     const { api } = signedIn();
     const created = await api.create({ name: 'long history', geometry: squareAt(randomSpot()) });
@@ -181,6 +199,7 @@ describe('POST /api/areas/:id/revert/:version', () => {
         geometry: shapes[0],
         areaKm2: v1.areaKm2,
         changedBy: editor.user.id,
+        authorName: null,
         changedAt: reverted.updatedAt,
       },
       ...before,

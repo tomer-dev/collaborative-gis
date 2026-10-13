@@ -156,6 +156,10 @@ describe('Avatar', () => {
     expect(initials('  grace  brewster murray hopper ')).toBe('GH');
     expect(initials('Émile')).toBe('É');
     expect(initials('')).toBe('?');
+    expect(initials('Alice (demo)')).toBe('AD');
+    expect(initials('bob')).toBe('B');
+    expect(initials("O'Neil")).toBe('O');
+    expect(initials('(( ))')).toBe('?');
     render(
       <>
         <Avatar name="Ada Lovelace" color={MAP.PRESENCE_COLORS[2]} />

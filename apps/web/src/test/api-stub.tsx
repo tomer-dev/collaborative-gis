@@ -68,6 +68,7 @@ export function makeVersion(
     geometry: { type: 'Polygon', coordinates: [SQUARE] },
     areaKm2: 104.97,
     changedBy: 'user_1abcdefghijkl',
+    authorName: null,
     changedAt: '2026-10-12T10:00:00.000Z',
     ...overrides,
   };
