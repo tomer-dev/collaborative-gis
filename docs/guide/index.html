@@ -204,7 +204,7 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
     <div class="tiles">
       <div class="tile"><div class="label">Unit and component tests</div><div class="value">615</div><div class="src">38 shared + 309 api + 268 web, counted from <code>it</code>/<code>test</code> declarations on 2026-10-13; 3 Playwright e2e tests besides. CI green on <code>main</code> (run on 9f072e6, 16:37 UTC).</div></div>
       <div class="tile"><div class="label">Viewport read, production p95</div><div class="value">49<small>ms</small></div><div class="src">Database time of <code>areas.list</code>, Analytics Engine <code>db_query</code> datapoints, 31 points over the two days to 2026-10-13.</div></div>
-      <div class="tile"><div class="label">Draft frames delivered within 1 s</div><div class="value">6000<small>of 6000</small></div><div class="src">k6 WebSocket run, 5 sockets × 300 frames at 10/s, echo p95 8 ms (<a href="../benchmarks-load.md">docs/benchmarks-load.md</a>, local, 2026-10-13).</div></div>
+      <div class="tile"><div class="label">Draft frames delivered within 1 s</div><div class="value">6000<small>of 6000</small></div><div class="src">k6 WebSocket run, 5 sockets × 300 frames at 10/s, echo p95 8 ms (<a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/benchmarks-load.md">docs/benchmarks-load.md</a>, local, 2026-10-13).</div></div>
     </div>
     <p>Against the product brief's requirement lines: <strong>73 of 78 met, 5 partial, 0 not met</strong> (criteria matrix, 2026-10-13). The five partial rows have their own section: <a href="#limitations">12 · Limitations</a>.</p>
     <p class="stack">Hono on Cloudflare Workers + Durable Objects · PostGIS 3.6 on Neon via Hyperdrive · React 19 + Leaflet 1.9.4 · Better Auth · Drizzle · Zod</p>
@@ -274,21 +274,21 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
     </div>
     <div class="lives">
       <div><h3>Where it lives</h3><dl>
-        <dt><a href="../../apps/api/src/ws.ts">apps/api/src/ws.ts</a> · <a href="../../apps/api/src/do/room.ts">apps/api/src/do/room.ts</a></dt><dd>The upgrade gate, then the Room: <code>acceptWebSocket</code> (hibernatable), <code>webSocketMessage</code>, ping answered without waking the object.</dd>
-        <dt><a href="../../apps/api/src/routes/areas.ts">apps/api/src/routes/areas.ts</a> · <a href="../../apps/api/src/services/areas.ts">apps/api/src/services/areas.ts</a></dt><dd>POST, GET, PUT, DELETE. A create writes the area, version 1 and the audit row in one transaction.</dd>
-        <dt><a href="../../apps/api/src/db/spatial-read.ts">apps/api/src/db/spatial-read.ts</a></dt><dd>The bounds query: <code>geom &amp;&amp; ST_MakeEnvelope(…)</code> over live rows, through the Drizzle query builder.</dd>
-        <dt><a href="../../apps/api/src/db/geometry.ts">apps/api/src/db/geometry.ts</a></dt><dd><code>ST_Area(geom::geography) / 1e6</code>: square kilometres on the WGS 84 spheroid, stored as <code>area_km2</code>.</dd>
-        <dt><a href="../../apps/api/src/routes/versions.ts">apps/api/src/routes/versions.ts</a> · <a href="../../apps/api/src/db/spatial.ts">apps/api/src/db/spatial.ts</a></dt><dd><code>GET /api/areas/:id/versions</code>, <code>POST …/revert/:version</code>; every write CTE inserts the version row.</dd>
-        <dt><a href="../../apps/api/src/auth.ts">apps/api/src/auth.ts</a> · <a href="../../apps/api/src/middleware/require-user.ts">apps/api/src/middleware/require-user.ts</a></dt><dd>Better Auth email and password at <code>/api/auth/*</code>; a 5-minute cookie cache; 401 once signed out.</dd>
-        <dt><a href="../../apps/api/src/do/drafts.ts">apps/api/src/do/drafts.ts</a> · <a href="../../apps/api/src/do/handlers.ts">apps/api/src/do/handlers.ts</a></dt><dd>One draft per user; relay to all but the sender.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/ws.ts">apps/api/src/ws.ts</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/do/room.ts">apps/api/src/do/room.ts</a></dt><dd>The upgrade gate, then the Room: <code>acceptWebSocket</code> (hibernatable), <code>webSocketMessage</code>, ping answered without waking the object.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/routes/areas.ts">apps/api/src/routes/areas.ts</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/services/areas.ts">apps/api/src/services/areas.ts</a></dt><dd>POST, GET, PUT, DELETE. A create writes the area, version 1 and the audit row in one transaction.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/db/spatial-read.ts">apps/api/src/db/spatial-read.ts</a></dt><dd>The bounds query: <code>geom &amp;&amp; ST_MakeEnvelope(…)</code> over live rows, through the Drizzle query builder.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/db/geometry.ts">apps/api/src/db/geometry.ts</a></dt><dd><code>ST_Area(geom::geography) / 1e6</code>: square kilometres on the WGS 84 spheroid, stored as <code>area_km2</code>.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/routes/versions.ts">apps/api/src/routes/versions.ts</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/db/spatial.ts">apps/api/src/db/spatial.ts</a></dt><dd><code>GET /api/areas/:id/versions</code>, <code>POST …/revert/:version</code>; every write CTE inserts the version row.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/auth.ts">apps/api/src/auth.ts</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/middleware/require-user.ts">apps/api/src/middleware/require-user.ts</a></dt><dd>Better Auth email and password at <code>/api/auth/*</code>; a 5-minute cookie cache; 401 once signed out.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/do/drafts.ts">apps/api/src/do/drafts.ts</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/do/handlers.ts">apps/api/src/do/handlers.ts</a></dt><dd>One draft per user; relay to all but the sender.</dd>
       </dl></div>
       <div><h3>What the tests prove</h3><dl>
-        <dt><a href="../../apps/api/test/room/upgrade.test.ts">apps/api/test/room/upgrade.test.ts</a></dt><dd>A signed-in user gets 101 and a usable socket; sockets, attachments and the ping auto-response survive hibernation.</dd>
-        <dt><a href="../../apps/api/test/areas/areas.test.ts">apps/api/test/areas/areas.test.ts</a></dt><dd>Create answers 201 with version 1, <code>areaKm2 &gt; 0</code> and one audit row; the bbox read returns the areas inside and excludes a far one.</dd>
-        <dt><a href="../../apps/api/test/areas/versions.test.ts">apps/api/test/areas/versions.test.ts</a></dt><dd>Three saves give three versions, newest first; revert to 1 gives version 4 with version 1's name, geometry and area, history kept.</dd>
-        <dt><a href="../../apps/api/test/db/spatial.test.ts">apps/api/test/db/spatial.test.ts</a></dt><dd><code>area_km2</code> is the geodesic area on the WGS 84 ellipsoid for a 0.1° square at 32° N.</dd>
-        <dt><a href="../../apps/api/test/room/protocol.test.ts">apps/api/test/room/protocol.test.ts</a></dt><dd>A sends three draft frames: B receives three with A's id, A receives none.</dd>
-        <dt><a href="../../apps/web/e2e/collaboration.spec.ts">apps/web/e2e/collaboration.spec.ts</a></dt><dd>Two browsers share presence, drafts, saves and a version conflict. Runs in CI.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/test/room/upgrade.test.ts">apps/api/test/room/upgrade.test.ts</a></dt><dd>A signed-in user gets 101 and a usable socket; sockets, attachments and the ping auto-response survive hibernation.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/test/areas/areas.test.ts">apps/api/test/areas/areas.test.ts</a></dt><dd>Create answers 201 with version 1, <code>areaKm2 &gt; 0</code> and one audit row; the bbox read returns the areas inside and excludes a far one.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/test/areas/versions.test.ts">apps/api/test/areas/versions.test.ts</a></dt><dd>Three saves give three versions, newest first; revert to 1 gives version 4 with version 1's name, geometry and area, history kept.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/test/db/spatial.test.ts">apps/api/test/db/spatial.test.ts</a></dt><dd><code>area_km2</code> is the geodesic area on the WGS 84 ellipsoid for a 0.1° square at 32° N.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/test/room/protocol.test.ts">apps/api/test/room/protocol.test.ts</a></dt><dd>A sends three draft frames: B receives three with A's id, A receives none.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/e2e/collaboration.spec.ts">apps/web/e2e/collaboration.spec.ts</a></dt><dd>Two browsers share presence, drafts, saves and a version conflict. Runs in CI.</dd>
       </dl></div>
     </div>
   </div>
@@ -333,23 +333,23 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
     </div>
     <div class="lives">
       <div><h3>Where it lives</h3><dl>
-        <dt><a href="../../apps/api/src/do/rate-limiter.ts">apps/api/src/do/rate-limiter.ts</a> · <a href="../../apps/api/src/middleware/rate-limit.ts">apps/api/src/middleware/rate-limit.ts</a></dt><dd>Exact sliding window in a per-user Durable Object; 50 per 60 s from <a href="../../packages/shared/src/constants/rate-limit.ts"><code>constants/rate-limit.ts</code></a>. A draft session spends one action; frames are capped at 10/s per socket.</dd>
-        <dt><a href="../../apps/api/src/db/schema.ts">apps/api/src/db/schema.ts</a></dt><dd>Partial GiST index <code>areas_geom_gist … WHERE deleted_at IS NULL</code>; the read predicate matches it.</dd>
-        <dt><a href="../../apps/api/src/cache/bounds.ts">apps/api/src/cache/bounds.ts</a></dt><dd>Workers Cache API keyed by tile and map version; ETag and 304; <code>BYPASS</code> when the Room is late.</dd>
-        <dt><a href="../../apps/api/src/db/spatial.ts">apps/api/src/db/spatial.ts</a> · <a href="../../apps/web/src/components/ConflictDialog.tsx">apps/web/src/components/ConflictDialog.tsx</a></dt><dd><code>UPDATE … WHERE version = $expected</code>; a miss is 409 <code>VERSION_CONFLICT</code> with <code>details.current</code>.</dd>
-        <dt><a href="../../packages/shared/src/geo.ts">packages/shared/src/geo.ts</a></dt><dd>Ring rules in Zod: closed, 3 or more unique vertices, lng/lat ranges, at most 1,000 vertices. PostGIS <code>ST_IsValid</code> inside the write gives 422 with the reason.</dd>
-        <dt><a href="../../apps/api/src/middleware/audit.ts">apps/api/src/middleware/audit.ts</a></dt><dd>Audit rows for sign-in, sign-up, sign-out, failed sign-in, every 422 and 429; writes audit in their own transaction.</dd>
-        <dt><a href="../../apps/web/src/lib/ws.ts">apps/web/src/lib/ws.ts</a> · <a href="../../apps/web/src/lib/use-room.ts">apps/web/src/lib/use-room.ts</a></dt><dd>connecting → open → degraded → offline with jittered backoff; polling while down; resync on reopen.</dd>
-        <dt><a href="../../apps/api/src/routes/health.ts">apps/api/src/routes/health.ts</a></dt><dd><code>/healthz</code> and <code>/readyz</code> (database ping, Room ping, origin configuration).</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/do/rate-limiter.ts">apps/api/src/do/rate-limiter.ts</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/middleware/rate-limit.ts">apps/api/src/middleware/rate-limit.ts</a></dt><dd>Exact sliding window in a per-user Durable Object; 50 per 60 s from <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/packages/shared/src/constants/rate-limit.ts"><code>constants/rate-limit.ts</code></a>. A draft session spends one action; frames are capped at 10/s per socket.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/db/schema.ts">apps/api/src/db/schema.ts</a></dt><dd>Partial GiST index <code>areas_geom_gist … WHERE deleted_at IS NULL</code>; the read predicate matches it.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/cache/bounds.ts">apps/api/src/cache/bounds.ts</a></dt><dd>Workers Cache API keyed by tile and map version; ETag and 304; <code>BYPASS</code> when the Room is late.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/db/spatial.ts">apps/api/src/db/spatial.ts</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/components/ConflictDialog.tsx">apps/web/src/components/ConflictDialog.tsx</a></dt><dd><code>UPDATE … WHERE version = $expected</code>; a miss is 409 <code>VERSION_CONFLICT</code> with <code>details.current</code>.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/packages/shared/src/geo.ts">packages/shared/src/geo.ts</a></dt><dd>Ring rules in Zod: closed, 3 or more unique vertices, lng/lat ranges, at most 1,000 vertices. PostGIS <code>ST_IsValid</code> inside the write gives 422 with the reason.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/middleware/audit.ts">apps/api/src/middleware/audit.ts</a></dt><dd>Audit rows for sign-in, sign-up, sign-out, failed sign-in, every 422 and 429; writes audit in their own transaction.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/lib/ws.ts">apps/web/src/lib/ws.ts</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/lib/use-room.ts">apps/web/src/lib/use-room.ts</a></dt><dd>connecting → open → degraded → offline with jittered backoff; polling while down; resync on reopen.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/routes/health.ts">apps/api/src/routes/health.ts</a></dt><dd><code>/healthz</code> and <code>/readyz</code> (database ping, Room ping, origin configuration).</dd>
       </dl></div>
       <div><h3>What the tests prove</h3><dl>
-        <dt><a href="../../apps/api/test/rate-limit/guards.test.ts">apps/api/test/rate-limit/guards.test.ts</a></dt><dd>The 51st mutation in the window is 429 with an integer <code>Retry-After</code>; after the window refills the next one is 201. REST shares the WebSocket budget.</dd>
-        <dt><a href="../../apps/api/test/db/spatial.test.ts">apps/api/test/db/spatial.test.ts</a></dt><dd>The planner uses <code>areas_geom_gist</code> once the table is seeded and analysed.</dd>
-        <dt><a href="../../apps/api/test/cache/bounds.test.ts">apps/api/test/cache/bounds.test.ts</a></dt><dd>A second identical read is a HIT with no database call; a read right after a write misses the old key.</dd>
-        <dt><a href="../../apps/api/test/areas/areas.test.ts">apps/api/test/areas/areas.test.ts</a></dt><dd>Two parallel PUTs with version 1: one 200, one 409 carrying version 2. A bowtie is 422 with the <code>ST_IsValid</code> reason and writes nothing.</dd>
-        <dt><a href="../../apps/api/test/audit/middleware.test.ts">apps/api/test/audit/middleware.test.ts</a></dt><dd>A sign-in writes <code>auth.sign_in</code> with user, IP, user agent and request id; a 429 writes <code>request.rejected</code>.</dd>
-        <dt><a href="../../apps/web/src/lib/use-room.chaos.test.tsx">apps/web/src/lib/use-room.chaos.test.tsx</a></dt><dd>A Room killed mid-draft twice: one ghost per remote user, the local draft intact.</dd>
-        <dt><a href="../../apps/api/test/health/health.test.ts">apps/api/test/health/health.test.ts</a></dt><dd>503 <code>{ db: down }</code> when the connection string is unreachable; 503 <code>{ room: down }</code> within the ping deadline.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/test/rate-limit/guards.test.ts">apps/api/test/rate-limit/guards.test.ts</a></dt><dd>The 51st mutation in the window is 429 with an integer <code>Retry-After</code>; after the window refills the next one is 201. REST shares the WebSocket budget.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/test/db/spatial.test.ts">apps/api/test/db/spatial.test.ts</a></dt><dd>The planner uses <code>areas_geom_gist</code> once the table is seeded and analysed.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/test/cache/bounds.test.ts">apps/api/test/cache/bounds.test.ts</a></dt><dd>A second identical read is a HIT with no database call; a read right after a write misses the old key.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/test/areas/areas.test.ts">apps/api/test/areas/areas.test.ts</a></dt><dd>Two parallel PUTs with version 1: one 200, one 409 carrying version 2. A bowtie is 422 with the <code>ST_IsValid</code> reason and writes nothing.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/test/audit/middleware.test.ts">apps/api/test/audit/middleware.test.ts</a></dt><dd>A sign-in writes <code>auth.sign_in</code> with user, IP, user agent and request id; a 429 writes <code>request.rejected</code>.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/lib/use-room.chaos.test.tsx">apps/web/src/lib/use-room.chaos.test.tsx</a></dt><dd>A Room killed mid-draft twice: one ghost per remote user, the local draft intact.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/test/health/health.test.ts">apps/api/test/health/health.test.ts</a></dt><dd>503 <code>{ db: down }</code> when the connection string is unreachable; 503 <code>{ room: down }</code> within the ping deadline.</dd>
       </dl></div>
     </div>
   </div>
@@ -385,7 +385,7 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
           <text class="val" x="538" y="61">1.33 ms</text>
           <g class="tick"><text x="140" y="96" text-anchor="middle">0</text><text x="286.7" y="96" text-anchor="middle">0.5</text><text x="433.3" y="96" text-anchor="middle">1.0</text><text x="580" y="96" text-anchor="middle">1.5 ms</text></g>
         </svg>
-        <p class="cap">Source: <a href="../benchmarks.md">docs/benchmarks.md</a>, <code>pnpm --filter @cgis/api db:explain</code>, 2026-10-12, PostgreSQL 18.1 / PostGIS 3.6.1 on an Apple M4 Pro.</p>
+        <p class="cap">Source: <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/benchmarks.md">docs/benchmarks.md</a>, <code>pnpm --filter @cgis/api db:explain</code>, 2026-10-12, PostgreSQL 18.1 / PostGIS 3.6.1 on an Apple M4 Pro.</p>
         <details><summary>Table</summary><table><tr><th>Plan</th><th class="n">p50 ms</th><th class="n">p95 ms</th></tr><tr><td>Bitmap index scan on areas_geom_gist</td><td class="n">0.17</td><td class="n">0.22</td></tr><tr><td>Seq scan (index scans off)</td><td class="n">1.18</td><td class="n">1.33</td></tr></table></details>
       </div>
       <div>
@@ -405,16 +405,16 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
     </div>
     <div class="lives">
       <div><h3>Where it lives</h3><dl>
-        <dt><a href="../../apps/api/src/db/schema.ts">apps/api/src/db/schema.ts</a> · <a href="../../apps/api/src/db/auth-schema.ts">apps/api/src/db/auth-schema.ts</a></dt><dd>Tables, the partial GiST index, the composite primary key on versions.</dd>
-        <dt><a href="../../apps/api/drizzle/">apps/api/drizzle/</a> · <a href="../../apps/api/src/db/migrate.ts">apps/api/src/db/migrate.ts</a></dt><dd>Six SQL migrations with the journal; CI fails if <code>drizzle-kit generate</code> would change them; the deploy migrates Neon first.</dd>
-        <dt><a href="../../apps/api/src/db/seed.ts">apps/api/src/db/seed.ts</a></dt><dd><code>db:seed --count 10000</code>: random valid polygons across Israel.</dd>
-        <dt><a href="../../apps/api/src/db/purge.ts">apps/api/src/db/purge.ts</a> · <a href="../../apps/api/src/scheduled.ts">apps/api/src/scheduled.ts</a></dt><dd>Retention purge on the cron in <code>wrangler.jsonc</code>; the window is <code>RETENTION.DAYS</code> in <a href="../../packages/shared/src/constants/db.ts"><code>constants/db.ts</code></a>.</dd>
-        <dt><a href="../../README.md">README.md</a> › Database access rules</dt><dd>Drizzle for reads and writes; <code>sql</code> only for PostGIS fragments and the write CTEs; an ESLint rule rejects a hand-written <code>SELECT</code>.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/db/schema.ts">apps/api/src/db/schema.ts</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/db/auth-schema.ts">apps/api/src/db/auth-schema.ts</a></dt><dd>Tables, the partial GiST index, the composite primary key on versions.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/tree/main/apps/api/drizzle">apps/api/drizzle/</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/db/migrate.ts">apps/api/src/db/migrate.ts</a></dt><dd>Six SQL migrations with the journal; CI fails if <code>drizzle-kit generate</code> would change them; the deploy migrates Neon first.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/db/seed.ts">apps/api/src/db/seed.ts</a></dt><dd><code>db:seed --count 10000</code>: random valid polygons across Israel.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/db/purge.ts">apps/api/src/db/purge.ts</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/scheduled.ts">apps/api/src/scheduled.ts</a></dt><dd>Retention purge on the cron in <code>wrangler.jsonc</code>; the window is <code>RETENTION.DAYS</code> in <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/packages/shared/src/constants/db.ts"><code>constants/db.ts</code></a>.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/README.md">README.md</a> › Database access rules</dt><dd>Drizzle for reads and writes; <code>sql</code> only for PostGIS fragments and the write CTEs; an ESLint rule rejects a hand-written <code>SELECT</code>.</dd>
       </dl></div>
       <div><h3>What the tests prove</h3><dl>
-        <dt><a href="../../apps/api/test/db/schema.test.ts">apps/api/test/db/schema.test.ts</a></dt><dd>The GiST index covers live rows only; geometry is stored with SRID 4326; every journal entry is recorded and a second migration run is a no-op.</dd>
-        <dt><a href="../../apps/api/test/db/seed.test.ts">apps/api/test/db/seed.test.ts</a></dt><dd>1,000 rows insert in under 10 s.</dd>
-        <dt><a href="../../apps/api/test/retention/purge.test.ts">apps/api/test/retention/purge.test.ts</a></dt><dd>Removes areas soft-deleted before the cutoff and their versions, nothing else; idempotent; runs on the declared cron.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/test/db/schema.test.ts">apps/api/test/db/schema.test.ts</a></dt><dd>The GiST index covers live rows only; geometry is stored with SRID 4326; every journal entry is recorded and a second migration run is a no-op.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/test/db/seed.test.ts">apps/api/test/db/seed.test.ts</a></dt><dd>1,000 rows insert in under 10 s.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/test/retention/purge.test.ts">apps/api/test/retention/purge.test.ts</a></dt><dd>Removes areas soft-deleted before the cutoff and their versions, nothing else; idempotent; runs on the declared cron.</dd>
       </dl></div>
     </div>
   </div>
@@ -458,20 +458,20 @@ vary: Origin</pre>
     </div>
     <div class="lives">
       <div><h3>Where it lives</h3><dl>
-        <dt><a href="../../apps/api/src/validate.ts">apps/api/src/validate.ts</a></dt><dd>Body, query and path parsed by the shared Zod schemas; a failure is 422. Bodies over 64 KiB are 413 before parsing.</dd>
-        <dt><a href="../../apps/api/src/middleware/index.ts">apps/api/src/middleware/index.ts</a></dt><dd><code>cors()</code> echoes <code>CLIENT_ORIGIN</code> only, credentials on; secure headers; a fresh request id.</dd>
-        <dt><a href="../../apps/api/src/log.ts">apps/api/src/log.ts</a> · <a href="../../apps/api/src/app.ts">apps/api/src/app.ts</a></dt><dd>One JSON line per log with request id, user id and path, secrets redacted at any depth; <code>onError</code> logs the stack and answers a fixed 500.</dd>
-        <dt><a href="../../apps/api/src/middleware/request-timeout.ts">apps/api/src/middleware/request-timeout.ts</a> · <a href="../../apps/api/src/db/index.ts">apps/api/src/db/index.ts</a></dt><dd>A 10 s budget per request (504 <code>TIMEOUT</code>) whose abort ends the request's database clients; 3 s per connect and per query; Room calls under a deadline.</dd>
-        <dt><a href="../../apps/api/src/ws.ts">apps/api/src/ws.ts</a> · <a href="../../apps/api/src/do/handoff.ts">apps/api/src/do/handoff.ts</a></dt><dd>Session, then Origin, then the Room; user headers set by the server.</dd>
-        <dt><a href="../deploy.md">docs/deploy.md</a> › Production hardening</dt><dd>What the Worker does on its own, and the dashboard steps (WAF rule on <code>/api/auth/*</code>, a health check on <code>/readyz</code>).</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/validate.ts">apps/api/src/validate.ts</a></dt><dd>Body, query and path parsed by the shared Zod schemas; a failure is 422. Bodies over 64 KiB are 413 before parsing.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/middleware/index.ts">apps/api/src/middleware/index.ts</a></dt><dd><code>cors()</code> echoes <code>CLIENT_ORIGIN</code> only, credentials on; secure headers; a fresh request id.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/log.ts">apps/api/src/log.ts</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/app.ts">apps/api/src/app.ts</a></dt><dd>One JSON line per log with request id, user id and path, secrets redacted at any depth; <code>onError</code> logs the stack and answers a fixed 500.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/middleware/request-timeout.ts">apps/api/src/middleware/request-timeout.ts</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/db/index.ts">apps/api/src/db/index.ts</a></dt><dd>A 10 s budget per request (504 <code>TIMEOUT</code>) whose abort ends the request's database clients; 3 s per connect and per query; Room calls under a deadline.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/ws.ts">apps/api/src/ws.ts</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/do/handoff.ts">apps/api/src/do/handoff.ts</a></dt><dd>Session, then Origin, then the Room; user headers set by the server.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/deploy.md">docs/deploy.md</a> › Production hardening</dt><dd>What the Worker does on its own, and the dashboard steps (WAF rule on <code>/api/auth/*</code>, a health check on <code>/readyz</code>).</dd>
       </dl></div>
       <div><h3>What the tests prove</h3><dl>
-        <dt><a href="../../apps/api/test/rate-limit/guards.test.ts">apps/api/test/rate-limit/guards.test.ts</a></dt><dd>A 65 KiB body is 413 on POST, PUT and revert before any database call.</dd>
-        <dt><a href="../../apps/api/test/auth/middleware.test.ts">apps/api/test/auth/middleware.test.ts</a></dt><dd>A preflight from any other origin gets no allow-origin header; the log line carries request id, user id and path with secrets redacted.</dd>
-        <dt><a href="../../apps/api/test/errors.test.ts">apps/api/test/errors.test.ts</a></dt><dd>Any other error is the fixed 500 <code>ApiError</code>, logged once with its stack.</dd>
-        <dt><a href="../../apps/api/test/request-timeout.test.ts">apps/api/test/request-timeout.test.ts</a></dt><dd>A stalled query through the real app answers 504 within the budget and ends its client.</dd>
-        <dt><a href="../../apps/api/test/auth/ws-gate.test.ts">apps/api/test/auth/ws-gate.test.ts</a></dt><dd>401 with a cookie that is not a session; 403 from a foreign Origin with no socket opened.</dd>
-        <dt><a href="../../apps/api/test/auth/hardening.test.ts">apps/api/test/auth/hardening.test.ts</a></dt><dd>Sign-in sets <code>__Secure-</code> cookies: Secure, HttpOnly, SameSite=Lax, no Domain.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/test/rate-limit/guards.test.ts">apps/api/test/rate-limit/guards.test.ts</a></dt><dd>A 65 KiB body is 413 on POST, PUT and revert before any database call.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/test/auth/middleware.test.ts">apps/api/test/auth/middleware.test.ts</a></dt><dd>A preflight from any other origin gets no allow-origin header; the log line carries request id, user id and path with secrets redacted.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/test/errors.test.ts">apps/api/test/errors.test.ts</a></dt><dd>Any other error is the fixed 500 <code>ApiError</code>, logged once with its stack.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/test/request-timeout.test.ts">apps/api/test/request-timeout.test.ts</a></dt><dd>A stalled query through the real app answers 504 within the budget and ends its client.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/test/auth/ws-gate.test.ts">apps/api/test/auth/ws-gate.test.ts</a></dt><dd>401 with a cookie that is not a session; 403 from a foreign Origin with no socket opened.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/test/auth/hardening.test.ts">apps/api/test/auth/hardening.test.ts</a></dt><dd>Sign-in sets <code>__Secure-</code> cookies: Secure, HttpOnly, SameSite=Lax, no Domain.</dd>
       </dl></div>
     </div>
   </div>
@@ -499,15 +499,15 @@ vary: Origin</pre>
     </div>
     <div class="lives">
       <div><h3>Where it lives</h3><dl>
-        <dt><a href="../../apps/web/src/components/Map.tsx">apps/web/src/components/Map.tsx</a> · <a href="../../apps/web/src/lib/geo/osm-layer.ts">apps/web/src/lib/geo/osm-layer.ts</a></dt><dd>Leaflet 1.9.4 with OSM and attribution; overlays in their own panes.</dd>
-        <dt><a href="../../apps/web/src/lib/geo/govmap-layer.ts">apps/web/src/lib/geo/govmap-layer.ts</a> · <a href="../../apps/web/src/lib/geo/govmap-crs.ts">apps/web/src/lib/geo/govmap-crs.ts</a></dt><dd>The tile URL scheme on govmap's CDN (lowercase hex row and column) under a Proj4Leaflet EPSG:2039 CRS.</dd>
-        <dt><a href="../../apps/web/src/lib/geo/layer-switch.ts">apps/web/src/lib/geo/layer-switch.ts</a></dt><dd><code>switchBaseLayer</code>: nearest-resolution zoom mapping, the crossfade, overlays re-projected on <code>viewreset</code>; aerial modules lazy-loaded.</dd>
-        <dt><a href="../adr/0005-govmap-crs-swap.md">docs/adr/0005-govmap-crs-swap.md</a></dt><dd>Why a CRS swap and not a proxy; the tile scheme; the datum shift; the terms and the retirement risk.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/components/Map.tsx">apps/web/src/components/Map.tsx</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/lib/geo/osm-layer.ts">apps/web/src/lib/geo/osm-layer.ts</a></dt><dd>Leaflet 1.9.4 with OSM and attribution; overlays in their own panes.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/lib/geo/govmap-layer.ts">apps/web/src/lib/geo/govmap-layer.ts</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/lib/geo/govmap-crs.ts">apps/web/src/lib/geo/govmap-crs.ts</a></dt><dd>The tile URL scheme on govmap's CDN (lowercase hex row and column) under a Proj4Leaflet EPSG:2039 CRS.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/lib/geo/layer-switch.ts">apps/web/src/lib/geo/layer-switch.ts</a></dt><dd><code>switchBaseLayer</code>: nearest-resolution zoom mapping, the crossfade, overlays re-projected on <code>viewreset</code>; aerial modules lazy-loaded.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/adr/0005-govmap-crs-swap.md">docs/adr/0005-govmap-crs-swap.md</a></dt><dd>Why a CRS swap and not a proxy; the tile scheme; the datum shift; the terms and the retirement risk.</dd>
       </dl></div>
       <div><h3>What the tests prove</h3><dl>
-        <dt><a href="../../apps/web/src/lib/geo/layer-switch.test.ts">apps/web/src/lib/geo/layer-switch.test.ts</a></dt><dd>Starts on OSM; fades for <code>CROSSFADE_MS</code>; no fade under reduced motion; the overlay panes' LatLngs survive a round trip; a draft in progress keeps its vertices.</dd>
-        <dt><a href="../../apps/web/src/lib/geo/govmap-crs.test.ts">apps/web/src/lib/geo/govmap-crs.test.ts</a></dt><dd>A known point lands in govmap tile column 164838, row 190501 at level 11; a pixel round-trips to the same lat/lng.</dd>
-        <dt><a href="../../apps/web/e2e/layer-switch.spec.ts">apps/web/e2e/layer-switch.spec.ts</a></dt><dd>Switching to aerial keeps the centre and the saved polygon in place; a draft survives the switch at street level. Needs the internet, so it runs locally, not in CI.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/lib/geo/layer-switch.test.ts">apps/web/src/lib/geo/layer-switch.test.ts</a></dt><dd>Starts on OSM; fades for <code>CROSSFADE_MS</code>; no fade under reduced motion; the overlay panes' LatLngs survive a round trip; a draft in progress keeps its vertices.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/lib/geo/govmap-crs.test.ts">apps/web/src/lib/geo/govmap-crs.test.ts</a></dt><dd>A known point lands in govmap tile column 164838, row 190501 at level 11; a pixel round-trips to the same lat/lng.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/e2e/layer-switch.spec.ts">apps/web/e2e/layer-switch.spec.ts</a></dt><dd>Switching to aerial keeps the centre and the saved polygon in place; a draft survives the switch at street level. Needs the internet, so it runs locally, not in CI.</dd>
       </dl></div>
     </div>
   </div>
@@ -535,17 +535,17 @@ vary: Origin</pre>
     </div>
     <div class="lives">
       <div><h3>Where it lives</h3><dl>
-        <dt><a href="../../apps/web/src/lib/geo/draw-tool.ts">apps/web/src/lib/geo/draw-tool.ts</a></dt><dd>A thin adapter over <code>leaflet-editable</code>, mounted independent of the base layer.</dd>
-        <dt><a href="../../apps/api/src/do/handlers.ts">apps/api/src/do/handlers.ts</a> · <a href="../../apps/web/src/components/GhostPolygons.tsx">apps/web/src/components/GhostPolygons.tsx</a></dt><dd><code>draft:update</code> relayed to all but the sender; drawn as dashed ghosts.</dd>
-        <dt><a href="../../apps/web/src/components/DrawControl.tsx">apps/web/src/components/DrawControl.tsx</a> · <a href="../../apps/web/src/lib/geo/geodesic.ts">apps/web/src/lib/geo/geodesic.ts</a></dt><dd>Live km² and vertex count on each <code>draw:change</code>.</dd>
-        <dt><a href="../../apps/web/src/lib/geo/projection.ts">apps/web/src/lib/geo/projection.ts</a></dt><dd>WGS 84 ⇄ EPSG:2039 through proj4 with the EPSG:9676 datum shift.</dd>
-        <dt><a href="../../apps/api/src/do/presence.ts">apps/api/src/do/presence.ts</a> · <a href="../../apps/web/src/components/PresenceList.tsx">apps/web/src/components/PresenceList.tsx</a></dt><dd>Viewing or drawing state per socket, broadcast on change.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/lib/geo/draw-tool.ts">apps/web/src/lib/geo/draw-tool.ts</a></dt><dd>A thin adapter over <code>leaflet-editable</code>, mounted independent of the base layer.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/do/handlers.ts">apps/api/src/do/handlers.ts</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/components/GhostPolygons.tsx">apps/web/src/components/GhostPolygons.tsx</a></dt><dd><code>draft:update</code> relayed to all but the sender; drawn as dashed ghosts.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/components/DrawControl.tsx">apps/web/src/components/DrawControl.tsx</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/lib/geo/geodesic.ts">apps/web/src/lib/geo/geodesic.ts</a></dt><dd>Live km² and vertex count on each <code>draw:change</code>.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/lib/geo/projection.ts">apps/web/src/lib/geo/projection.ts</a></dt><dd>WGS 84 ⇄ EPSG:2039 through proj4 with the EPSG:9676 datum shift.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/do/presence.ts">apps/api/src/do/presence.ts</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/components/PresenceList.tsx">apps/web/src/components/PresenceList.tsx</a></dt><dd>Viewing or drawing state per socket, broadcast on change.</dd>
       </dl></div>
       <div><h3>What the tests prove</h3><dl>
-        <dt><a href="../../apps/web/src/components/GhostPolygons.test.tsx">apps/web/src/components/GhostPolygons.test.tsx</a></dt><dd>Another user's draft is a dashed ghost in their colour; <code>clear</code> removes it.</dd>
-        <dt><a href="../../apps/web/src/components/DrawControl.test.tsx">apps/web/src/components/DrawControl.test.tsx</a></dt><dd>Shows the live area with three decimals and the vertex count on <code>draw:change</code> (14 cases in the file).</dd>
-        <dt><a href="../../apps/web/src/lib/geo/projection.test.ts">apps/web/src/lib/geo/projection.test.ts</a></dt><dd>Control points project within 0.01 m of PROJ; a grid across Israel round-trips.</dd>
-        <dt><a href="../../apps/api/test/room/protocol.test.ts">apps/api/test/room/protocol.test.ts</a> · <a href="../../apps/web/src/components/PresenceList.test.tsx">PresenceList.test.tsx</a></dt><dd><code>presence:set</code> updates the attachment and broadcasts to everyone; the list marks you and who is drawing.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/components/GhostPolygons.test.tsx">apps/web/src/components/GhostPolygons.test.tsx</a></dt><dd>Another user's draft is a dashed ghost in their colour; <code>clear</code> removes it.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/components/DrawControl.test.tsx">apps/web/src/components/DrawControl.test.tsx</a></dt><dd>Shows the live area with three decimals and the vertex count on <code>draw:change</code> (14 cases in the file).</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/lib/geo/projection.test.ts">apps/web/src/lib/geo/projection.test.ts</a></dt><dd>Control points project within 0.01 m of PROJ; a grid across Israel round-trips.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/test/room/protocol.test.ts">apps/api/test/room/protocol.test.ts</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/components/PresenceList.test.tsx">PresenceList.test.tsx</a></dt><dd><code>presence:set</code> updates the attachment and broadcasts to everyone; the list marks you and who is drawing.</dd>
       </dl></div>
     </div>
   </div>
@@ -571,25 +571,25 @@ vary: Origin</pre>
     </ul>
     <div class="tiles">
       <div class="tile"><div class="label">Client area vs PostGIS, tested</div><div class="value">&lt; 0.5<small>%</small></div><div class="src">Spherical excess on the client against <code>ST_Area(geography)</code> for a 0.1° box at 32° N (<code>geodesic.test.ts</code>). In the screenshots: 32.997 estimate, 32.979 served.</div></div>
-      <div class="tile"><div class="label">Draft frame echo delay, p95</div><div class="value">8<small>ms</small></div><div class="src">k6, 5 sockets at 10 frames/s for 30 s, local Worker; p50 3, p99 15, max 31 ms. <a href="../benchmarks-load.md">docs/benchmarks-load.md</a>.</div></div>
+      <div class="tile"><div class="label">Draft frame echo delay, p95</div><div class="value">8<small>ms</small></div><div class="src">k6, 5 sockets at 10 frames/s for 30 s, local Worker; p50 3, p99 15, max 31 ms. <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/benchmarks-load.md">docs/benchmarks-load.md</a>.</div></div>
       <div class="tile"><div class="label">Frames per draft message</div><div class="value">1<small>op</small></div><div class="src"><code>add</code>, <code>move</code>, <code>remove</code> or <code>clear</code> with a sequence number, never the whole ring; stale sequences dropped by the Room.</div></div>
     </div>
     <div class="lives">
       <div><h3>Where it lives</h3><dl>
-        <dt><a href="../../apps/web/src/lib/geo/projection.ts">apps/web/src/lib/geo/projection.ts</a> · <a href="../../apps/web/src/lib/geo/layer-switch.ts">apps/web/src/lib/geo/layer-switch.ts</a></dt><dd>WGS 84 ⇄ EPSG:2039; the CRS swap EPSG:3857 ⇄ EPSG:2039 maps zoom to the nearest resolution; overlays are never removed during a switch.</dd>
-        <dt><a href="../../apps/web/src/lib/draft-sender.ts">apps/web/src/lib/draft-sender.ts</a> · <a href="../../apps/api/src/do/room.ts">apps/api/src/do/room.ts</a></dt><dd>Delta ops, a 10/s client throttle, stale-<code>seq</code> drop, ping answered by the runtime without waking the Room.</dd>
-        <dt><a href="../../apps/api/src/db/geometry.ts">apps/api/src/db/geometry.ts</a> · <a href="../../apps/web/src/lib/geo/geodesic.ts">apps/web/src/lib/geo/geodesic.ts</a></dt><dd>Server: <code>ST_Area(geography)</code> on the spheroid. Client: <code>@turf/area</code>.</dd>
-        <dt><a href="../../apps/api/src/db/index.ts">apps/api/src/db/index.ts</a> · <a href="../../apps/api/wrangler.jsonc">apps/api/wrangler.jsonc</a></dt><dd>Hyperdrive pools the origin connections (transaction mode); the Worker opens one short-lived client per call; query cache off.</dd>
-        <dt><a href="../../apps/api/src/do/sockets.ts">apps/api/src/do/sockets.ts</a></dt><dd>Fan-out: a loop over every socket in the Room. Per-user frame queues keep order; nothing buffers bursts.</dd>
-        <dt><a href="../adr/0004-horizontal-scaling-on-cloudflare.md">docs/adr/0004-horizontal-scaling-on-cloudflare.md</a></dt><dd>Where state lives, the platform limits, a per-map budget, and the growth path: tile-sharded rooms, a router object, Queues, OTel export, multi-region, each with its trigger.</dd>
-        <dt><a href="../../apps/api/src/metrics.ts">apps/api/src/metrics.ts</a></dt><dd>Analytics Engine datapoints <code>ws_open</code>, <code>ws_close</code>, <code>room_messages</code> (batched per window), <code>db_query</code> (elapsed ms per path). Workers Logs on.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/lib/geo/projection.ts">apps/web/src/lib/geo/projection.ts</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/lib/geo/layer-switch.ts">apps/web/src/lib/geo/layer-switch.ts</a></dt><dd>WGS 84 ⇄ EPSG:2039; the CRS swap EPSG:3857 ⇄ EPSG:2039 maps zoom to the nearest resolution; overlays are never removed during a switch.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/lib/draft-sender.ts">apps/web/src/lib/draft-sender.ts</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/do/room.ts">apps/api/src/do/room.ts</a></dt><dd>Delta ops, a 10/s client throttle, stale-<code>seq</code> drop, ping answered by the runtime without waking the Room.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/db/geometry.ts">apps/api/src/db/geometry.ts</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/lib/geo/geodesic.ts">apps/web/src/lib/geo/geodesic.ts</a></dt><dd>Server: <code>ST_Area(geography)</code> on the spheroid. Client: <code>@turf/area</code>.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/db/index.ts">apps/api/src/db/index.ts</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/wrangler.jsonc">apps/api/wrangler.jsonc</a></dt><dd>Hyperdrive pools the origin connections (transaction mode); the Worker opens one short-lived client per call; query cache off.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/do/sockets.ts">apps/api/src/do/sockets.ts</a></dt><dd>Fan-out: a loop over every socket in the Room. Per-user frame queues keep order; nothing buffers bursts.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/adr/0004-horizontal-scaling-on-cloudflare.md">docs/adr/0004-horizontal-scaling-on-cloudflare.md</a></dt><dd>Where state lives, the platform limits, a per-map budget, and the growth path: tile-sharded rooms, a router object, Queues, OTel export, multi-region, each with its trigger.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/metrics.ts">apps/api/src/metrics.ts</a></dt><dd>Analytics Engine datapoints <code>ws_open</code>, <code>ws_close</code>, <code>room_messages</code> (batched per window), <code>db_query</code> (elapsed ms per path). Workers Logs on.</dd>
       </dl></div>
       <div><h3>What the tests prove</h3><dl>
-        <dt><a href="../../apps/web/src/lib/draft-sender.test.ts">apps/web/src/lib/draft-sender.test.ts</a> · <a href="../../apps/web/src/lib/use-room.test.tsx">use-room.test.tsx</a></dt><dd>One op per gesture; bursts of <code>draw:change</code> throttled to 10 <code>draft:update</code> a second.</dd>
-        <dt><a href="../../apps/api/test/room/protocol.test.ts">apps/api/test/room/protocol.test.ts</a></dt><dd>Frames whose <code>seq</code> is not above the last accepted one are dropped.</dd>
-        <dt><a href="../../apps/web/src/lib/geo/geodesic.test.ts">apps/web/src/lib/geo/geodesic.test.ts</a></dt><dd>Within 0.5 % of PostGIS for a 0.1° box at 32° N.</dd>
-        <dt><a href="../../apps/api/test/metrics/writer.test.ts">apps/api/test/metrics/writer.test.ts</a> · <a href="../../apps/api/test/room/datapoints.test.ts">room/datapoints.test.ts</a></dt><dd>A query writes one <code>db_query</code> datapoint with its elapsed time; client frames are batched into one datapoint per window.</dd>
-        <dt><a href="../../apps/api/test/room/degradation.test.ts">apps/api/test/room/degradation.test.ts</a></dt><dd>Two users mid-draft and the Room killed: state rebuilt from storage and attachments.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/lib/draft-sender.test.ts">apps/web/src/lib/draft-sender.test.ts</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/lib/use-room.test.tsx">use-room.test.tsx</a></dt><dd>One op per gesture; bursts of <code>draw:change</code> throttled to 10 <code>draft:update</code> a second.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/test/room/protocol.test.ts">apps/api/test/room/protocol.test.ts</a></dt><dd>Frames whose <code>seq</code> is not above the last accepted one are dropped.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/lib/geo/geodesic.test.ts">apps/web/src/lib/geo/geodesic.test.ts</a></dt><dd>Within 0.5 % of PostGIS for a 0.1° box at 32° N.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/test/metrics/writer.test.ts">apps/api/test/metrics/writer.test.ts</a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/test/room/datapoints.test.ts">room/datapoints.test.ts</a></dt><dd>A query writes one <code>db_query</code> datapoint with its elapsed time; client frames are batched into one datapoint per window.</dd>
+        <dt><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/test/room/degradation.test.ts">apps/api/test/room/degradation.test.ts</a></dt><dd>Two users mid-draft and the Room killed: state rebuilt from storage and attachments.</dd>
       </dl></div>
     </div>
   </div>
@@ -668,7 +668,7 @@ vary: Origin</pre>
           <text class="val" x="535" y="113">132</text>
           <g class="tick"><text x="140" y="140" text-anchor="middle">0</text><text x="286.7" y="140" text-anchor="middle">50</text><text x="433.3" y="140" text-anchor="middle">100</text><text x="580" y="140" text-anchor="middle">150 ms</text></g>
         </svg>
-        <p class="cap">Source: <a href="../benchmarks-load.md">docs/benchmarks-load.md</a>, <code>k6 run bench/rest.js</code>, 2026-10-13, against <code>wrangler dev</code> and a local PostGIS on an Apple M4 Pro; not production.</p>
+        <p class="cap">Source: <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/benchmarks-load.md">docs/benchmarks-load.md</a>, <code>k6 run bench/rest.js</code>, 2026-10-13, against <code>wrangler dev</code> and a local PostGIS on an Apple M4 Pro; not production.</p>
         <details><summary>Table</summary><table><tr><th>Request</th><th class="n">p50 ms</th><th class="n">p95 ms</th><th class="n">max ms</th><th class="n">count</th></tr><tr><td>Viewport read</td><td class="n">50.83</td><td class="n">86.34</td><td class="n">217.25</td><td class="n">1,600</td></tr><tr><td>Area create</td><td class="n">68.15</td><td class="n">131.78</td><td class="n">278.36</td><td class="n">400</td></tr></table></details>
       </div>
       <div class="chart">
@@ -679,7 +679,7 @@ vary: Origin</pre>
           <div class="tile"><div class="label">Echo delay p50 / p95 / p99 / max</div><div class="value">3 / 8 / 15 / 31<small>ms</small></div></div>
           <div class="tile"><div class="label">Error frames from the Room</div><div class="value">0</div></div>
         </div>
-        <p class="cap">Source: <a href="../benchmarks-load.md">docs/benchmarks-load.md</a>, <code>k6 run bench/ws.js</code>, 2026-10-13, local Worker, 30 s of frames then 3 s of listening. One draft session per socket spends one of the user's 50 actions.</p>
+        <p class="cap">Source: <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/benchmarks-load.md">docs/benchmarks-load.md</a>, <code>k6 run bench/ws.js</code>, 2026-10-13, local Worker, 30 s of frames then 3 s of listening. One draft session per socket spends one of the user's 50 actions.</p>
       </div>
       <div class="chart">
         <h3>Tests per package</h3>
@@ -799,7 +799,7 @@ vary: Origin</pre>
         <text class="el" x="560" y="426" text-anchor="middle">migrations run from CI over the direct URL, never through Hyperdrive</text>
       </svg>
     </div>
-    <p class="small" style="margin-top:1rem">Decision records: <a href="../adr/0001-cloudflare-over-vercel.md">ADR-0001</a> Cloudflare Workers and Durable Objects instead of Vercel · <a href="../adr/0002-hono-over-fastify.md">ADR-0002</a> Hono instead of Fastify · <a href="../adr/0003-leaflet-1-9-4-and-proj4-crs.md">ADR-0003</a> Leaflet 1.9.4 (superseded on the CRS point) · <a href="../adr/0004-horizontal-scaling-on-cloudflare.md">ADR-0004</a> horizontal scaling on Cloudflare · <a href="../adr/0005-govmap-crs-swap.md">ADR-0005</a> govmap imagery through a CRS swap. The design spec's decision log D1–D25 is in <a href="../superpowers/specs/2026-10-12-collaborative-gis-design.md">docs/superpowers/specs/2026-10-12-collaborative-gis-design.md</a>, §10.</p>
+    <p class="small" style="margin-top:1rem">Decision records: <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/adr/0001-cloudflare-over-vercel.md">ADR-0001</a> Cloudflare Workers and Durable Objects instead of Vercel · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/adr/0002-hono-over-fastify.md">ADR-0002</a> Hono instead of Fastify · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/adr/0003-leaflet-1-9-4-and-proj4-crs.md">ADR-0003</a> Leaflet 1.9.4 (superseded on the CRS point) · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/adr/0004-horizontal-scaling-on-cloudflare.md">ADR-0004</a> horizontal scaling on Cloudflare · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/adr/0005-govmap-crs-swap.md">ADR-0005</a> govmap imagery through a CRS swap. The design spec's decision log D1–D25 is in <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/superpowers/specs/2026-10-12-collaborative-gis-design.md">docs/superpowers/specs/2026-10-12-collaborative-gis-design.md</a>, §10.</p>
   </div>
 </section>
 
@@ -815,27 +815,27 @@ vary: Origin</pre>
       <div class="card"><h3>“retrieving all areas within current map bounds”</h3><dl>
         <dt>Delivered</dt><dd><code>GET /api/areas?bbox=…</code> over a partial GiST index, a per-tile cache with an ETag, and the list and polygons in the UI.</dd>
         <dt>Missing</dt><dd>The query returns at most the 500 most recently updated areas of the snapped 0.1° tile, with no truncation flag and no paging, so a denser tile silently drops areas, possibly ones inside the viewport.</dd>
-        <dt>Where</dt><dd><a href="../../apps/api/src/db/spatial-read.ts"><code>apps/api/src/db/spatial-read.ts</code></a> · <code>LIMITS.BOUNDS_LIMIT</code> in <a href="../../packages/shared/src/constants/limits.ts"><code>packages/shared/src/constants/limits.ts</code></a></dd>
+        <dt>Where</dt><dd><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/db/spatial-read.ts"><code>apps/api/src/db/spatial-read.ts</code></a> · <code>LIMITS.BOUNDS_LIMIT</code> in <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/packages/shared/src/constants/limits.ts"><code>packages/shared/src/constants/limits.ts</code></a></dd>
       </dl></div>
       <div class="card"><h3>“log all user actions for audit trail and analytics”</h3><dl>
         <dt>Delivered</dt><dd><code>audit_log</code> rows for area create, update, delete and revert (in the write's transaction), each saved draft, sign-in, sign-up, sign-out and failed sign-in, every 422 and 429, and each purge run; viewport reads as JSON log lines.</dd>
         <dt>Missing</dt><dd>The Room writes no audit rows, so WebSocket joins, leaves, presence changes and draft sessions that are never saved or are refused leave no per-user record; <code>audit_log</code> has no index and no retention.</dd>
-        <dt>Where</dt><dd><a href="../../apps/api/src/middleware/audit.ts"><code>apps/api/src/middleware/audit.ts</code></a> · <a href="../../apps/api/src/do/"><code>apps/api/src/do/</code></a> (no audit writer) · README, Security measures</dd>
+        <dt>Where</dt><dd><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/middleware/audit.ts"><code>apps/api/src/middleware/audit.ts</code></a> · <a href="https://github.com/tomer-dev/collaborative-gis/tree/main/apps/api/src/do"><code>apps/api/src/do/</code></a> (no audit writer) · README, Security measures</dd>
       </dl></div>
       <div class="card"><h3>“handle large datasets (10,000+ polygons per map region)”</h3><dl>
         <dt>Delivered</dt><dd>A seed to 10,000 rows; the bounds query at that size runs in 0.22 ms p95 on the index; k6 reads at 86 ms p95 end to end.</dd>
         <dt>Missing</dt><dd>The 10,000 were spread over all of Israel (30 inside the benchmark viewport). A region that holds 10,000 is never served whole: each read stops at 500 per tile, and there is no zoom simplification, clustering or paging (<code>zoom</code> is accepted and ignored).</dd>
-        <dt>Where</dt><dd><a href="../../apps/api/src/cache/bounds.ts"><code>apps/api/src/cache/bounds.ts</code></a> · <a href="../benchmarks.md"><code>docs/benchmarks.md</code></a> · <a href="../../apps/api/src/db/seed.ts"><code>apps/api/src/db/seed.ts</code></a></dd>
+        <dt>Where</dt><dd><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/cache/bounds.ts"><code>apps/api/src/cache/bounds.ts</code></a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/benchmarks.md"><code>docs/benchmarks.md</code></a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/db/seed.ts"><code>apps/api/src/db/seed.ts</code></a></dd>
       </dl></div>
       <div class="card"><h3>“message queuing for high-volume WebSocket traffic”</h3><dl>
         <dt>Delivered</dt><dd>Ordering queues: a per-user frame queue in the Room, a client send queue while connecting, a 10 frames/s cap per socket, and batched frame metrics.</dd>
         <dt>Missing</dt><dd>No queue or broker absorbs bursts: fan-out is a synchronous loop over every socket in the one Room, and Cloudflare Queues is a documented growth step in ADR-0004, not built.</dd>
-        <dt>Where</dt><dd><a href="../../apps/api/src/do/sockets.ts"><code>apps/api/src/do/sockets.ts</code></a> · <a href="../../apps/api/src/do/room.ts"><code>apps/api/src/do/room.ts</code></a> · <a href="../adr/0004-horizontal-scaling-on-cloudflare.md"><code>docs/adr/0004</code></a></dd>
+        <dt>Where</dt><dd><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/do/sockets.ts"><code>apps/api/src/do/sockets.ts</code></a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/api/src/do/room.ts"><code>apps/api/src/do/room.ts</code></a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/adr/0004-horizontal-scaling-on-cloudflare.md"><code>docs/adr/0004</code></a></dd>
       </dl></div>
       <div class="card"><h3>“Docker containerization with docker-compose” (bonus)</h3><dl>
         <dt>Delivered</dt><dd><code>docker-compose.yml</code> runs PostGIS 18 / 3.6 on a loopback port with a health check; the Worker runs on the host under <code>wrangler dev</code>.</dd>
         <dt>Missing</dt><dd>On <code>main</code> the application itself is not containerised. PR #67, “run the API with wrangler dev in a container”, was open and not merged when this page was built (2026-10-13).</dd>
-        <dt>Where</dt><dd><a href="../../docker-compose.yml"><code>docker-compose.yml</code></a> · <a href="../process-log.md"><code>docs/process-log.md</code></a>, “Deferred to M5” · roadmap ticket 6.4</dd>
+        <dt>Where</dt><dd><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docker-compose.yml"><code>docker-compose.yml</code></a> · <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/process-log.md"><code>docs/process-log.md</code></a>, “Deferred to M5” · roadmap ticket 6.4</dd>
       </dl></div>
     </div>
     <h3>Also known, in one line each</h3>
@@ -847,7 +847,7 @@ vary: Origin</pre>
       <li>Load was measured locally at 10 REST users and 5 sockets, never against production and not at the 50 to 100 users the spec planned.</li>
       <li>Realtime is one Room for the whole app (D11). An area event between a viewport's first read and the socket's join is picked up at the next pan or reconnect.</li>
       <li>A session revoked elsewhere keeps working for up to 5 minutes where its cookie cache is still valid (D24). Deploying needs Workers Paid (D21). The sign-in limiter counts per isolate.</li>
-      <li>The WAF rule and the Cloudflare health check with its alert are dashboard steps (<a href="../deploy.md">docs/deploy.md</a>); the repository cannot show them. Cross-region Room placement is untested.</li>
+      <li>The WAF rule and the Cloudflare health check with its alert are dashboard steps (<a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/deploy.md">docs/deploy.md</a>); the repository cannot show them. Cross-region Room placement is untested.</li>
       <li>Not built from the roadmap: a Neon branch and preview URL per pull request (7.3), and the workerd container (6.4, PR #67 above).</li>
     </ul>
   </div>
@@ -865,8 +865,8 @@ vary: Origin</pre>
       <li class="partial"><b class="st partial">Partial</b><span>Docker containerization with docker-compose: PostGIS only on <code>main</code>; the API container is PR #67, open at build time.</span></li>
       <li><b class="st">Met</b><span>unit tests for critical backend functionality: 40 api test files on workerd plus a Node project for migrations and seed; limiter, conflicts, validation, cache, purge, audit and the Room protocol.</span></li>
       <li><b class="st">Met</b><span>API documentation (OpenAPI/Swagger): <code>/openapi.json</code> (OpenAPI 3.1, validated in a test) and <code>/docs</code> rendered by Scalar's pinned build with Subresource Integrity. Auth routes and the WebSocket protocol are outside the document; the protocol is the Zod schemas in <code>packages/shared/src/ws.ts</code>.</span></li>
-      <li><b class="st">Met</b><span>performance benchmarking results: <a href="../benchmarks.md">docs/benchmarks.md</a> (index vs none) and <a href="../benchmarks-load.md">docs/benchmarks-load.md</a> (k6 REST and WebSocket).</span></li>
-      <li><b class="st">Met</b><span>load testing considerations: <code>bench/rest.js</code>, <code>bench/ws.js</code>, <code>bench/auth.js</code> with pass thresholds in <a href="../../bench/README.md">bench/README.md</a>; a per-map budget in ADR-0004. Run locally, not in CI.</span></li>
+      <li><b class="st">Met</b><span>performance benchmarking results: <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/benchmarks.md">docs/benchmarks.md</a> (index vs none) and <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/benchmarks-load.md">docs/benchmarks-load.md</a> (k6 REST and WebSocket).</span></li>
+      <li><b class="st">Met</b><span>load testing considerations: <code>bench/rest.js</code>, <code>bench/ws.js</code>, <code>bench/auth.js</code> with pass thresholds in <a href="https://github.com/tomer-dev/collaborative-gis/blob/main/bench/README.md">bench/README.md</a>; a per-map budget in ADR-0004. Run locally, not in CI.</span></li>
     </ul>
     <div class="shots">
       <figure><img src="img/14-docs-scalar.png" width="1440" height="900" alt="The Scalar API reference page titled Collaborative GIS API, v0.1.0, OpenAPI 3.1, listing Liveness, Readiness, Create an area, Areas in a viewport, Update, Delete, Versions and Revert, with a curl example for GET /healthz." loading="lazy"><figcaption><code>/docs</code>: the OpenAPI document rendered by Scalar.</figcaption></figure>
@@ -884,18 +884,18 @@ vary: Origin</pre>
       <p>One line per document. The README is the entry point and answers each item of the brief's submission list under its own heading.</p>
     </div>
     <ul class="doclist">
-      <li><a href="../../README.md">README.md</a><span>Setup (with the database), Migrations, Database access rules, Deploy, Technical decisions and architecture, Performance considerations, Security measures, Known limitations, Future improvements and scaling, Testing approach.</span></li>
-      <li><a href="../adr/">docs/adr/</a><span>Five decision records (ADR-0001 to ADR-0005) and a template; ADR-0003 is superseded by ADR-0005 on the CRS point.</span></li>
-      <li><a href="../superpowers/specs/2026-10-12-collaborative-gis-design.md">docs/superpowers/specs/…design.md</a><span>The design spec; §10 is the decision log D1–D25 with the owner rulings.</span></li>
-      <li><a href="../deploy.md">docs/deploy.md</a><span>Routing, the one-time owner checklist, CI deploy, smoke checks, rollback, Durable Objects in production, hardening.</span></li>
-      <li><a href="../constants.md">docs/constants.md</a><span>Every tunable value with its doc comment, generated from <code>packages/shared/src/constants/</code>; CI fails when it is stale.</span></li>
-      <li><a href="../process-log.md">docs/process-log.md</a><span>How the work was done, task by task, with the rulings that changed scope and what was deferred.</span></li>
-      <li><a href="../research-notes.md">docs/research-notes.md</a><span>The reading behind each technology choice, each fact tied to the decision it drives.</span></li>
-      <li><a href="../benchmarks.md">docs/benchmarks.md</a><span>The bounds query with and without the GiST index at 10,000 rows.</span></li>
-      <li><a href="../benchmarks-load.md">docs/benchmarks-load.md</a><span>k6 REST and WebSocket results, with the machine and versions.</span></li>
-      <li><a href="../roadmap.md">docs/roadmap.md</a><span>Epics, tickets, milestones, the critical path and the risk register.</span></li>
-      <li><a href="../../apps/web/e2e/README.md">apps/web/e2e/README.md</a><span>The two-browser Playwright run.</span></li>
-      <li><a href="../../bench/README.md">bench/README.md</a><span>The k6 scripts and what passes.</span></li>
+      <li><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/README.md">README.md</a><span>Setup (with the database), Migrations, Database access rules, Deploy, Technical decisions and architecture, Performance considerations, Security measures, Known limitations, Future improvements and scaling, Testing approach.</span></li>
+      <li><a href="https://github.com/tomer-dev/collaborative-gis/tree/main/docs/adr">docs/adr/</a><span>Five decision records (ADR-0001 to ADR-0005) and a template; ADR-0003 is superseded by ADR-0005 on the CRS point.</span></li>
+      <li><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/superpowers/specs/2026-10-12-collaborative-gis-design.md">docs/superpowers/specs/…design.md</a><span>The design spec; §10 is the decision log D1–D25 with the owner rulings.</span></li>
+      <li><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/deploy.md">docs/deploy.md</a><span>Routing, the one-time owner checklist, CI deploy, smoke checks, rollback, Durable Objects in production, hardening.</span></li>
+      <li><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/constants.md">docs/constants.md</a><span>Every tunable value with its doc comment, generated from <code>packages/shared/src/constants/</code>; CI fails when it is stale.</span></li>
+      <li><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/process-log.md">docs/process-log.md</a><span>How the work was done, task by task, with the rulings that changed scope and what was deferred.</span></li>
+      <li><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/research-notes.md">docs/research-notes.md</a><span>The reading behind each technology choice, each fact tied to the decision it drives.</span></li>
+      <li><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/benchmarks.md">docs/benchmarks.md</a><span>The bounds query with and without the GiST index at 10,000 rows.</span></li>
+      <li><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/benchmarks-load.md">docs/benchmarks-load.md</a><span>k6 REST and WebSocket results, with the machine and versions.</span></li>
+      <li><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/roadmap.md">docs/roadmap.md</a><span>Epics, tickets, milestones, the critical path and the risk register.</span></li>
+      <li><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/e2e/README.md">apps/web/e2e/README.md</a><span>The two-browser Playwright run.</span></li>
+      <li><a href="https://github.com/tomer-dev/collaborative-gis/blob/main/bench/README.md">bench/README.md</a><span>The k6 scripts and what passes.</span></li>
     </ul>
     <p class="small" style="margin-top:2rem">This page: <code>docs/guide/index.html</code>, one file with its images in <code>docs/guide/img/</code>; emails and author ids in the screenshots are covered. Built 2026-10-13 from <code>main</code> at 1a581e7.</p>
   </div>
