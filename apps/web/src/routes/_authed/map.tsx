@@ -64,6 +64,11 @@ function MapRoute() {
   const areas = areasQuery.data?.areas ?? NO_AREAS;
   const pendingIds = usePendingAreaIds();
   const selectedId = mode.kind === 'selected' ? mode.id : null;
+  // The banner and its Retry go away while the socket connects: focus moves to the map first.
+  const retry = () => {
+    map?.getContainer().focus({ preventScroll: true });
+    room.reconnect();
+  };
   // A pick in the panel's list also brings the area into view (a click on its polygon is there).
   const pick = (area: Area) => {
     map?.fitBounds(areaBounds(area), { padding: FIT_PADDING });
@@ -109,7 +114,7 @@ function MapRoute() {
       </div>
       {/* After the corner column: where a phone-width map makes them meet, drawing stays on top. */}
       {map ? <DrawControl map={map} onDone={(ring) => setMode({ kind: 'draft', ring })} /> : null}
-      <ConnectionBanner state={room.state} onRetry={room.reconnect} />
+      <ConnectionBanner state={room.state} onRetry={retry} />
     </div>
   );
 }
