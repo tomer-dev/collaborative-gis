@@ -50,7 +50,7 @@ The test suites do this on their own; see [`testing.md`](testing.md).
 
 Create the project with `neonctl projects create`, enable PostGIS with `create extension if not exists postgis` over the **direct** connection, create a Hyperdrive config with `wrangler hyperdrive create` (query caching off: writes do not invalidate it), and put its id in `apps/api/wrangler.jsonc`. Migrations always run against the direct URL; the Worker only ever sees the Hyperdrive binding.
 
-This is done: Neon project `winter-credit-61110991` (aws-eu-central-1, PostgreSQL 18 / PostGIS 3.6.4), Hyperdrive config `cgis-neon`. The Neon API key is never stored in the repository; it is injected per command from 1Password with `op run` (see `.env.example`).
+The production project and its Hyperdrive config exist (PostgreSQL 18 / PostGIS 3.6; ids in [`deploy.md`](deploy.md)). The Neon API key is never stored in the repository; it is injected per command from 1Password with `op run` (see `.env.example`).
 
 ## The production config on your machine
 

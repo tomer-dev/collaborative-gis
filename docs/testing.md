@@ -17,7 +17,7 @@ The api tests need a migrated local PostGIS (`pnpm db:up`); they create and migr
 
 ## Lane databases
 
-Every api test database is named `<base>_<lane>` (`cgis_auth_<lane>`, `cgis_api_<lane>`, `cgis_db_<lane>`, ...), where the lane is `CGIS_TEST_LANE` or, unset, the current git branch (`m2/integration` → `cgis_api_m2_integration`). Worktrees on different branches share the one compose PostGIS without resetting each other's databases; set `CGIS_TEST_LANE` to run two checkouts of one branch side by side (`apps/api/test/lane.ts`).
+Every api test database is named `<base>_<lane>` (`cgis_auth_<lane>`, `cgis_api_<lane>`, `cgis_db_<lane>`, ...), where the lane is `CGIS_TEST_LANE` or, unset, the current git branch (`feat/history` → `cgis_api_feat_history`). Worktrees on different branches share the one compose PostGIS without resetting each other's databases; set `CGIS_TEST_LANE` to run two checkouts of one branch side by side (`apps/api/test/lane.ts`).
 
 On every run, each project's global setup creates its databases with `scripts/db-lane.sh`, empties them and migrates them from scratch: the Node project (`apps/api/test/db`, migrations and seed) uses `cgis_db_<lane>` and `cgis_db_seed_<lane>`; the workerd project (`apps/api/test/lane-setup.ts`) uses five of its own. The e2e run uses `cgis_e2e`.
 
@@ -42,7 +42,8 @@ CI runs the batch. The OpenAPI document is validated in a test (`@readme/openapi
 
 `.github/workflows/ci.yml` on every pull request and push to `main`:
 
-1. `ci`: install, `pnpm lint`, `pnpm format:check`, `pnpm constants:docs --check`, `pnpm typecheck` (the e2e specs included), `drizzle-kit generate` with no change to `apps/api/drizzle`, migrate the runner's PostGIS service, `pnpm test`, the contract batch, `pnpm --filter @cgis/web build`, `build-storybook`, and `wrangler deploy --dry-run --env production`.
-2. `e2e`: Playwright Chromium, the Storybook browser tests, then `pnpm e2e` (the `chromium` project only; the aerial project needs the internet).
+1. `checks`: install, `pnpm lint`, `pnpm format:check`, `pnpm constants:docs --check`, `pnpm typecheck` (the e2e specs included).
+2. `ci`: `drizzle-kit generate` with no change to `apps/api/drizzle`, migrate the runner's PostGIS service, `pnpm test`, the contract batch, `pnpm --filter @cgis/web build`, `build-storybook`, and `wrangler deploy --dry-run --env production`.
+3. `e2e`: Playwright Chromium, the Storybook browser tests, then `pnpm e2e` (the `chromium` project only; the aerial project needs the internet).
 
 Load tests (`pnpm bench`, k6) stay manual: [`../bench/README.md`](../bench/README.md), results in [`benchmarks-load.md`](benchmarks-load.md).
