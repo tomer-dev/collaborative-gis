@@ -237,13 +237,13 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 
 ## READINESS
 
-`http.ts`. `GET /readyz` body values; the 503 `NOT_READY` carries the same `{ db, room }` in `details`.
+`http.ts`. `GET /readyz` body values; the 503 `NOT_READY` repeats `{ db, room, config }` in `details`.
 
 | Name | Value | Notes |
 |---|---|---|
-| `READY` | `'ready'` | 200 `status`: the database and the Room both answered. |
-| `UP` | `'up'` | A dependency answered within its deadline. |
-| `DOWN` | `'down'` | A dependency failed or missed its deadline. |
+| `READY` | `'ready'` | 200 `status`: the database and the Room answered, and both origin vars are absolute URLs. |
+| `UP` | `'up'` | A dependency answered within its deadline, or (`config`) both origin vars are URLs. |
+| `DOWN` | `'down'` | A dependency failed or missed its deadline, or (`config`) an origin var is not a URL. |
 
 ## CACHE
 
@@ -453,7 +453,7 @@ Saved areas on /map: the save dialog, the area panel (the areas in view, the sel
 | `PAYLOAD_TOO_LARGE` | `'PAYLOAD_TOO_LARGE'` | Body limit. |
 | `RATE_LIMITED` | `'RATE_LIMITED'` | D13 rate limits. |
 | `TIMEOUT` | `'TIMEOUT'` | Request budget exceeded. |
-| `NOT_READY` | `'NOT_READY'` | `/readyz`: the database or the Room did not answer. |
+| `NOT_READY` | `'NOT_READY'` | `/readyz`: the database or the Room did not answer, or an origin var is not a URL. |
 | `INTERNAL` | `'INTERNAL'` | Sanitised server error. |
 | `NOT_IMPLEMENTED` | `'NOT_IMPLEMENTED'` | Mounted route whose lane has not landed. |
 | `UPGRADE_REQUIRED` | `'UPGRADE_REQUIRED'` | `/ws` only speaks WebSocket. |
@@ -474,7 +474,7 @@ Saved areas on /map: the save dialog, the area panel (the areas in view, the sel
 | `PAYLOAD_TOO_LARGE` | `'Payload too large'` | Generic 413. |
 | `RATE_LIMITED` | `'Too many requests'` | Generic 429. |
 | `TIMEOUT` | `'timeout'` | 504 body. |
-| `NOT_READY` | `'dependency unreachable'` | `/readyz` 503 body; `details: { db, room }` says which one is down. |
+| `NOT_READY` | `'dependency unreachable'` | `/readyz` 503 body; `details: { db, room, config }` says which one is down. |
 | `INTERNAL` | `'Internal Server Error'` | 5xx bodies never leak `err.message`. |
 | `NOT_IMPLEMENTED` | `'not implemented'` | 501 until the lane fills the stub. |
 | `UPGRADE_REQUIRED` | `'websocket upgrade required'` | 426 body. |

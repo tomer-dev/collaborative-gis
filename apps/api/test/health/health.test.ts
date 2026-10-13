@@ -65,16 +65,16 @@ describe('health', () => {
   });
 });
 
-describe('GET /readyz: the database and the Room', () => {
+describe('GET /readyz: the database, the Room and the origin vars', () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('200 { status: ready, db: up, room: up } when PostGIS and the Room answer, logging nothing', async () => {
+  it('200 { status: ready, db: up, room: up, config: up } when PostGIS and the Room answer, logging nothing', async () => {
     const log = vi.spyOn(console, 'error');
     const { res } = await readyz(env);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ status: 'ready', db: 'up', room: 'up' });
+    expect(await res.json()).toEqual({ status: 'ready', db: 'up', room: 'up', config: 'up' });
     // Give workerd's post-end() 'socket closed' event a turn to fire: it must not be logged.
     await new Promise((r) => setTimeout(r, 50));
     expect(log).not.toHaveBeenCalled();
@@ -85,7 +85,7 @@ describe('GET /readyz: the database and the Room', () => {
     const getVersion = vi.fn(async () => 7);
     const { res } = await readyz(withRoom(getVersion, names));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ status: 'ready', db: 'up', room: 'up' });
+    expect(await res.json()).toEqual({ status: 'ready', db: 'up', room: 'up', config: 'up' });
     expect(names).toEqual([ROOM.DEFAULT_ROOM_ID]);
     expect(getVersion).toHaveBeenCalledOnce();
   });
@@ -97,7 +97,7 @@ describe('GET /readyz: the database and the Room', () => {
     expect(await res.json()).toEqual({
       code: 'NOT_READY',
       message: 'dependency unreachable',
-      details: { db: 'down', room: 'up' },
+      details: { db: 'down', room: 'up', config: 'up' },
     });
     expect(log).toHaveBeenCalledOnce();
     expect(loggedLine(log)).toEqual({
@@ -127,7 +127,7 @@ describe('GET /readyz: the database and the Room', () => {
     expect(await res.json()).toEqual({
       code: 'NOT_READY',
       message: 'dependency unreachable',
-      details: { db: 'up', room: 'down' },
+      details: { db: 'up', room: 'down', config: 'up' },
     });
     expect(elapsed).toBeGreaterThanOrEqual(TIMEOUTS.DO_PING_MS);
     expect(elapsed).toBeLessThan(TIMEOUTS.DO_PING_MS * 2);
@@ -165,5 +165,23 @@ describe('GET /readyz: the database and the Room', () => {
     expect(res.status).toBe(503);
     expect(await res.json()).toMatchObject({ details: { db: 'down', room: 'down' } });
     expect(log).toHaveBeenCalledOnce();
+  });
+
+  it('503 { db: up, room: up, config: down } when CLIENT_ORIGIN is empty, naming it in the log line', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { res } = await readyz({ ...env, CLIENT_ORIGIN: '' });
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({
+      code: 'NOT_READY',
+      message: 'dependency unreachable',
+      details: { db: 'up', room: 'up', config: 'down' },
+    });
+    expect(loggedLine(log)).toEqual({
+      level: 'error',
+      msg: 'not ready',
+      path: '/readyz',
+      requestId: expect.any(String),
+      config: 'not an absolute URL: CLIENT_ORIGIN',
+    });
   });
 });

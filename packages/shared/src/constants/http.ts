@@ -42,12 +42,12 @@ export const OPENAPI = {
   UI_BUNDLE_INTEGRITY: 'sha384-kYDGzV91Jnn3TbHINV3nt54riK2uMJDfN5Al8dAkz4FssELTBWbD8rgw32sTKfOi',
 } as const;
 
-/** `GET /readyz` body values; the 503 `NOT_READY` carries the same `{ db, room }` in `details`. */
+/** `GET /readyz` body values; the 503 `NOT_READY` repeats `{ db, room, config }` in `details`. */
 export const READINESS = {
-  /** 200 `status`: the database and the Room both answered. */
+  /** 200 `status`: the database and the Room answered, and both origin vars are absolute URLs. */
   READY: 'ready',
-  /** A dependency answered within its deadline. */
+  /** A dependency answered within its deadline, or (`config`) both origin vars are URLs. */
   UP: 'up',
-  /** A dependency failed or missed its deadline. */
+  /** A dependency failed or missed its deadline, or (`config`) an origin var is not a URL. */
   DOWN: 'down',
 } as const;
