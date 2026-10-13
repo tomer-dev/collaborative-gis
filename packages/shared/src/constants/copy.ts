@@ -101,8 +101,6 @@ export const COPY = {
     /** The area panel: its title, also the name of the list of the areas in the viewport. */
     LIST_TITLE: 'Areas in view',
     LIST_EMPTY: 'No saved areas in view.',
-    /** Under the list when more than `LIMITS.PANEL_LIST_MAX` areas are in view. */
-    LIST_MORE: (count: number) => `+${count} more`,
     HISTORY_TITLE: 'History',
     HISTORY_LOADING: 'Loading history…',
     HISTORY_ERROR_TITLE: 'Could not load the history',

@@ -4,10 +4,6 @@ import { createRoot } from 'react-dom/client';
 import './styles/index.css';
 import { createQueryClient } from './lib/query';
 import { AppRouterProvider, createAppRouter } from './router';
-import { syncColorScheme } from './ui/theme';
-
-// Follow the OS light/dark preference: tokens.css switches the semantic colours on .dark.
-syncColorScheme();
 
 const queryClient = createQueryClient();
 const router = createAppRouter(queryClient);
