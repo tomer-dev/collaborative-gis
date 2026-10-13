@@ -1,20 +1,30 @@
-import { GEO, LIMITS, type Area, type Bbox, type Polygon } from '@cgis/shared';
-import { sql, type SQL } from 'drizzle-orm';
+import { AreaSchema, type Polygon } from '@cgis/shared';
+import { eq, sql, type SQL } from 'drizzle-orm';
 import type pg from 'pg';
-import { db } from './index';
-import { auditLog } from './schema';
+import { z } from 'zod';
+import { areaKm2Of, fromGeoJson } from './geometry.ts';
+import { db } from './index.ts';
+import { areas, auditLog } from './schema.ts';
+import { isoUtc, selectLiveArea, type AreaRow } from './spatial-read.ts';
 
-// Spatial reads and writes on `areas` / `area_versions` / `audit_log`, one `pg.Client` per call
-// (from `withClient`). Every write that touches geometry is a single statement, so it is atomic
-// without a transaction (Hyperdrive pools in transaction mode).
-
-export type AreaRow = Area;
+// Spatial writes on `areas` / `area_versions` / `audit_log`, one `pg.Client` per call (from
+// `withClient`); the reads are in ./spatial-read.ts. Every write that touches geometry is a single
+// statement, so it is atomic without a transaction (Hyperdrive pools in transaction mode): those
+// are raw write CTEs, D23's one exception, and their result rows are Zod-parsed here before
+// anything leaves this file.
 
 export type AreaInput = { name: string; geometry: Polygon; userId: string };
 
 export type UpdateResult = { ok: true; area: AreaRow } | { ok: false; current: AreaRow | null };
 
 export type AuditRow = Omit<typeof auditLog.$inferInsert, 'id' | 'at'>;
+
+/** A revert's result: the reverted area, or why nothing was written. */
+export type RevertResult =
+  | { status: 'reverted'; area: AreaRow }
+  | { status: 'conflict'; current: AreaRow }
+  | { status: 'missing' }
+  | { status: 'deleted' };
 
 /**
  * PostGIS rejected a polygon that passed Zod (e.g. a self-intersection). `reason` is the
@@ -30,44 +40,44 @@ export class InvalidGeometryError extends Error {
   }
 }
 
-/** A write's one result row: `reason` when the geometry was invalid, else the written row (all
- * NULL when no row matched). */
-type WriteResult = { reason: string | null } & { [K in keyof AreaRow]: AreaRow[K] | null };
-
-// The `Area` fields of an `areas` row. Unqualified on purpose: each statement selects them from
-// exactly one relation with the `areas` columns. Timestamps become ISO 8601 UTC strings in SQL, as
-// `Date.toISOString()` would print them (the `Area` contract): Drizzle's node-postgres session
-// hands `timestamptz` over as Postgres text, not as a `Date`.
+// D23 exception (write CTEs): the same fields as AREA_FIELDS (./spatial-read.ts), unqualified on
+// purpose: each write CTE selects them from exactly one relation with the `areas` columns (the
+// inserted or updated row).
 const AREA_COLUMNS = sql`id, name, ST_AsGeoJSON(geom)::json AS geometry, area_km2::float8 AS "areaKm2",
   version, created_by AS "createdBy",
-  to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "createdAt",
-  to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "updatedAt"`;
+  ${isoUtc(sql`created_at`)} AS "createdAt", ${isoUtc(sql`updated_at`)} AS "updatedAt"`;
 
-/** Geodesic area on the WGS 84 spheroid (`ST_Area(geography)` defaults to it), m² → km². */
-const AREA_KM2 = sql`ST_Area(g::geography) / 1e6`;
+/** Geodesic area of the CTE's input geometry `g`, in km². */
+const AREA_KM2 = areaKm2Of(sql`g`);
 
 /**
- * CTE `input(g, reason)`: the GeoJSON polygon as a geometry (SRID 4326, GeoJSON's default) and
- * `ST_IsValidReason` when `ST_IsValid` is false (NULL when valid). Writes only use `g` when `reason`
- * is NULL, so an invalid polygon writes nothing and the statement reports why.
+ * CTE `input(g, reason)`: the GeoJSON polygon as a geometry and `ST_IsValidReason` when
+ * `ST_IsValid` is false (NULL when valid). Writes only use `g` when `reason` is NULL, so an invalid
+ * polygon writes nothing and the statement reports why.
  */
 function inputCte(geometry: Polygon): SQL {
   return sql`input AS (
     SELECT g, CASE WHEN ST_IsValid(g) THEN NULL ELSE ST_IsValidReason(g) END AS reason
-    FROM (SELECT ST_GeomFromGeoJSON(${JSON.stringify(geometry)}) AS g) AS parsed
+    FROM (SELECT ${fromGeoJson(geometry)} AS g) AS parsed
   )`;
 }
 
-function toArea(row: AreaRow): AreaRow {
-  const { id, name, geometry, areaKm2, version, createdBy, createdAt, updatedAt } = row;
-  return { id, name, geometry, areaKm2, version, createdBy, createdAt, updatedAt };
+/** `reason`: the polygon's `ST_IsValidReason`, NULL when it is valid. */
+const InsertCheckSchema = z.object({ reason: z.string().nullable() });
+/** Plus `liveVersion`: the stored version of the live row as the statement found it (NULL: none). */
+const UpdateCheckSchema = InsertCheckSchema.extend({ liveVersion: z.number().int().nullable() });
+const VersionRowSchema = z.object({ version: z.number().int().positive() });
+
+/** The one row every write CTE returns. */
+function onlyRow(rows: Record<string, unknown>[]): Record<string, unknown> {
+  const [row] = rows;
+  if (!row) throw new Error('write statement returned no row');
+  return row;
 }
 
-/** Throws InvalidGeometryError for a rejected geometry; otherwise the written row, if any. */
-function written(row: WriteResult | undefined): AreaRow | null {
-  if (!row) throw new Error('write statement returned no row');
-  if (row.reason !== null) throw new InvalidGeometryError(row.reason);
-  return row.id === null ? null : toArea(row as AreaRow);
+/** The written area a write CTE's row carries, parsed as an `Area`; null when nothing was written. */
+function writtenArea(row: Record<string, unknown>): AreaRow | null {
+  return row.id === null ? null : AreaSchema.parse(row);
 }
 
 /**
@@ -75,7 +85,8 @@ function written(row: WriteResult | undefined): AreaRow | null {
  * Throws InvalidGeometryError (nothing written) when `ST_IsValid` rejects the polygon.
  */
 export async function insertArea(c: pg.Client, input: AreaInput): Promise<AreaRow> {
-  const { rows } = await db(c).execute<WriteResult>(sql`
+  // D23 exception: a write CTE (the area and its version row in one statement).
+  const { rows } = await db(c).execute(sql`
     WITH ${inputCte(input.geometry)},
     inserted AS (
       INSERT INTO areas (name, geom, area_km2, created_by)
@@ -87,7 +98,10 @@ export async function insertArea(c: pg.Client, input: AreaInput): Promise<AreaRo
       SELECT id, version, name, geom, area_km2, created_by FROM inserted
     )
     SELECT input.reason, ${AREA_COLUMNS} FROM input LEFT JOIN inserted ON true`);
-  const area = written(rows[0]);
+  const row = onlyRow(rows);
+  const { reason } = InsertCheckSchema.parse(row);
+  if (reason !== null) throw new InvalidGeometryError(reason);
+  const area = writtenArea(row);
   if (!area) throw new Error('insert returned no row');
   return area;
 }
@@ -97,15 +111,20 @@ export async function insertArea(c: pg.Client, input: AreaInput): Promise<AreaRo
  * version equals `input.version` and the area is live, recording the new version row (one
  * statement). Otherwise returns the current live row (`null` when missing or deleted), read by a
  * second statement: under READ COMMITTED (the default) that one sees a concurrent winner's commit,
- * which the UPDATE's own snapshot would not. Throws InvalidGeometryError (nothing written) for an
- * invalid polygon.
+ * which the UPDATE's own snapshot would not.
+ *
+ * A missing area and a stale version are reported before an invalid polygon (404 and 409 before
+ * 422): InvalidGeometryError (nothing written) is thrown only when the live row was at
+ * `input.version`.
  */
 export async function updateAreaIfVersion(
   c: pg.Client,
   id: string,
   input: AreaInput & { version: number },
 ): Promise<UpdateResult> {
-  const { rows } = await db(c).execute<WriteResult>(sql`
+  // D23 exception: a write CTE (the update and its version row in one statement). `liveVersion`
+  // reads `areas` as the statement's snapshot saw it, before the update.
+  const { rows } = await db(c).execute(sql`
     WITH ${inputCte(input.geometry)},
     updated AS (
       UPDATE areas
@@ -120,43 +139,17 @@ export async function updateAreaIfVersion(
       INSERT INTO area_versions (area_id, version, name, geom, area_km2, changed_by)
       SELECT id, version, name, geom, area_km2, ${input.userId} FROM updated
     )
-    SELECT input.reason, ${AREA_COLUMNS} FROM input LEFT JOIN updated ON true`);
-  const area = written(rows[0]);
+    SELECT input.reason,
+      (SELECT live.version FROM areas AS live WHERE live.id = ${id} AND live.deleted_at IS NULL)
+        AS "liveVersion",
+      ${AREA_COLUMNS}
+    FROM input LEFT JOIN updated ON true`);
+  const row = onlyRow(rows);
+  const area = writtenArea(row);
   if (area) return { ok: true, area };
+  const { reason, liveVersion } = UpdateCheckSchema.parse(row);
+  if (reason !== null && liveVersion === input.version) throw new InvalidGeometryError(reason);
   return { ok: false, current: await selectLiveArea(c, id) };
-}
-
-async function selectLiveArea(c: pg.Client, id: string): Promise<AreaRow | null> {
-  const { rows } = await db(c).execute<AreaRow>(
-    sql`SELECT ${AREA_COLUMNS} FROM areas WHERE id = ${id} AND deleted_at IS NULL`,
-  );
-  return rows[0] ?? null;
-}
-
-/**
- * The viewport query: live areas whose bounding box meets the bbox (`&&`, served by the partial
- * GiST index `areas_geom_gist`), newest edits first. `&&` compares bounding boxes only, so an area
- * near the viewport may be included without touching it; the map simply draws it off-screen.
- */
-export function areasInBoundsSql(
-  [west, south, east, north]: Bbox,
-  { limit = LIMITS.BOUNDS_LIMIT }: { limit?: number } = {},
-): SQL {
-  return sql`SELECT ${AREA_COLUMNS} FROM areas
-    WHERE geom && ST_MakeEnvelope(${west}, ${south}, ${east}, ${north}, ${GEO.SRID})
-      AND deleted_at IS NULL
-    ORDER BY updated_at DESC
-    LIMIT ${limit}`;
-}
-
-/** Live areas in the viewport (see areasInBoundsSql); `limit` defaults to `LIMITS.BOUNDS_LIMIT`. */
-export async function selectAreasInBounds(
-  c: pg.Client,
-  bbox: Bbox,
-  opts: { limit?: number } = {},
-): Promise<AreaRow[]> {
-  const { rows } = await db(c).execute<AreaRow>(areasInBoundsSql(bbox, opts));
-  return rows;
 }
 
 /**
@@ -170,7 +163,8 @@ export async function softDeleteArea(
   id: string,
   userId: string,
 ): Promise<number | null> {
-  const { rows } = await db(c).execute<{ version: number }>(sql`
+  // D23 exception: a write CTE (the soft delete and its version row in one statement).
+  const { rows } = await db(c).execute(sql`
     WITH deleted AS (
       UPDATE areas SET deleted_at = now(), updated_at = now(), version = version + 1
       WHERE id = ${id} AND deleted_at IS NULL
@@ -179,7 +173,59 @@ export async function softDeleteArea(
     INSERT INTO area_versions (area_id, version, name, geom, area_km2, changed_by)
     SELECT id, version, name, geom, area_km2, ${userId} FROM deleted
     RETURNING version`);
-  return rows[0]?.version ?? null;
+  const [row] = rows;
+  return row ? VersionRowSchema.parse(row).version : null;
+}
+
+/**
+ * Reverts a live area at version `expected` to its saved `version` in one statement (a
+ * data-modifying CTE, the D23 exception): copies that version's name, geometry and area onto the
+ * area, bumps `version`, and records the result as a new version row changed by `userId`; history
+ * is never rewritten. The saved geometry passed `ST_IsValid` when it was written, so it is not
+ * checked again.
+ *
+ * When nothing was written, a second statement says why: `deleted` (the area is soft-deleted),
+ * `conflict` (it is no longer at `expected`: `current` is what is stored, D4), or `missing` (no
+ * such area, or no such version of a live one). Under READ COMMITTED (the default) it sees a
+ * write that committed while the UPDATE waited for the row.
+ */
+export async function revertArea(
+  c: pg.Client,
+  id: string,
+  version: number,
+  expected: number,
+  userId: string,
+): Promise<RevertResult> {
+  // D23 exception: a write CTE (the revert and its version row in one statement).
+  const { rows } = await db(c).execute(sql`
+    WITH target AS (
+      SELECT name, geom, area_km2 FROM area_versions
+      WHERE area_id = ${id} AND version = ${version}
+    ),
+    reverted AS (
+      UPDATE areas
+      SET name = target.name, geom = target.geom, area_km2 = target.area_km2,
+          version = areas.version + 1, updated_at = now()
+      FROM target
+      WHERE areas.id = ${id} AND areas.deleted_at IS NULL AND areas.version = ${expected}
+      RETURNING areas.*
+    ),
+    next_version AS (
+      INSERT INTO area_versions (area_id, version, name, geom, area_km2, changed_by)
+      SELECT id, version, name, geom, area_km2, ${userId} FROM reverted
+    )
+    SELECT ${AREA_COLUMNS} FROM reverted`);
+  const [row] = rows;
+  if (row) return { status: 'reverted', area: AreaSchema.parse(row) };
+  const [stored] = await db(c)
+    .select({ deletedAt: areas.deletedAt, version: areas.version })
+    .from(areas)
+    .where(eq(areas.id, id));
+  if (!stored) return { status: 'missing' };
+  if (stored.deletedAt) return { status: 'deleted' };
+  if (stored.version === expected) return { status: 'missing' };
+  const current = await selectLiveArea(c, id);
+  return current ? { status: 'conflict', current } : { status: 'deleted' };
 }
 
 /** Appends one `audit_log` row (`at` defaults to now()). */

@@ -1,7 +1,8 @@
 import { COPY, ERROR_CODES, ERROR_REASONS, type AreaList } from '@cgis/shared';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, expect, it, vi } from 'vitest';
-import { areasKey, type AreaEdit } from '../lib/areas-query';
+import type { AreaEdit } from '../lib/areas-mutations';
+import { areasKey } from '../lib/areas-query';
 import type { Bbox } from '@cgis/shared';
 import {
   AREA_ID,
@@ -12,6 +13,7 @@ import {
   stubApi,
   stubDialogModal,
   type StubHandler,
+  ZOOM,
 } from '../test/api-stub';
 import { ConflictDialog } from './ConflictDialog';
 
@@ -34,7 +36,7 @@ const edit: AreaEdit = {
 function renderDialog(handler: StubHandler) {
   const requests = stubApi(handler);
   const { queryClient, wrapper: Wrapper } = queryWrapper();
-  queryClient.setQueryData<AreaList>(areasKey(ISRAEL), { areas: [stale, vineyard] });
+  queryClient.setQueryData<AreaList>(areasKey(ISRAEL, ZOOM), { areas: [stale, vineyard] });
   const props = { onResolved: vi.fn(), onConflict: vi.fn(), onClose: vi.fn() };
   render(<ConflictDialog edit={edit} current={theirs} {...props} />, { wrapper: Wrapper });
   return { requests, queryClient, ...props };
@@ -57,7 +59,7 @@ it('"Load theirs" puts the server copy in the cache, sends nothing, and resolves
 
   fireEvent.click(button(COPY.AREAS.LOAD_THEIRS));
 
-  expect(queryClient.getQueryData(areasKey(ISRAEL))).toEqual({ areas: [theirs, vineyard] });
+  expect(queryClient.getQueryData(areasKey(ISRAEL, ZOOM))).toEqual({ areas: [theirs, vineyard] });
   expect(requests).toEqual([]);
   expect(onResolved).toHaveBeenCalledWith(theirs);
 });
@@ -76,7 +78,9 @@ it('"Overwrite with mine" resends the edit on top of current.version', async () 
       body: { ...edit.body, version: theirs.version },
     }),
   ]);
-  expect(queryClient.getQueryData(areasKey(ISRAEL))).toEqual({ areas: [overwritten, vineyard] });
+  expect(queryClient.getQueryData(areasKey(ISRAEL, ZOOM))).toEqual({
+    areas: [overwritten, vineyard],
+  });
 });
 
 it('asks again with the newer copy when the overwrite meets another version', async () => {

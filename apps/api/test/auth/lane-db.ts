@@ -1,6 +1,8 @@
 import { env } from 'cloudflare:workers';
 import pg from 'pg';
+import { inject } from 'vitest';
 import type { Env } from '../../src/app';
+import { laneDatabase } from '../lane';
 
 declare global {
   interface ImportMeta {
@@ -22,17 +24,19 @@ const MIGRATIONS = Object.entries(
 ).sort(([a], [b]) => a.localeCompare(b));
 
 /**
- * The test env with `HYPERDRIVE` pointed at the lane database `name` (created and migrated on
- * first use). Pass it to `createApp().request(path, init, laneEnv)` and to `readSession`.
+ * The test env with `HYPERDRIVE` pointed at the lane database for `base` (created and migrated on
+ * first use): `<base>_<lane>`, the lane being this run's git branch or `CGIS_TEST_LANE`
+ * (test/lane.ts). Pass it to `createApp().request(path, init, laneEnv)` and to `readSession`.
  *
  * Does in workerd what `scripts/db-lane.sh` + `db:migrate` do in Node, since a workerd test can
- * neither run bash nor read SQL files from disk: creates `name` on the server behind
+ * neither run bash nor read SQL files from disk: creates the database on the server behind
  * `env.HYPERDRIVE` (the compose PostGIS, or CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE)
  * and applies every `drizzle/*.sql` file in order. The database is rebuilt only when the
  * migrations change (their hash is kept as the database comment), so test files sharing a lane
  * database never reset it under each other.
  */
-export async function laneEnv(name: string): Promise<Env> {
+export async function laneEnv(base: string): Promise<Env> {
+  const name = laneDatabase(base, inject('testLane'));
   const url = databaseUrl(name);
   await withPg(env.HYPERDRIVE.connectionString, (admin) => createDatabase(admin, name));
   await withPg(url, (client) => migrate(client, name));

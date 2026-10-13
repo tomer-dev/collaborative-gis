@@ -10,10 +10,13 @@
     "typecheck": "pnpm types && tsc -p tsconfig.json",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate && prettier --write drizzle/meta",
-    "db:migrate": "node src/db/migrate.ts"
+    "db:migrate": "node src/db/migrate.ts",
+    "db:seed": "node src/db/seed.ts",
+    "db:explain": "node src/db/explain.ts"
   },
   "dependencies": {
     "@cgis/shared": "workspace:*",
+    "@scalar/hono-api-reference": "^0.12.11",
     "better-auth": "^1.7.7",
     "drizzle-orm": "^0.45.4",
     "hono": "^4.13.13",
@@ -24,6 +27,7 @@
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.4.0",
     "@hono/cli": "1.0.0-rc.6",
+    "@readme/openapi-parser": "^9.1.0",
     "@types/node": "^26.6.5",
     "@types/pg": "^8.23.1",
     "drizzle-kit": "^0.31.11",

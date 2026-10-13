@@ -3,6 +3,7 @@ import {
   bigserial,
   index,
   integer,
+  jsonb,
   numeric,
   pgTable,
   primaryKey,
@@ -10,7 +11,7 @@ import {
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { polygon } from './geometry';
+import { polygon } from './geometry.ts';
 
 // Column names are spelled out in snake_case: the Drizzle client (./index.ts) and drizzle-kit
 // (../../drizzle.config.ts) set no `casing`, so a bare `areaId: uuid()` would become "areaId".
@@ -55,9 +56,12 @@ export const areaVersions = pgTable(
 );
 
 /**
- * Append-only record of who did what (D20): `action` and `entity` from `AUDIT` in @cgis/shared.
- * An area event's `(entity_id, version)` points at the `area_versions` row it produced, instead of
- * hashing the request body; `version` is NULL for events that have no versioned entity.
+ * Append-only record of who did what (D20): `action` and `entity` (the entity type) from `AUDIT` in
+ * @cgis/shared. An area event's `(entity_id, version)` points at the `area_versions` row it
+ * produced, instead of hashing the request body; `version` is NULL for events that have no
+ * versioned entity. `details` holds an event's own facts (e.g. the retention purge's deleted
+ * counts, a rejection's code), never a request body. `request_id` is the request's
+ * `x-request-id`; NULL for events no HTTP request carried (Room draw sessions, the purge).
  */
 export const auditLog = pgTable('audit_log', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),
@@ -69,4 +73,6 @@ export const auditLog = pgTable('audit_log', {
   ip: text('ip'),
   userAgent: text('user_agent'),
   at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  details: jsonb('details').$type<Record<string, unknown>>(),
+  requestId: text('request_id'),
 });

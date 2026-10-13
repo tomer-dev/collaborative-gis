@@ -66,11 +66,17 @@ export function takeDraftToken(bucket: DraftBucket, now: number): DraftTake {
 
 type DraftRow = { user_id: string; vertices: string };
 
+/** The stored `vertices` of an open session with nothing drawn. */
+const NO_VERTICES = JSON.stringify([]);
+
 /**
- * In-progress polygons, one per user, in the Room's SQLite storage:
- * `drafts(user_id TEXT PRIMARY KEY, vertices TEXT, updated_at INTEGER)`, where `vertices` is the
- * JSON `[lng, lat][]` and `updated_at` the epoch ms of the last op. A draft with no vertices is
- * deleted rather than stored.
+ * In-progress polygons and their draw sessions (D5), one row per user, in the Room's SQLite
+ * storage: `drafts(user_id TEXT PRIMARY KEY, vertices TEXT, updated_at INTEGER)`, where `vertices`
+ * is the JSON `[lng, lat][]` and `updated_at` the epoch ms of the last op. A row is an open draw
+ * session: the `add` that starts a draft writes it, and it stays, with no vertices after a `clear`
+ * or the user's departure, until their save (`end`) or the idle sweep (`deleteIdle`) deletes it.
+ * Being in SQLite, a session outlives hibernation and eviction. Only rows with vertices are drafts
+ * anyone sees (`all`).
  */
 export class DraftStore {
   constructor(private readonly sql: SqlStorage) {
@@ -83,50 +89,79 @@ export class DraftStore {
     );
   }
 
-  /** Applies `op` to `userId`'s draft; `false` (and nothing written) when the op does not fit. */
-  apply(userId: string, op: DraftOp, now: number): boolean {
-    const row = this.sql
+  /** `userId`'s draft in their open session (`[]` when nothing is drawn); `undefined` with none. */
+  vertices(userId: string): Position[] | undefined {
+    const [row] = this.sql
       .exec<DraftRow>('SELECT user_id, vertices FROM drafts WHERE user_id = ?', userId)
-      .toArray()[0];
-    const next = applyDraftOp(row ? toDraft(row).vertices : [], op);
-    if (next === undefined) return false;
-    if (next.length === 0) {
-      this.delete(userId);
-      return true;
-    }
+      .toArray();
+    return row && toDraft(row).vertices;
+  }
+
+  /** Stores `userId`'s draft as of `now`, opening their session if none is open. */
+  write(userId: string, vertices: Position[], now: number): void {
     this.sql.exec(
       `INSERT INTO drafts (user_id, vertices, updated_at) VALUES (?, ?, ?)
        ON CONFLICT (user_id) DO UPDATE SET vertices = excluded.vertices, updated_at = excluded.updated_at`,
       userId,
-      JSON.stringify(next),
+      JSON.stringify(vertices),
       now,
     );
-    return true;
   }
 
-  /** Deletes `userId`'s draft; `true` if there was one. */
-  delete(userId: string): boolean {
-    return (
-      this.sql.exec('DELETE FROM drafts WHERE user_id = ? RETURNING user_id', userId).toArray()
-        .length > 0
+  /** Empties `userId`'s draft and keeps their session open; `true` if it had vertices. */
+  empty(userId: string): boolean {
+    const emptied = this.sql.exec(
+      'UPDATE drafts SET vertices = ? WHERE user_id = ? AND vertices <> ? RETURNING user_id',
+      NO_VERTICES,
+      userId,
+      NO_VERTICES,
+    );
+    return emptied.toArray().length > 0;
+  }
+
+  /** Ends `userId`'s session, their draft with it; `true` if the draft had vertices. */
+  end(userId: string): boolean {
+    return drawn(
+      this.sql.exec<Pick<DraftRow, 'vertices'>>(
+        'DELETE FROM drafts WHERE user_id = ? RETURNING vertices',
+        userId,
+      ),
     );
   }
 
-  /** Deletes drafts last edited before `cutoff` (epoch ms); `true` if any were deleted. */
+  /**
+   * Ends the sessions last edited before `cutoff` (epoch ms), their drafts with them; `true` if
+   * any of those drafts had vertices.
+   */
   deleteIdle(cutoff: number): boolean {
-    return (
-      this.sql.exec('DELETE FROM drafts WHERE updated_at < ? RETURNING user_id', cutoff).toArray()
-        .length > 0
+    return drawn(
+      this.sql.exec<Pick<DraftRow, 'vertices'>>(
+        'DELETE FROM drafts WHERE updated_at < ? RETURNING vertices',
+        cutoff,
+      ),
     );
   }
 
-  /** Every stored draft, oldest edit first. */
+  /** How many sessions are open, drawn or not. */
+  count(): number {
+    return this.sql.exec<{ n: number }>('SELECT COUNT(*) AS n FROM drafts').one().n;
+  }
+
+  /** Every draft with vertices, oldest edit first. */
   all(): Draft[] {
     return this.sql
-      .exec<DraftRow>('SELECT user_id, vertices FROM drafts ORDER BY updated_at, user_id')
+      .exec<DraftRow>(
+        'SELECT user_id, vertices FROM drafts WHERE vertices <> ? ORDER BY updated_at, user_id',
+        NO_VERTICES,
+      )
       .toArray()
       .map(toDraft);
   }
+}
+
+/** Whether any of the deleted rows had vertices (a draft on screen went with it). */
+function drawn(deleted: SqlStorageCursor<Pick<DraftRow, 'vertices'>>): boolean {
+  return deleted.toArray().some(({ vertices }) => vertices !== NO_VERTICES);
 }
 
 /** Storage is ours, but the JSON is still validated rather than trusted with a cast. */

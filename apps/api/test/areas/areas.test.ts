@@ -93,7 +93,7 @@ describe('POST /api/areas', () => {
     expect(await countRows(env, 'areas', 'created_by = $1', [user.id])).toBe(0);
   });
 
-  it('answers 422 with the ST_IsValid reason for a bowtie and writes no area or audit row', async () => {
+  it('answers 422 with the ST_IsValid reason for a bowtie and writes no area or area audit row', async () => {
     const { user, api } = signedIn();
 
     const res = await api.create({ name: 'bowtie', geometry: bowtieAt(randomSpot()) });
@@ -103,7 +103,10 @@ describe('POST /api/areas', () => {
     expect(body).toMatchObject({ code: 'UNPROCESSABLE', message: 'invalid geometry' });
     expect(body.details.reason).toContain('Self-intersection');
     expect(await countRows(env, 'areas', 'created_by = $1', [user.id])).toBe(0);
-    expect(await countRows(env, 'audit_log', 'user_id = $1', [user.id])).toBe(0);
+    // The rejection itself is audited (`request.rejected`, test/audit) once app.ts mounts it.
+    expect(await countRows(env, 'audit_log', "user_id = $1 and entity = 'area'", [user.id])).toBe(
+      0,
+    );
   });
 
   it('answers 422 for a missing name and for a body that is not JSON', async () => {
@@ -211,6 +214,20 @@ describe('PUT /api/areas/:id', () => {
     expect(await missing.json()).toEqual({ code: 'NOT_FOUND', message: 'Not found' });
   });
 
+  it('answers 409 for a bowtie at a stale version, and 404 for a bowtie at an unknown id', async () => {
+    const { api } = signedIn();
+    const { spot, area } = await createSquare(api);
+    await api.update(area.id, { name: 'v2', geometry: squareAt(spot), version: 1 });
+    const bowtie = { name: 'x', geometry: bowtieAt(spot), version: 1 };
+
+    const stale = await api.update(area.id, bowtie);
+    expect(stale.status).toBe(409);
+    const body = await stale.json<{ details: { current: Area } }>();
+    expect(body.details.current).toMatchObject({ name: 'v2', version: 2 });
+
+    expect((await api.update(crypto.randomUUID(), bowtie)).status).toBe(404);
+  });
+
   it('answers 422 for a bowtie or a missing version and leaves the area as it was', async () => {
     const { api } = signedIn();
     const { spot, area } = await createSquare(api);
@@ -223,6 +240,20 @@ describe('PUT /api/areas/:id', () => {
     const res = await api.list(`bbox=${bboxAround(spot)}`);
     const { areas } = await res.json<{ areas: Area[] }>();
     expect(areas.find((a) => a.id === area.id)).toEqual(area);
+    expect((await auditRows(env, area.id)).map((r) => r.action)).toEqual(['area.create']);
+  });
+});
+
+describe('PUT /api/areas/:id version bound', () => {
+  it('answers 422, not 500, for a version past the Postgres integer range, and changes nothing', async () => {
+    const { api } = signedIn();
+    const { spot, area } = await createSquare(api);
+
+    for (const version of [2_147_483_648, 1e300]) {
+      const res = await api.update(area.id, { name: 'x', geometry: squareAt(spot), version });
+      expect(res.status).toBe(422);
+      expect(await res.json()).toMatchObject({ code: 'UNPROCESSABLE' });
+    }
     expect((await auditRows(env, area.id)).map((r) => r.action)).toEqual(['area.create']);
   });
 });

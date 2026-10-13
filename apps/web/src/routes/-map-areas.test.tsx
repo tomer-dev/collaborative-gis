@@ -7,16 +7,20 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import L from 'leaflet';
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { FakeSocket } from '../lib/fake-websocket';
+import { MAP_CLASS } from '../ui';
 import { AppRouterProvider, createAppRouter } from '../router';
 import {
   AREA_ID,
+  deferred,
   jsonResponse,
   makeArea,
+  makeVersion,
   queryWrapper,
   SQUARE,
   stubApi,
   stubDialogModal,
   type StubHandler,
+  type StubRequest,
 } from '../test/api-stub';
 
 vi.mock('../lib/auth-client', () => ({
@@ -70,15 +74,20 @@ async function renderMap(handler: StubHandler) {
 
 const areaPaths = () => document.querySelectorAll(`.leaflet-${MAP.AREAS_PANE}-pane path`);
 
-/** Answers the list with [orchard] and PUT with a 409 carrying `theirs`. */
-const conflictingServer: StubHandler = ({ method }) =>
-  method === 'PUT'
+const isVersionsGet = ({ method, path }: StubRequest) =>
+  method === 'GET' && path === `/api/areas/${AREA_ID}/versions`;
+
+/** Answers the list with [orchard], its history with its one version, PUT with a 409 (`theirs`). */
+const conflictingServer: StubHandler = (request) => {
+  if (isVersionsGet(request)) return jsonResponse(200, { versions: [makeVersion(AREA_ID, 1)] });
+  return request.method === 'PUT'
     ? jsonResponse(409, {
         code: ERROR_CODES.CONFLICT,
         message: ERROR_REASONS.VERSION_CONFLICT,
         details: { current: theirs },
       })
     : jsonResponse(200, { areas: [orchard] });
+};
 
 async function selectAndRename(name: string) {
   await waitFor(() => expect(areaPaths()).toHaveLength(1));
@@ -148,6 +157,7 @@ it('fetches the viewport and draws its areas in the areas pane', async () => {
 
   await waitFor(() => expect(areaPaths()).toHaveLength(1));
   const bbox = requests[0]?.query.get('bbox')?.split(',').map(Number);
+  expect(requests[0]?.query.get('zoom')).toBe(String(map.getZoom()));
   const bounds = map.getBounds();
   expect(bbox?.[0]).toBeCloseTo(bounds.getWest(), 6);
   expect(bbox?.[3]).toBeCloseTo(bounds.getNorth(), 6);
@@ -199,4 +209,67 @@ it('opens the save dialog with the finished sketch on draw:done', async () => {
   });
 
   expect(await screen.findByRole('dialog', { name: COPY.AREAS.SAVE_TITLE })).toBeTruthy();
+});
+
+it("lists the viewport's areas; picking one selects and highlights it like a click on its polygon", async () => {
+  await renderMap(conflictingServer);
+  await waitFor(() => expect(areaPaths()).toHaveLength(1));
+
+  const list = await screen.findByRole('region', { name: COPY.AREAS.LIST_TITLE });
+  fireEvent.click(within(list).getByRole('button', { name: /Orchard/ }));
+
+  const panel = await screen.findByRole('region', { name: 'Orchard' });
+  expect(areaPaths()[0]?.classList.contains(MAP_CLASS.areaSelected)).toBe(true);
+  fireEvent.click(within(panel).getByRole('button', { name: COPY.AREAS.CLOSE }));
+  expect(await screen.findByRole('region', { name: COPY.AREAS.LIST_TITLE })).toBeTruthy();
+  expect(areaPaths()[0]?.classList.contains(MAP_CLASS.areaSelected)).toBe(false);
+});
+
+it('reverts from the history: the panel shows the reverted area and the history reloads', async () => {
+  const current = makeArea(AREA_ID, { name: 'Grove', version: 2 });
+  const reverted = makeArea(AREA_ID, { name: 'Orchard', version: 3 });
+  const history = [makeVersion(AREA_ID, 2, { name: 'Grove' }), makeVersion(AREA_ID, 1)];
+  const { requests } = await renderMap((request) => {
+    if (isVersionsGet(request)) return jsonResponse(200, { versions: history });
+    if (request.method === 'POST') return jsonResponse(201, reverted);
+    return jsonResponse(200, { areas: [current] });
+  });
+  await waitFor(() => expect(areaPaths()).toHaveLength(1));
+  areaPaths()[0]?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  const historyRegion = await screen.findByRole('region', { name: COPY.AREAS.HISTORY_TITLE });
+
+  const [, first] = await within(historyRegion).findAllByRole('listitem');
+  fireEvent.click(within(first!).getByRole('button', { name: COPY.AREAS.REVERT }));
+
+  expect(await screen.findByRole('region', { name: 'Orchard' })).toBeTruthy();
+  expect(requests.find((request) => request.method === 'POST')?.path).toBe(
+    `/api/areas/${AREA_ID}/revert/1`,
+  );
+  await waitFor(() => expect(requests.filter(isVersionsGet)).toHaveLength(2));
+});
+
+it('leaves an area whose create is still pending out of the list (SaveDialog cancelled mid-save)', async () => {
+  const response = deferred<Response>();
+  const { map } = await renderMap((request) =>
+    request.method === 'POST' ? response.promise : conflictingServer(request),
+  );
+  await waitFor(() => expect(areaPaths()).toHaveLength(1));
+  await screen.findByRole('button', { name: DRAW.START_LABEL });
+  act(() => {
+    map.fire('draw:done', { ring: SQUARE });
+  });
+  const dialog = await screen.findByRole('dialog', { name: COPY.AREAS.SAVE_TITLE });
+  fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'Unsaved' } });
+  fireEvent.click(within(dialog).getByRole('button', { name: COPY.AREAS.SAVE_SUBMIT }));
+  await waitFor(() => expect(areaPaths()).toHaveLength(2));
+
+  fireEvent.click(within(dialog).getByRole('button', { name: COPY.AREAS.CANCEL }));
+
+  const list = await screen.findByRole('region', { name: COPY.AREAS.LIST_TITLE });
+  expect(
+    within(list)
+      .getAllByRole('button')
+      .map((row) => row.textContent),
+  ).toEqual([expect.stringContaining('Orchard')]);
+  expect(within(list).queryByText('Unsaved')).toBeNull();
 });

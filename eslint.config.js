@@ -47,11 +47,43 @@ export default tseslint.config(
     },
   },
   {
+    // D23: the api reads through the Drizzle query builder. A tagged `sql` template that starts with
+    // SELECT is a hand-written read; `sql` stays for PostGIS fragments (the builder reads in
+    // apps/api/src/db/spatial-read.ts) and the write CTEs in apps/api/src/db/spatial.ts, which
+    // start with WITH and so pass. Tests (apps/api/test) are outside `files`.
+    files: ['apps/api/src/**/*.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "TaggedTemplateExpression[tag.name='sql'] > TemplateLiteral.quasi > TemplateElement:first-child[value.raw=/^\\s*select\\b/i]",
+          message:
+            'Hand-written SELECT in sql``: use the Drizzle query builder, with sql only for PostGIS fragments (D23).',
+        },
+      ],
+    },
+  },
+  {
     // No type assertions in the SPA (`as const` stays allowed): parse at the boundary with the
     // shared Zod schemas, or narrow. The generated route tree is ignored above.
     files: ['apps/web/src/**/*.{ts,tsx}'],
     rules: {
       '@typescript-eslint/consistent-type-assertions': ['error', { assertionStyle: 'never' }],
+    },
+  },
+  {
+    // One responsibility per file: a source file past 250 lines of code is split by concern.
+    rules: {
+      'max-lines': ['error', { max: 250, skipBlankLines: true, skipComments: true }],
+    },
+  },
+  {
+    // Tests are long by nature (fixtures, one scenario per case), so they get twice the room; past
+    // that, a test file is split by describe block.
+    files: ['**/*.test.{ts,tsx}', 'apps/web/e2e/**'],
+    rules: {
+      'max-lines': ['error', { max: 500, skipBlankLines: true, skipComments: true }],
     },
   },
 );

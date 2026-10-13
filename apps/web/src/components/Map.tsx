@@ -3,6 +3,7 @@ import { MAP } from '@cgis/shared/constants';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef } from 'react';
+import { createOsmLayer } from '../lib/geo/osm-layer';
 import { boundsToBbox } from '../lib/map';
 
 export type MapViewProps = {
@@ -11,8 +12,11 @@ export type MapViewProps = {
    * StrictMode (dev) mounts twice, so keep only the latest map; the previous one is removed.
    */
   onReady?: (map: L.Map) => void;
-  /** Called with the initial view on mount, then once per burst of `moveend` (debounced). */
-  onBoundsChange?: (bbox: Bbox) => void;
+  /**
+   * Called with the initial view on mount, then once per burst of `moveend` (debounced): the bbox
+   * and the map's integer zoom.
+   */
+  onBoundsChange?: (bbox: Bbox, zoom: number) => void;
 };
 
 /** Leaflet map with the OSM base layer and the `areas`/`drafts` overlay panes; fills its parent. */
@@ -31,15 +35,13 @@ export function MapView({ onReady, onBoundsChange }: MapViewProps) {
     if (!container) return;
 
     const map = L.map(container, { center: [...MAP.DEFAULT_CENTER], zoom: MAP.DEFAULT_ZOOM });
-    L.tileLayer(MAP.OSM_TILE_URL, {
-      attribution: MAP.OSM_ATTRIBUTION,
-      maxZoom: MAP.OSM_MAX_ZOOM,
-    }).addTo(map);
+    createOsmLayer().addTo(map);
     // Created up front so overlays can always be added by pane name, whatever the base layer.
     map.createPane(MAP.AREAS_PANE).style.zIndex = String(MAP.AREAS_PANE_Z);
     map.createPane(MAP.DRAFTS_PANE).style.zIndex = String(MAP.DRAFTS_PANE_Z);
 
-    const reportBounds = () => onBoundsChangeRef.current?.(boundsToBbox(map));
+    const reportBounds = () =>
+      onBoundsChangeRef.current?.(boundsToBbox(map), Math.round(map.getZoom()));
     let debounce: ReturnType<typeof setTimeout> | undefined;
     const onMoveEnd = () => {
       clearTimeout(debounce);

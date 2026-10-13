@@ -1,6 +1,6 @@
 # ADR-0003: Leaflet 1.9.4 and a hand-rolled EPSG:2039 CRS on proj4
 
-Date: 2026-10-12 · Status: accepted
+Date: 2026-10-12 · Status: superseded by [ADR-0005](0005-govmap-crs-swap.md) (D22: the CRS is built with Proj4Leaflet, not hand-rolled; Leaflet 1.9.4 stands)
 
 ## Context
 Leaflet 2.0 is alpha (ESM-only, factory functions removed, pointer events). Proj4Leaflet last shipped in 2017 and has no Leaflet 2 path. govmap aerial tiles are served on an Israeli TM (EPSG:2039) grid; the open-data WMS has no imagery layer.
