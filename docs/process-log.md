@@ -111,7 +111,7 @@ Tasks, one line each:
 Rulings and open questions:
 
 - M1 review findings skipped by ruling: M4 (not required) and M9 (speculative). The others went to T16 (I1 web half, I2, M1, M3, M5, M10), H6/H7 (I1 server half, M8), H5 (M2) and H16 (M6, M7).
-- Open: D5 and drafts. Every `draft:update` frame spends one action of the 50 per minute, so about 5 s of continuous dragging exhausts the budget (H6), and a resync resends each vertex (H11). Per frame, per session or not counted is a product decision still to make.
+- D5 and drafts, ruled 2026-10-13 (TOM-85, PR #46): one action per draft session, not per `draft:update` frame. A session runs from the `add` that starts a draft to its save or the 60 s idle sweep; a resync replay inside it spends nothing. The per-socket 10 frames/s bucket (`WS.DRAFT_RATE_PER_SEC`) is the remaining burst guard and the only per-socket limit on frames.
 - Deferred to M5 (E8): docker-compose parity with a workerd container (the M3 compose lane), with telemetry, UX polish, preview branches and Storybook in CI.
 - H5: the request's abort signal reaches `withClient` through `AsyncLocalStorage` (`withSignal`), documented in `apps/api/src/db/index.ts`, rather than a parameter on every handler and service.
 - H9: the base has no per-request log line, so the cache keeps its own `bounds read` info line (with `cache`, `tile`, `version`).
