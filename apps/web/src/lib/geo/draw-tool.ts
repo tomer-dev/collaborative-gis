@@ -63,8 +63,14 @@ export function createPolygonDraw(map: L.Map, options: PolygonDrawOptions = {}) 
       e.cancel();
       map.fire('draw:invalid', { reason: DRAW.MAX_VERTICES_REASON });
     },
-    'editable:vertex:new': (e) => {
-      if (e.vertex.getIndex() === 0) e.vertex.setIcon(handleIcon(true));
+    'editable:vertex:new': ({ vertex }) => {
+      if (vertex.getIndex() === 0) vertex.setIcon(handleIcon(true));
+      // A handle is a pointer target with no name or key action. Leaflet's `keyboard` option made
+      // it a tab stop with role="button": off for this marker, and its icon out of the tab order
+      // (a later setIcon reuses the element).
+      vertex.options.keyboard = false;
+      vertex.getElement()?.setAttribute('tabindex', '-1');
+      vertex.getElement()?.removeAttribute('role');
       changed();
     },
     'editable:vertex:dragend': changed,
