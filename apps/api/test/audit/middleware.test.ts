@@ -211,29 +211,25 @@ describe('auditRejections', () => {
     ]);
   });
 
-  it(
-    'a 429 writes request.rejected with details.code RATE_LIMITED',
-    async () => {
-      const user = freshUser();
-      const limiter = env.RATE_LIMITER.get(env.RATE_LIMITER.idFromName(user.id));
-      for (let i = 0; i < RATE_LIMIT.DRAW_ACTIONS_PER_WINDOW; i++) {
-        expect((await limiter.take(RATE_LIMIT.ACTIONS.DRAW)).ok).toBe(true);
-      }
+  it('a 429 writes request.rejected with details.code RATE_LIMITED', async () => {
+    const user = freshUser();
+    const limiter = env.RATE_LIMITER.get(env.RATE_LIMITER.idFromName(user.id));
+    for (let i = 0; i < RATE_LIMIT.DRAW_ACTIONS_PER_WINDOW; i++) {
+      expect((await limiter.take(RATE_LIMIT.ACTIONS.DRAW)).ok).toBe(true);
+    }
 
-      const res = await createArea(user, { name: 'Over budget', geometry: squareAt(randomSpot()) });
+    const res = await createArea(user, { name: 'Over budget', geometry: squareAt(randomSpot()) });
 
-      expect(res.status).toBe(429);
-      expect(await auditRowsOf(env, res)).toEqual([
-        expect.objectContaining({
-          user_id: user.id,
-          action: 'request.rejected',
-          entity_id: null,
-          details: { code: 'RATE_LIMITED', status: 429, method: 'POST', path: ROUTES.AREAS },
-        }),
-      ]);
-    },
-    TEST.SLOW_TIMEOUT_MS,
-  );
+    expect(res.status).toBe(429);
+    expect(await auditRowsOf(env, res)).toEqual([
+      expect.objectContaining({
+        user_id: user.id,
+        action: 'request.rejected',
+        entity_id: null,
+        details: { code: 'RATE_LIMITED', status: 429, method: 'POST', path: ROUTES.AREAS },
+      }),
+    ]);
+  });
 
   it('a response that is neither 422 nor 429 writes nothing (401 here)', async () => {
     const res = await createArea(undefined, { name: 'Anonymous' });
