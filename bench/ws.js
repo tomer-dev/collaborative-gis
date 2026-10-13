@@ -22,11 +22,11 @@ const CONFIG = {
   MAP_ID: env('MAP_ID', 'default'),
   VUS: Number(env('VUS', 5)),
   /**
-   * Per VU. The Room allows 10 `draft:update` frames per second per socket (`WS`), and each frame
-   * also spends one action from the user's budget of 50 per minute (`RATE_LIMIT`, shared with
-   * REST mutations). 1.5 per second for 30 s is 45 frames per user, under both.
+   * Per VU: the Room's limit of 10 `draft:update` frames per second per socket (`WS`). A VU's
+   * frames are one draft session (an `add`, then `move`s), which spends one action from the
+   * user's budget of 50 per minute (`RATE_LIMIT`, D5), however many frames it sends.
    */
-  FRAMES_PER_SEC: Number(env('FRAMES_PER_SEC', 1.5)),
+  FRAMES_PER_SEC: Number(env('FRAMES_PER_SEC', 10)),
   SEND_SECONDS: Number(env('SEND_SECONDS', 30)),
   /** A frame counts as echoed to a VU when it arrives there within this many ms of being sent. */
   ECHO_WINDOW_MS: Number(env('ECHO_WINDOW_MS', 1000)),
