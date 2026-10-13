@@ -62,8 +62,8 @@ export const MAP = {
   AREA_KM2_THRESHOLD: 1,
   /**
    * After a save, a note shows the server's area and the client estimate when they differ by more
-   * than this share (0.5 %). The client's sphere and PostGIS's spheroid differ by about 0.03 % at
-   * Israel's latitude and 0.45–0.56 % at the equator or 60°N (`GEO.EARTH_RADIUS_M`).
+   * than this share (0.5 %). The client's sphere (`@turf/area`, WGS 84 mean radius) and PostGIS's
+   * spheroid differ by about 0.03 % at Israel's latitude and 0.45–0.56 % at the equator or 60°N.
    */
   AREA_DIFF_WARN_RATIO: 0.005,
 } as const;

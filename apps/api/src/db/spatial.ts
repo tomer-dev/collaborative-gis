@@ -1,11 +1,11 @@
-import { AreaSchema, type Polygon } from '@cgis/shared';
+import { AreaSchema, type Area, type Polygon } from '@cgis/shared';
 import { eq, sql, type SQL } from 'drizzle-orm';
 import type pg from 'pg';
 import { z } from 'zod';
 import { areaKm2Of, fromGeoJson } from './geometry.ts';
 import { db } from './index.ts';
 import { areas, auditLog } from './schema.ts';
-import { isoUtc, selectLiveArea, type AreaRow } from './spatial-read.ts';
+import { isoUtc, selectLiveArea } from './spatial-read.ts';
 
 // Spatial writes on `areas` / `area_versions` / `audit_log`, one `pg.Client` per call (from
 // `withClient`); the reads are in ./spatial-read.ts. Every write that touches geometry is a single
@@ -15,14 +15,14 @@ import { isoUtc, selectLiveArea, type AreaRow } from './spatial-read.ts';
 
 export type AreaInput = { name: string; geometry: Polygon; userId: string };
 
-export type UpdateResult = { ok: true; area: AreaRow } | { ok: false; current: AreaRow | null };
+export type UpdateResult = { ok: true; area: Area } | { ok: false; current: Area | null };
 
 export type AuditRow = Omit<typeof auditLog.$inferInsert, 'id' | 'at'>;
 
 /** A revert's result: the reverted area, or why nothing was written. */
 export type RevertResult =
-  | { status: 'reverted'; area: AreaRow }
-  | { status: 'conflict'; current: AreaRow }
+  | { status: 'reverted'; area: Area }
+  | { status: 'conflict'; current: Area }
   | { status: 'missing' }
   | { status: 'deleted' };
 
@@ -76,7 +76,7 @@ function onlyRow(rows: Record<string, unknown>[]): Record<string, unknown> {
 }
 
 /** The written area a write CTE's row carries, parsed as an `Area`; null when nothing was written. */
-function writtenArea(row: Record<string, unknown>): AreaRow | null {
+function writtenArea(row: Record<string, unknown>): Area | null {
   return row.id === null ? null : AreaSchema.parse(row);
 }
 
@@ -84,7 +84,7 @@ function writtenArea(row: Record<string, unknown>): AreaRow | null {
  * Inserts an area and its version 1 in one statement, with `area_km2` computed by PostGIS.
  * Throws InvalidGeometryError (nothing written) when `ST_IsValid` rejects the polygon.
  */
-export async function insertArea(c: pg.Client, input: AreaInput): Promise<AreaRow> {
+export async function insertArea(c: pg.Client, input: AreaInput): Promise<Area> {
   // D23 exception: a write CTE (the area and its version row in one statement).
   const { rows } = await db(c).execute(sql`
     WITH ${inputCte(input.geometry)},

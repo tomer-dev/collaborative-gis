@@ -6,11 +6,9 @@ import {
   type RouterHistory,
 } from '@tanstack/react-router';
 import { COPY } from '@cgis/shared/constants';
-import { useEffect, useRef, useState } from 'react';
-import { useSession } from './lib/session';
+import { useEffect, useState } from 'react';
+import { authClient } from './lib/auth-client';
 import { routeTree } from './routeTree.gen';
-
-export type { RouterContext } from './routes/__root';
 
 /** Builds the app router; tests pass a memory history. */
 export function createAppRouter(
@@ -40,17 +38,15 @@ declare module '@tanstack/react-router' {
  * Sits inside the QueryClientProvider so route components can use queries.
  */
 export function AppRouterProvider({ router }: { router: AppRouter }) {
-  const session = useSession();
-  const userId = session.data?.id ?? null;
-  const lastUserId = useRef(userId);
+  const { data, isPending } = authClient.useSession();
+  const user = data?.user ?? null;
+  const userId = user?.id ?? null;
   // Better Auth marks the session pending on every refetch while it holds none (right after a
   // sign-in, for one), so only the first check shows the status; later ones keep the screen.
   const [checked, setChecked] = useState(false);
-  if (!checked && !session.isPending) setChecked(true);
+  if (!checked && !isPending) setChecked(true);
 
   useEffect(() => {
-    if (lastUserId.current === userId) return;
-    lastUserId.current = userId;
     void router.invalidate();
   }, [router, userId]);
 
@@ -61,5 +57,5 @@ export function AppRouterProvider({ router }: { router: AppRouter }) {
       </p>
     );
   }
-  return <RouterProvider router={router} context={{ session: session.data }} />;
+  return <RouterProvider router={router} context={{ session: user }} />;
 }

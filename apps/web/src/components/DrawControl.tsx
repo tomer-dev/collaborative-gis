@@ -26,7 +26,7 @@ export type DrawControlProps = {
  * The area Stat: `areaReadout`, the one readout rule (whole m² below `MAP.AREA_KM2_THRESHOLD`,
  * km² to 3 decimals from there up). No value below 3 vertices (area 0).
  */
-function areaStat(vertices: LngLat[]): Pick<StatProps, 'value' | 'unit' | 'decimals'> {
+function areaStat(vertices: LngLat[]): Pick<StatProps, 'value' | 'unit' | 'format'> {
   const km2 = ringAreaKm2(vertices);
   return km2 > 0 ? areaReadout(km2) : { ...areaReadout(0), value: null };
 }

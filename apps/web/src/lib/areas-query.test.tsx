@@ -10,7 +10,6 @@ import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   AREA_ID,
-  deferred,
   emptyResponse,
   jsonResponse,
   makeArea,
@@ -148,7 +147,7 @@ describe('useCreateArea', () => {
   }
 
   it('adds the area to the viewport at once, then rolls it back on a 422 and exposes details.reason', async () => {
-    const response = deferred<Response>();
+    const response = Promise.withResolvers<Response>();
     const { result, cached, requests } = renderCreate(() => response.promise);
 
     act(() => result.current.mutate(input));
@@ -177,7 +176,7 @@ describe('useCreateArea', () => {
   });
 
   it('lists the optimistic area as pending until the server answers', async () => {
-    const response = deferred<Response>();
+    const response = Promise.withResolvers<Response>();
     const requests = listing([orchard], (path, method) =>
       method === 'POST' && path === '/api/areas' ? response.promise : jsonResponse(500, {}),
     );

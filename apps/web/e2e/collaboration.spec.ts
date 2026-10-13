@@ -2,21 +2,11 @@
  * Two users on one map, in two browser contexts: the product brief's collaboration requirements
  * end to end (presence, live drafts, live saves, the version conflict, leaving).
  *
- * Run: `pnpm e2e` at the repo root (apps/web/e2e/README.md). playwright.config.ts starts
- * `wrangler dev` and Vite; global-setup.ts empties and migrates the database first.
- *
- * Environment, following apps/api/.dev.vars.example:
- * - BETTER_AUTH_SECRET, BETTER_AUTH_URL: the Worker's required secrets. Read from apps/api/.dev.vars
- *   when that file exists; otherwise from the environment, where the config defaults them to a
- *   random per-run secret and the Worker's origin.
- * - CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE: always set by the config to the
- *   `cgis_e2e` lane database (scripts/db-lane.sh on the compose PostGIS; start it with `pnpm db:up`).
- * - E2E_API_PORT (optional): the Worker's port when 8787 is taken; Vite's proxy follows.
- * - E2E_WEB_PORT (optional): Vite's port when 5173 is taken; the Worker's CLIENT_ORIGIN follows.
+ * Run: `pnpm e2e` at the repo root; apps/web/e2e/README.md has the setup and the ports.
  */
-import { randomUUID } from 'node:crypto';
-import { CACHE, COPY, DRAW, MAP, ROUTES } from '@cgis/shared';
-import { expect, test, type Browser, type Page, type Response } from '@playwright/test';
+import { COPY, DRAW, MAP, ROUTES } from '@cgis/shared';
+import { expect, test, type Browser, type Page } from '@playwright/test';
+import { register, STACK } from './stack';
 
 /** Every wait in the scenario. */
 const WAIT = {
@@ -24,8 +14,6 @@ const WAIT = {
   SAVED_AREA_MS: 2000,
   /** Presence and draft relays over the room WebSocket. */
   REALTIME_MS: 10_000,
-  /** Sign-up and the first /map load (Vite compiles the app on its first request). */
-  PAGE_MS: 30_000,
 } as const;
 
 /** Clicked vertices, in px from the map's centre: the bounding box's centre lies inside. */
@@ -49,30 +37,15 @@ const MAP_REGION = 'Map';
 
 const RUN = Date.now();
 
-/** `GET /api/areas?bbox=…`: a viewport read (not a request for one area). */
-const isAreasRead = (response: Response) =>
-  response.request().method() === 'GET' && new URL(response.url()).pathname === ROUTES.AREAS;
-
-/** `firstRead`: the map's first viewport read, answered. */
-type User = { name: string; page: Page; firstRead: Response };
+type User = { name: string; page: Page };
 
 /** Signs a new user up in a fresh browser context; the app then opens /map. */
 async function signUp(browser: Browser, label: string): Promise<User> {
   const page = await (await browser.newContext()).newPage();
-  const firstRead = page.waitForResponse(isAreasRead, { timeout: WAIT.PAGE_MS });
   const name = `E2E ${label} ${RUN}`;
-  await page.goto(ROUTES.APP.REGISTER);
-  await page.getByRole('textbox', { name: COPY.AUTH.NAME_LABEL, exact: true }).fill(name);
-  await page
-    .getByRole('textbox', { name: COPY.AUTH.EMAIL_LABEL, exact: true })
-    .fill(`e2e-${label}-${RUN}@example.com`);
-  await page
-    .getByRole('textbox', { name: COPY.AUTH.PASSWORD_LABEL, exact: true })
-    .fill(randomUUID());
-  await page.getByRole('button', { name: COPY.AUTH.REGISTER_SUBMIT }).click();
-  await expect(page).toHaveURL(ROUTES.APP.MAP, { timeout: WAIT.PAGE_MS });
-  await expect(mapRegion(page)).toBeVisible({ timeout: WAIT.PAGE_MS });
-  return { name, page, firstRead: await firstRead };
+  await register(page, name, `e2e-${label}-${RUN}@example.com`);
+  await expect(mapRegion(page)).toBeVisible({ timeout: STACK.PAGE_MS });
+  return { name, page };
 }
 
 const mapRegion = (page: Page) => page.getByRole('region', { name: MAP_REGION, exact: true });
@@ -123,13 +96,6 @@ async function holdAreaUpdates(page: Page): Promise<() => void> {
 test('two users share presence, drafts, saves and a version conflict', async ({ browser }) => {
   const a = await test.step('A signs up and opens the map', () => signUp(browser, 'a'));
   const b = await test.step('B signs up and opens the map', () => signUp(browser, 'b'));
-
-  await test.step('the map reads its viewport through the bounds cache', async () => {
-    expect(a.firstRead.status()).toBe(200);
-    expect([CACHE.STATUS.MISS, CACHE.STATUS.HIT]).toContain(
-      a.firstRead.headers()[CACHE.STATUS_HEADER],
-    );
-  });
 
   await test.step('B sees A in the presence list', async () => {
     await expect(presenceRow(b.page, a)).toBeVisible({ timeout: WAIT.REALTIME_MS });

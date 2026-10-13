@@ -6,7 +6,7 @@ import { currentBaseLayer, switchBaseLayer, type BaseLayerId } from '../lib/geo/
 import { IconMap, IconSatellite, MapControl, MapControlButton, type IconComponent } from '../ui';
 
 export type LayerSwitchProps = {
-  /** The map whose base layer it switches. A different map starts the control over. */
+  /** The map whose base layer it switches; a different map is switched to the layer asked for. */
   map: L.Map;
 };
 
@@ -21,11 +21,6 @@ const TOGGLES: readonly { id: BaseLayerId; label: string; icon: IconComponent }[
  * button is the layer asked for; `switchBaseLayer` brings the map to it.
  */
 export function LayerSwitch({ map }: LayerSwitchProps) {
-  // Keyed on the map: a new map starts on OSM, with a control of its own.
-  return <MapLayerSwitch key={L.stamp(map)} map={map} />;
-}
-
-function MapLayerSwitch({ map }: LayerSwitchProps) {
   const [container] = useState(() => L.DomUtil.create('div'));
   const [base, setBase] = useState<BaseLayerId>(() => currentBaseLayer(map));
 

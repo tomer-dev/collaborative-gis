@@ -48,24 +48,23 @@ export function save(socket: Socket, changes: Partial<PresenceAttachment>): void
 
 /** Sends `event` to one socket. */
 export function sendTo(ctx: DurableObjectState, ws: WebSocket, event: RoomEvent): void {
-  try {
-    ws.send(stamp(ctx.storage.sql, event));
-  } catch (err) {
-    log('warn', 'room send failed', { error: String(err) });
-  }
+  trySend(ws, stamp(ctx.storage.sql, event));
 }
 
 /** Sends `event` (one `seq` for all) to every open socket except those of `exceptUserId`. */
 export function sendAll(ctx: DurableObjectState, event: RoomEvent, exceptUserId?: string): void {
   const frame = stamp(ctx.storage.sql, event);
   for (const { ws, attachment } of sockets(ctx)) {
-    if (attachment.userId === exceptUserId) continue;
-    try {
-      ws.send(frame);
-    } catch (err) {
-      // A socket closing mid-loop must not stop delivery to the others; its close handler cleans up.
-      log('warn', 'room broadcast send failed', { error: String(err) });
-    }
+    if (attachment.userId !== exceptUserId) trySend(ws, frame);
+  }
+}
+
+/** A socket closing mid-send must not stop the caller (a broadcast loop); its close cleans up. */
+function trySend(ws: WebSocket, frame: string): void {
+  try {
+    ws.send(frame);
+  } catch (err) {
+    log('warn', 'room send failed', { error: String(err) });
   }
 }
 
