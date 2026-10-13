@@ -1,7 +1,7 @@
 import { COPY, LIMITS, ROUTES } from '@cgis/shared/constants';
 import { useMutation } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import type { FormEvent, InputHTMLAttributes } from 'react';
+import { useRef, type FormEvent, type InputHTMLAttributes } from 'react';
 import { z } from 'zod';
 import { authErrorMessage } from '../../lib/auth';
 import { authClient } from '../../lib/auth-client';
@@ -102,7 +102,12 @@ const MODES: Record<AuthMode, ModeSpec> = {
  */
 export function AuthForm({ mode }: { mode: AuthMode }) {
   const spec = MODES[mode];
-  const auth = useMutation({ mutationFn: spec.submit });
+  const form = useRef<HTMLFormElement>(null);
+  // The disabled submit button lost focus while the call ran: a failure puts it on the first field.
+  const auth = useMutation({
+    mutationFn: spec.submit,
+    onError: () => form.current?.querySelector('input')?.focus(),
+  });
 
   // Uncontrolled inputs: the browser holds the values and validates them before this runs.
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -128,7 +133,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           </p>
         }
       >
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+        <form ref={form} className="flex flex-col gap-4" onSubmit={handleSubmit}>
           {auth.isError ? (
             <Banner tone="danger" title={spec.errorTitle}>
               {authErrorMessage(auth.error)}

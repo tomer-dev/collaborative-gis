@@ -109,6 +109,8 @@ it('starts idle with the draw button; clicking it enables the handler and shows 
   expect(handler().enabled()).toBe(true);
   expect(screen.queryByRole('button', { name: DRAW.START_LABEL })).toBeNull();
   expect(panel()).toBeTruthy();
+  // The start button is gone: focus moves to the panel's Cancel, not to the page.
+  expect(document.activeElement).toBe(button(DRAW.CANCEL_LABEL));
   for (const name of [DRAW.FINISH_LABEL, DRAW.UNDO_LABEL, DRAW.CANCEL_LABEL]) {
     expect(button(name)).toBeTruthy();
   }

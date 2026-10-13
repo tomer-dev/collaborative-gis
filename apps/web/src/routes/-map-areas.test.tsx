@@ -223,8 +223,12 @@ it("lists the viewport's areas; picking one flies to it, selects and highlights 
     padding: [MAP.FIT_PADDING_PX, MAP.FIT_PADDING_PX],
   });
   expect(areaPaths()[0]?.classList.contains(MAP_CLASS.areaSelected)).toBe(true);
-  fireEvent.click(within(panel).getByRole('button', { name: COPY.AREAS.CLOSE }));
-  expect(await screen.findByRole('region', { name: COPY.AREAS.LIST_TITLE })).toBeTruthy();
+  // Focus follows the swap: the picked area's Close, then that area's row again.
+  const close = within(panel).getByRole('button', { name: COPY.AREAS.CLOSE });
+  expect(document.activeElement).toBe(close);
+  fireEvent.click(close);
+  const listAgain = await screen.findByRole('region', { name: COPY.AREAS.LIST_TITLE });
+  expect(document.activeElement).toBe(within(listAgain).getByRole('button', { name: /Orchard/ }));
   expect(areaPaths()[0]?.classList.contains(MAP_CLASS.areaSelected)).toBe(false);
 });
 
