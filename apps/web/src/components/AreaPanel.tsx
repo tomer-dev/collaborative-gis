@@ -198,7 +198,8 @@ type DeleteButtonProps = { pending: boolean; onDelete: () => void };
 function DeleteButton({ pending, onDelete }: DeleteButtonProps) {
   const [confirming, setConfirming] = useState(false);
   const deleteButton = useRef<HTMLButtonElement>(null);
-  // No unmounts the button that had focus: render Delete now and put focus back on it.
+  // Yes and No unmount the button that had focus: render Delete now and put focus back on it
+  // (after Yes it reads "Deleting…" until the card closes, or Delete again if the call failed).
   const back = () => {
     flushSync(() => setConfirming(false));
     deleteButton.current?.focus();
@@ -216,7 +217,7 @@ function DeleteButton({ pending, onDelete }: DeleteButtonProps) {
           variant="danger"
           size="sm"
           onClick={() => {
-            setConfirming(false);
+            back();
             onDelete();
           }}
         >

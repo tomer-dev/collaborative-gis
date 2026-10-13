@@ -249,7 +249,8 @@ it('sends nothing for a rename that keeps the name (no new version)', async () =
   const { requests } = renderPanel(() => jsonResponse(500, {}));
 
   rename(selectedPanel(), '  Orchard ');
-  await Promise.resolve();
+  // A macrotask: a request the rename started would have reached the stub by now.
+  await new Promise((resolve) => setTimeout(resolve, 0));
 
   expect(writes(requests)).toEqual([]);
 });
@@ -278,6 +279,10 @@ it('deletes the area after the confirm and reports it; a failed delete shows an 
   // The 429 says how long to wait (rounded up to whole seconds), not the raw message.
   expect(alert.textContent).toContain('Try again in 13 s.');
   expect(failing.onDeleted).not.toHaveBeenCalled();
+  // Yes handed focus to Delete, which is back once the call failed.
+  expect(document.activeElement).toBe(
+    within(selectedPanel()).getByRole('button', { name: COPY.AREAS.DELETE }),
+  );
 });
 
 it('states the whole rate-limit window when a 429 carries no wait', async () => {
