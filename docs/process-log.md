@@ -94,10 +94,10 @@ Tasks, one line each:
 - H3 (TOM-58), PR #28: `GET /api/areas/:id/versions` and `POST /api/areas/:id/revert/:version` (a revert is a new version).
 - H4 (TOM-60), PR #33: audit rows for sign-in, failed sign-in, sign-up, sign-out, 422/429 rejections and Room draw sessions (migration 0005, `audit_log.request_id`).
 - H5 (TOM-29 REST half, TOM-30), PR #30: `mutationGuards()` (session, D5 budget, 64 KiB body cap: M1 review M2), AbortSignal-aware database clients under the request timeout, PUT `version` capped at the Postgres integer max.
-- H6 + H7 (TOM-40, TOM-38, TOM-61 half, TOM-32), PR #35: every `draft:update` frame spends the user's D5 budget, sockets idle past 90 s are reaped (M1 review I1 server half and M8), `bumpVersion()`/`getVersion()` RPC, `/readyz` pings the Room.
+- H6 + H7 (TOM-40, TOM-38, TOM-61 half, TOM-32), PR #35: every `draft:update` frame spends the user's D5 budget (one action per draft session since PR #46, below), sockets idle past 90 s are reaped (M1 review I1 server half and M8), `bumpVersion()`/`getVersion()` RPC, `/readyz` pings the Room.
 - H8 (TOM-45, TOM-46), PR #29: EPSG:2039 with Proj4Leaflet (D22), the govmap aerial tile layer, ADR-0005; closes the govmap spike.
-- H9 (TOM-61), PR #39: viewport reads through the Workers Cache API, keyed by quantised tile, zoom and the Room's `{ epoch, version }`; ETag and 304.
-- H10 (TOM-62), PR #34: OpenAPI 3.1 validation test and the `/docs` reference UI (Scalar, bundle pinned).
+- H9 (TOM-61), PR #39: viewport reads through the Workers Cache API, keyed by quantised tile, zoom and the Room's `{ epoch, version }` (zoom left the key in the M2 review fix M6); ETag and 304.
+- H10 (TOM-62), PR #34: OpenAPI 3.1 validation test and the `/docs` reference UI (Scalar, bundle pinned; since PR #48 a hand-written page that loads the pinned build with Subresource Integrity, `@scalar/hono-api-reference` removed).
 - H11 (TOM-39 server half), PR #38: storage epoch, `resync` on error events, re-join after a Room restart, chaos tests.
 - H12 (TOM-47), PR #37: base-layer switch OSM ⇄ govmap aerial with the CRS swap and a crossfade; the aerial modules load on first use.
 - H13 (TOM-52), PR #42: area panel (areas in view, the selected area's history, revert); the client sends its zoom with each viewport read.
@@ -111,11 +111,19 @@ Tasks, one line each:
 Rulings and open questions:
 
 - M1 review findings skipped by ruling: M4 (not required) and M9 (speculative). The others went to T16 (I1 web half, I2, M1, M3, M5, M10), H6/H7 (I1 server half, M8), H5 (M2) and H16 (M6, M7).
-- D5 and drafts, ruled 2026-10-13 (TOM-85, PR #46): one action per draft session, not per `draft:update` frame. A session runs from the `add` that starts a draft to its save or the 60 s idle sweep; a resync replay inside it spends nothing. The per-socket 10 frames/s bucket (`WS.DRAFT_RATE_PER_SEC`) is the remaining burst guard and the only per-socket limit on frames.
+- D5 and drafts, ruled 2026-10-13 (TOM-85, PR #46): one action per draft session, not per `draft:update` frame. A session runs from the `add` that starts a draft to its save or the 60 s idle sweep; a resync replay inside it spends nothing. The per-socket 10 frames/s limit (`WS.DRAFT_RATE_PER_SEC`, a fixed one-second window since PR #48) is the remaining burst guard and the only per-socket limit on frames.
 - Deferred to M5 (E8): docker-compose parity with a workerd container (the M3 compose lane), with telemetry, UX polish, preview branches and Storybook in CI.
 - H5: the request's abort signal reaches `withClient` through `AsyncLocalStorage` (`withSignal`), documented in `apps/api/src/db/index.ts`, rather than a parameter on every handler and service.
 - H9: the base has no per-request log line, so the cache keeps its own `bounds read` info line (with `cache`, `tile`, `version`).
 - H4: tests that call the app without an ExecutionContext still write audit rows in the background; accepted: the rows land in the test databases and no assertion depends on them.
 - H12: switching layers maps to the nearest resolution, so a round trip is not always the identity (documented in `mapZoom` and the README).
-- M4: assets live in `env.production` only (at the top level they would break `pnpm dev` and `hono batch` before a web build); the production Worker is named `collaborative-gis`; the CI dry run builds the production config.
+- M4: assets live in `env.production` only (at the top level they would break `pnpm dev` and `hono batch` before a web build); the production Worker was named `collaborative-gis` (since PR #44 it is wrangler's default for the env, `collaborative-gis-api-production`, and the origin is passed at deploy time); the CI dry run builds the production config.
 - M2 epic review (fable): approve with fixes, 4 Important + 8 Minor, fixed in PR #44 in 12 commits, one per finding, each with a test (CI run 38324393793 green). Deviations from the rulings: I2 adds an optional `frameSeq` to RATE_LIMITED errors so the client can take back exactly the refused op; I4's "Overwrite with mine" saves the reverted content as an update; M5 writes one purge audit row per batch, not per run; M7 needed only tests (Hono already keeps the chain's headers on a cache HIT).
+
+## 2026-10-13 — Merges, simplification, production
+
+- PR #44 merged into `main` (2742a2a): the M2 hardening lanes with the M3 test lanes and the M4 repository side, through the H15 integration.
+- PR #48 merged (da55417): the simplification pass, 85 verified rows applied across 143 files, +805 / −2,371 lines (−1,566 net). After review the Room's storage epoch was kept (rows 40 and 42 not applied, 0e5bebc).
+- First production deploy from `main`: the deploy workflow ran once `ci` passed on 91b6595 (run 38367128274) and again on da55417 after #48 (run 38369470986). The custom domain is attached in the Cloudflare dashboard, outside the repository; the origin reaches the Worker only through the `PRODUCTION_ORIGIN` repository variable.
+- PR #50 (open): readiness guard. `/readyz` gains a `config` check, up only when `CLIENT_ORIGIN` and `BETTER_AUTH_URL` are absolute URLs, so a deploy without the two `--var`s, which refuses every browser, shows as 503 `NOT_READY` with `config: down` instead of passing the readiness check.
+- Docs refresh (TOM-66, branch `docs/post-merge-refresh`, stacked on #50): the README run from scratch against the merged code and corrected, a Mermaid architecture diagram, every ADR linked by title, a documentation map; stale lines in `docs/deploy.md` and this log fixed.
