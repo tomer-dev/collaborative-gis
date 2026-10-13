@@ -14,43 +14,29 @@ concurrency:
   group: deploy-production
   cancel-in-progress: false
 jobs:
-  # A job-level `if` cannot read secrets, so this job reads them into env and reports whether all
-  # three are set. Without them (a fork, or before the owner configures the repository) `deploy`
-  # is skipped, not failed.
-  secrets:
-    # A `ci` run that failed or was cancelled deploys nothing; only a push run on main counts.
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
-    runs-on: ubuntu-latest
-    outputs:
-      ready: ${{ steps.check.outputs.ready }}
-    steps:
-      - id: check
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: |
-          if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ] && [ -n "$DATABASE_URL" ]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::deploy skipped: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID and DATABASE_URL must all be set (docs/deploy.md)"
-          fi
   deploy:
-    needs: secrets
-    if: needs.secrets.outputs.ready == 'true'
+    # Off until the owner sets the repository variable DEPLOY_ENABLED to true, the last step of
+    # docs/deploy.md (a fork never has it). A job-level `if` reads variables, not secrets: a
+    # missing secret fails the step that needs it. A `ci` run that failed or was cancelled deploys
+    # nothing; only a push run on main counts.
+    if: >-
+      vars.DEPLOY_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
     runs-on: ubuntu-latest
+    # The secrets can move from the repository to this environment (Settings → Environments).
+    environment: production
     steps:
       # The commit `ci` checked (workflow_run's own default is the branch's newest commit).
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      # The origin is never in the repository; the deploy step passes it to the Worker as vars.
       - name: production origin is set
+        env:
+          PRODUCTION_ORIGIN: ${{ vars.PRODUCTION_ORIGIN }}
         run: |
-          if grep -q 'REPLACE-WITH-' apps/api/wrangler.jsonc; then
-            echo "::error file=apps/api/wrangler.jsonc::env.production vars still hold the placeholder origin (docs/deploy.md, step 3)"
+          if [ -z "$PRODUCTION_ORIGIN" ]; then
+            echo "::error::the repository variable PRODUCTION_ORIGIN is not set (docs/deploy.md)"
             exit 1
           fi
       - uses: pnpm/action-setup@v6
@@ -71,9 +57,13 @@ jobs:
         run: pnpm --filter @cgis/api types
       - name: web build
         run: pnpm --filter @cgis/web build
-      # `deploy` is `wrangler deploy --minify`; the assets are uploaded from apps/web/dist.
+      # `deploy` is `wrangler deploy --minify`; the assets are uploaded from apps/web/dist. SPA and
+      # API share one origin, so CLIENT_ORIGIN and BETTER_AUTH_URL get the same value.
       - name: deploy
-        run: pnpm --filter @cgis/api run deploy --env production
+        run: >-
+          pnpm --filter @cgis/api run deploy --env production
+          --var "CLIENT_ORIGIN:$PRODUCTION_ORIGIN" --var "BETTER_AUTH_URL:$PRODUCTION_ORIGIN"
         env:
+          PRODUCTION_ORIGIN: ${{ vars.PRODUCTION_ORIGIN }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

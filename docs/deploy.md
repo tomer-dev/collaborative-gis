@@ -1,6 +1,6 @@
 # Deploy
 
-One Worker, `collaborative-gis`, serves the built SPA (`apps/web/dist`) as static assets and the API, the WebSocket and both Durable Objects (`Room`, `RateLimiter`) on one origin. Postgres is the Neon project `winter-credit-61110991`, reached through the Hyperdrive config `cgis-neon` (`ffdceaec4c3b4c70a324ebf9da6cb7a9`). Its configuration is `env.production` in `apps/api/wrangler.jsonc`; nothing in the repository is a secret. Checked with wrangler 4.149.0.
+One Worker, `collaborative-gis-api-production` (wrangler's default name for the `production` env), serves the built SPA (`apps/web/dist`) as static assets and the API, the WebSocket and both Durable Objects (`Room`, `RateLimiter`) on one origin. Postgres is the Neon project `winter-credit-61110991`, reached through the Hyperdrive config `cgis-neon` (`ffdceaec4c3b4c70a324ebf9da6cb7a9`). Its configuration is `env.production` in `apps/api/wrangler.jsonc`; nothing in the repository is a secret, and the production origin is not in the repository either: every deploy passes it with `--var`, from the repository variable `PRODUCTION_ORIGIN`. Checked with wrangler 4.149.0.
 
 Commands run from the repository root. `wrangler` below is the pinned dev dependency: `pnpm --filter @cgis/api exec wrangler …`, signed in with `wrangler login` or with `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in the shell. Deploying needs the Workers Paid plan: Better Auth's scrypt hashing exceeds the Free plan's CPU limit (D21).
 
@@ -11,18 +11,18 @@ Commands run from the repository root. `wrangler` below is the pinned dev depend
 
 ## Top level and `env.production`
 
-The top level of `wrangler.jsonc` is the local setup (`wrangler dev`, the workerd tests, `hono batch`). `env.production` inherits `main`, the compatibility date and flags, `observability`, the Durable Object `migrations` and any `triggers`; bindings, vars and secrets are never inherited, so it repeats them. `pnpm typecheck` fails when one side gains a binding the other lacks (`apps/api/test/deploy-config.test.ts`).
+The top level of `wrangler.jsonc` is the local setup (`wrangler dev`, the workerd tests, `hono batch`). `env.production` inherits `main`, the compatibility date and flags, `observability`, the Durable Object `migrations` and any `triggers`; bindings, vars and secrets are never inherited, so it repeats them. `pnpm typecheck` fails when one side gains a binding the other lacks (`apps/api/test/deploy-config.test.ts`). `env.production` declares `CLIENT_ORIGIN` and `BETTER_AUTH_URL` as empty strings, so the generated binding types keep them required; `--var` replaces both at deploy time.
 
 | | Top level (local) | `env.production` |
 |---|---|---|
-| Worker | `collaborative-gis-api`, never deployed | `collaborative-gis` |
+| Worker | `collaborative-gis-api`, never deployed | `collaborative-gis-api-production` |
 | Static assets | none: Vite serves the SPA on :5173 and proxies `/api`, `/ws` | `../web/dist` (build it first) |
-| `CLIENT_ORIGIN` | var, `http://localhost:5173` | var, the deployed origin |
-| `BETTER_AUTH_URL` | `.dev.vars` | var, the deployed origin |
+| `CLIENT_ORIGIN` | var, `http://localhost:5173` | `--var` at deploy, `PRODUCTION_ORIGIN` |
+| `BETTER_AUTH_URL` | `.dev.vars` | `--var` at deploy, `PRODUCTION_ORIGIN` |
 | `BETTER_AUTH_SECRET` | `.dev.vars` | Worker secret |
 | `HYPERDRIVE` | `localConnectionString`, the compose PostGIS | `cgis-neon` |
 
-Never run `wrangler deploy` without `--env production`: the top level would create a second Worker, `collaborative-gis-api`, with localhost origins.
+Never run `wrangler deploy` without `--env production`: the top level would create a second Worker, `collaborative-gis-api`, with localhost origins. Never run it without the two `--var`s either: the Worker would run with empty origins, so CORS and the WebSocket origin gate refuse every browser and every auth request fails.
 
 ## Owner checklist (once)
 
@@ -35,35 +35,49 @@ Never run `wrangler deploy` without `--env production`: the top level would crea
    ```bash
    DATABASE_URL='<Neon direct URL>' pnpm --filter @cgis/api db:migrate
    ```
-3. **Production origin.** In `apps/api/wrangler.jsonc` `env.production.vars`, replace `REPLACE-WITH-ACCOUNT-SUBDOMAIN` in `CLIENT_ORIGIN` and `BETTER_AUTH_URL` with the account's workers.dev subdomain (Cloudflare dashboard, Workers & Pages), giving `https://collaborative-gis.<subdomain>.workers.dev`: https, no trailing slash, the same value in both. The CORS policy, Better Auth's trusted origins and the WebSocket origin gate compare against `CLIENT_ORIGIN`; an https `BETTER_AUTH_URL` turns on `Secure` `__Secure-` cookies. Merge it to `main`; the deploy workflow refuses to run while the placeholder is there. For a custom domain, add a `routes` entry with `custom_domain: true` to `env.production` and use that origin instead.
-4. **Auth secret.** Random, at least 32 characters, different from every local value:
+3. **Auth secret.** Random, at least 32 characters, different from every local value:
    ```bash
    openssl rand -base64 32 | pnpm --filter @cgis/api exec wrangler secret put BETTER_AUTH_SECRET --env production
    ```
    Run it before the first deploy: `env.production` lists the secret in `secrets.required`, and wrangler refuses to deploy a Worker that lacks it. When the Worker does not exist yet, wrangler offers to create it as an empty draft to hold the secret; accept. Changing the secret later signs everyone out.
+4. **Production origin.** The repository never holds it. Pick the hostname:
+   - **Custom domain** (needed for the WAF rule and the Health Check below; the zone must be on this Cloudflare account): attach it once in the dashboard, Workers & Pages → `collaborative-gis-api-production` → Settings → Domains & Routes → Add → Custom domain → `<your-hostname>`. Cloudflare creates the DNS record and the certificate. The config has no `routes` entry, so a deploy never adds or removes it.
+   - **workers.dev**: `collaborative-gis-api-production.<subdomain>.workers.dev`, the subdomain from Workers & Pages.
+
+   Then store the origin (https, no trailing slash) as a repository variable; the deploy workflow passes it to the Worker as both `CLIENT_ORIGIN` and `BETTER_AUTH_URL`:
+   ```bash
+   gh variable set PRODUCTION_ORIGIN --body 'https://<your-hostname>'
+   ```
+   The CORS policy, Better Auth's trusted origins and the WebSocket origin gate compare against `CLIENT_ORIGIN`; an https `BETTER_AUTH_URL` turns on `Secure` `__Secure-` cookies.
 5. **First deploy** from the owner's machine. It also applies the Durable Object migrations `v1` (`Room`) and `v2` (`RateLimiter`).
    ```bash
+   ORIGIN=https://<your-hostname>
    pnpm install --frozen-lockfile
    pnpm --filter @cgis/api types        # apps/web's tsc -b reads the generated Worker types
    pnpm --filter @cgis/web build
-   pnpm --filter @cgis/api run deploy --env production
+   pnpm --filter @cgis/api run deploy --env production \
+     --var "CLIENT_ORIGIN:$ORIGIN" --var "BETTER_AUTH_URL:$ORIGIN"
    ```
 6. **GitHub secrets** (Settings → Secrets and variables → Actions, or `gh secret set <NAME>`):
    - `CLOUDFLARE_API_TOKEN`: an account API token from the "Edit Cloudflare Workers" template, scoped to this account only.
    - `CLOUDFLARE_ACCOUNT_ID`: the account id.
    - `DATABASE_URL`: the Neon direct (non-pooled) URL, for migrations only. The Worker never reads it.
 7. **Smoke checks** below, then a browser: register, draw on `/map`, and a second browser profile sees the polygon live.
+8. **Turn on CI deploys**, last, once everything above is in place:
+   ```bash
+   gh variable set DEPLOY_ENABLED --body true
+   ```
 
 ## CI deploy
 
-`.github/workflows/deploy.yml` runs when the `ci` workflow has passed on a push to `main` (a `workflow_run` trigger; it deploys the commit `ci` checked, and a failed or cancelled `ci` run deploys nothing), and on demand (Actions → deploy → Run workflow). Its `secrets` job checks that the three GitHub secrets exist (a job-level `if` cannot read secrets); without them the `deploy` job is skipped, not failed. `deploy` then refuses a placeholder origin, installs, migrates Neon, generates the Worker types, builds the web and runs `wrangler deploy --minify --env production`. Deploys run one at a time and are never cancelled halfway.
+`.github/workflows/deploy.yml` runs when the `ci` workflow has passed on a push to `main` (a `workflow_run` trigger; it deploys the commit `ci` checked, and a failed or cancelled `ci` run deploys nothing), and on demand (Actions → deploy → Run workflow). Its job runs only when the repository variable `DEPLOY_ENABLED` is `true` (a job-level `if` can read variables, not secrets), so a fork or an unconfigured repository skips it; once it is on, a missing secret fails the step that needs it. The job runs in the GitHub environment `production`, created on its first run, so the three secrets can later move from the repository to that environment (Settings → Environments → production). It refuses an empty `PRODUCTION_ORIGIN`, installs, migrates Neon, generates the Worker types, builds the web and runs `wrangler deploy --minify --env production --var CLIENT_ORIGIN:… --var BETTER_AUTH_URL:…` with that origin. Deploys run one at a time and are never cancelled halfway.
 
 Migrations run before the new Worker goes live, so the running Worker meets the new schema for a moment: keep migrations backward compatible (add, backfill, then remove in a later deploy). Every pull request runs `wrangler deploy --dry-run --env production` in `ci.yml`, which proves the production config resolves and bundles with the web build.
 
 ## Smoke checks
 
 ```bash
-ORIGIN=https://collaborative-gis.<subdomain>.workers.dev
+ORIGIN=https://<your-hostname>
 curl -s "$ORIGIN/healthz"                                       # 200 {"ok":true}
 curl -s "$ORIGIN/readyz"                                        # 200 {"ok":true,"db":"up"}; 503 NOT_READY when Neon is unreachable
 curl -s -o /dev/null -w '%{http_code}\n' "$ORIGIN/openapi.json" # 200
@@ -110,7 +124,7 @@ CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgresql://cgis:cgis@
 
 ### WAF rate limiting rule on `/api/auth/*`
 
-WAF rules run on traffic to a zone (a domain on the Cloudflare account), and `*.workers.dev` is not one. The rule needs the Worker on a custom domain (owner checklist step 3: a `routes` entry with `custom_domain: true`). On workers.dev, only the in-Worker limit applies.
+WAF rules run on traffic to a zone (a domain on the Cloudflare account), and `*.workers.dev` is not one. The rule needs the Worker on a custom domain (owner checklist step 4, attached in the dashboard). On workers.dev, only the in-Worker limit applies.
 
 The Free plan allows one rate limiting rule, counted per IP over 10 s, a 10 s block, and an expression on the URI path only. This rule fits within that. The SPA makes a few auth requests per page view (a session check on load and on focus, sign-in and then a session check), so 20 per 10 s per IP leaves room for that and for a few users behind one NAT. A scripted password guesser is held to 2 requests a second per data center, whichever isolate it reaches.
 
@@ -170,8 +184,8 @@ Workers Logs (`observability.enabled`) keeps 7 days on Workers Paid (3 on Free) 
 
 Run these against the deployed origin (`ORIGIN=https://…`, no trailing slash).
 
-- [ ] **Secrets set.** `wrangler secret list --env production` lists `BETTER_AUTH_SECRET`; `gh secret list` lists `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` and `DATABASE_URL`.
-- [ ] **Placeholder origin replaced.** `grep -c REPLACE-WITH- apps/api/wrangler.jsonc` prints `0` on `main`; `CLIENT_ORIGIN` and `BETTER_AUTH_URL` in `env.production` are the same https origin.
+- [ ] **Secrets and variables set.** `wrangler secret list --env production` lists `BETTER_AUTH_SECRET`; `gh secret list` lists `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` and `DATABASE_URL`; `gh variable list` lists `PRODUCTION_ORIGIN` and `DEPLOY_ENABLED` (`true`).
+- [ ] **Origin set.** `gh variable get PRODUCTION_ORIGIN` prints the https origin with no trailing slash, and the Worker's Settings → Variables and Secrets show `CLIENT_ORIGIN` and `BETTER_AUTH_URL` with that same value.
 - [ ] **Hyperdrive caching off.** `wrangler hyperdrive get ffdceaec4c3b4c70a324ebf9da6cb7a9` shows `"disabled": true` under `caching`.
 - [ ] **Cookies and origins.** A sign-in with `-H "Origin: $ORIGIN"` sets `__Secure-better-auth.session_token` with `Secure; HttpOnly; SameSite=Lax` and no `Domain`. The same request with `-H 'Origin: https://evil.example'` answers 403.
   ```bash

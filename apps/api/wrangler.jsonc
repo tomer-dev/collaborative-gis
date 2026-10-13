@@ -36,8 +36,8 @@
     // One Worker serves the SPA (apps/web/dist, built first) and the API on one origin. It inherits
     // main, compatibility flags, observability and the DO `migrations` (and any `triggers`) from
     // the top level; bindings, vars and secrets are never inherited, so they are repeated here.
+    // No `name`: the Worker is wrangler's default for this env, `collaborative-gis-api-production`.
     "production": {
-      "name": "collaborative-gis",
       // Only here: `wrangler dev` and the tests run without a web build (Vite serves the SPA).
       "assets": {
         "directory": "../web/dist",
@@ -52,12 +52,10 @@
           { "name": "RATE_LIMITER", "class_name": "RateLimiter" },
         ],
       },
-      // Placeholders: the owner sets the deployed origin once (docs/deploy.md); the deploy workflow
-      // refuses to run while REPLACE-WITH- is still here. SPA and API share it, so both are equal.
-      "vars": {
-        "CLIENT_ORIGIN": "https://collaborative-gis.REPLACE-WITH-ACCOUNT-SUBDOMAIN.workers.dev",
-        "BETTER_AUTH_URL": "https://collaborative-gis.REPLACE-WITH-ACCOUNT-SUBDOMAIN.workers.dev",
-      },
+      // Empty on purpose: the origin stays out of the repository. Every deploy fills both with
+      // `--var` (the deploy workflow reads PRODUCTION_ORIGIN; docs/deploy.md). Declared here so
+      // the generated binding types keep them required.
+      "vars": { "CLIENT_ORIGIN": "", "BETTER_AUTH_URL": "" },
       // Set with `wrangler secret put BETTER_AUTH_SECRET --env production`, never in this file.
       "secrets": { "required": ["BETTER_AUTH_SECRET"] },
     },
