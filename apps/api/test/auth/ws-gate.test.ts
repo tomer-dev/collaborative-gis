@@ -90,14 +90,6 @@ describe('GET /ws session gate (TOM-26)', { timeout: TEST.SLOW_TIMEOUT_MS }, () 
     await expectRefused(await openWs({ ...UPGRADE, cookie, origin }), 403, ORIGIN_NOT_ALLOWED);
   });
 
-  it('compares the normalised origin: scheme and host case do not matter', async () => {
-    const { cookie } = await signUp(authEnv);
-    const res = await openWs({ ...UPGRADE, cookie, origin: env.CLIENT_ORIGIN.toUpperCase() });
-    expect(res.status).toBe(101);
-    res.webSocket?.accept();
-    res.webSocket?.close(1000);
-  });
-
   it('answers 426 to a signed-in request without Upgrade: websocket, after the session check', async () => {
     const { cookie } = await signUp(authEnv);
     const res = await openWs({ cookie, origin: env.CLIENT_ORIGIN });

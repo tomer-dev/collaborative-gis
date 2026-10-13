@@ -1,5 +1,7 @@
 import { MAP } from '@cgis/shared';
+import { ColorItem, ColorPalette } from '@storybook/addon-docs/blocks';
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { convert, ThemeProvider, themes } from 'storybook/theming';
 import { Code, Page, TokenTable } from './TokenTable';
 import { darkTokens, tokens, type Token } from './tokens';
 
@@ -13,33 +15,25 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-function Swatch({ name, size = 'md' }: { name: string; size?: 'md' | 'lg' }) {
+function Swatch({ name }: { name: string }) {
   return (
     <span
       aria-hidden="true"
-      className={
-        size === 'lg'
-          ? 'block h-12 w-full rounded-md border border-line'
-          : 'block size-8 shrink-0 rounded-sm border border-line'
-      }
+      className="block size-8 shrink-0 rounded-sm border border-line"
       style={{ background: `var(${name})` }}
     />
   );
 }
 
+/** A ramp in Storybook's palette block, which needs the docs theme a story does not have. */
 function Ramp({ title, ramp }: { title: string; ramp: Token[] }) {
+  const steps = ramp.map((token) => [token.name.split('-').pop(), `var(${token.name})`]);
   return (
-    <section className="flex flex-col gap-2">
-      <h2 className="text-lg font-medium">{title}</h2>
-      <ul className="grid grid-cols-6 gap-2 sm:grid-cols-11">
-        {ramp.map((token) => (
-          <li key={token.name} className="flex flex-col gap-1">
-            <Swatch name={token.name} size="lg" />
-            <span className="text-xs font-medium">{token.name.split('-').pop()}</span>
-          </li>
-        ))}
-      </ul>
-    </section>
+    <ThemeProvider theme={convert(themes.light)}>
+      <ColorPalette>
+        <ColorItem title={title} subtitle="" colors={Object.fromEntries(steps)} />
+      </ColorPalette>
+    </ThemeProvider>
   );
 }
 

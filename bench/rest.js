@@ -5,44 +5,36 @@
 import { check, sleep } from 'k6';
 import exec from 'k6/execution';
 import http from 'k6/http';
-import { Counter } from 'k6/metrics';
 import { signUp } from './auth.js';
 
 const env = (name, fallback) => __ENV[name] ?? fallback;
 
-/** Every tunable value; each one can be overridden with `-e NAME=value`. */
+/** Every tunable value; the ones read with `env` can be overridden with `-e NAME=value`. */
 const CONFIG = {
   /** The Worker under test (`wrangler dev` default port). */
   BASE_URL: env('BASE_URL', 'http://localhost:8787'),
   /** The SPA origin the Worker trusts (`CLIENT_ORIGIN` in apps/api/wrangler.jsonc). */
   ORIGIN: env('ORIGIN', 'http://localhost:5173'),
-  SIGN_UP_PATH: env('SIGN_UP_PATH', '/api/auth/sign-up/email'),
-  AREAS_PATH: env('AREAS_PATH', '/api/areas'),
+  SIGN_UP_PATH: '/api/auth/sign-up/email',
+  AREAS_PATH: '/api/areas',
   VUS: Number(env('VUS', 10)),
-  DURATION: env('DURATION', '1m'),
+  DURATION: '1m',
   /** Area creates per VU per minute; the API allows 50 per user per minute (`RATE_LIMIT`). */
-  WRITES_PER_MIN: Number(env('WRITES_PER_MIN', 40)),
-  /** Viewports read once each per iteration: `bbox` is [w, s, e, n] in degrees (JSON override). */
-  VIEWPORTS: JSON.parse(
-    env(
-      'VIEWPORTS',
-      JSON.stringify([
-        { bbox: [34.27, 29.49, 35.9, 33.34], zoom: 8 },
-        { bbox: [34.7, 31.95, 34.9, 32.15], zoom: 12 },
-        { bbox: [35.15, 31.72, 35.27, 31.82], zoom: 13 },
-        { bbox: [34.95, 32.75, 35.1, 32.85], zoom: 14 },
-      ]),
-    ),
-  ),
+  WRITES_PER_MIN: 40,
+  /** Viewports read once each per iteration: `bbox` is [w, s, e, n] in degrees. */
+  VIEWPORTS: [
+    { bbox: [34.27, 29.49, 35.9, 33.34], zoom: 8 },
+    { bbox: [34.7, 31.95, 34.9, 32.15], zoom: 12 },
+    { bbox: [35.15, 31.72, 35.27, 31.82], zoom: 13 },
+    { bbox: [34.95, 32.75, 35.1, 32.85], zoom: 14 },
+  ],
   /** Side of each created square, in degrees. */
-  SQUARE_DEG: Number(env('SQUARE_DEG', 0.005)),
-  READ_P95_MS: Number(env('READ_P95_MS', 300)),
-  WRITE_P95_MS: Number(env('WRITE_P95_MS', 600)),
+  SQUARE_DEG: 0.005,
+  READ_P95_MS: 300,
+  WRITE_P95_MS: 600,
   /** Highest share of failed requests (status ≥ 400 or no response) before the run fails. */
-  MAX_ERROR_RATE: Number(env('MAX_ERROR_RATE', 0.01)),
-  PASSWORD: env('PASSWORD', 'load-test-password'),
-  /** Prefix of every generated email and area name; a fresh one per run unless set. */
-  RUN_ID: env('RUN_ID', ''),
+  MAX_ERROR_RATE: 0.01,
+  PASSWORD: 'load-test-password',
 };
 
 const STATUS = { OK: 200, CREATED: 201, TOO_MANY_REQUESTS: 429 };
@@ -57,17 +49,16 @@ export const options = {
     'http_req_duration{op:read}': [`p(95)<${CONFIG.READ_P95_MS}`],
     'http_req_duration{op:write}': [`p(95)<${CONFIG.WRITE_P95_MS}`],
     http_req_failed: [`rate<${CONFIG.MAX_ERROR_RATE}`],
-    areas_rate_limited: ['count==0'],
+    // No 429 from /api/areas: the loop is paced under the per-user mutation budget.
+    [`http_reqs{status:${STATUS.TOO_MANY_REQUESTS}}`]: ['count==0'],
     checks: ['rate==1'],
   },
   summaryTrendStats: ['avg', 'min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],
 };
 
-/** 429 answers from `/api/areas`: one sample per request, 1 for a 429. Must stay 0. */
-const rateLimited = new Counter('areas_rate_limited');
-
+/** Prefix of every generated email and area name: a fresh one per run. */
 export function setup() {
-  return { runId: CONFIG.RUN_ID || `load-${Date.now().toString(36)}` };
+  return { runId: `load-${Date.now().toString(36)}` };
 }
 
 /** This VU's user, signed up on its first iteration and kept for the whole run. */
@@ -93,11 +84,7 @@ function squareIn([w, s, e, n]) {
 }
 
 function record(res, label, status) {
-  rateLimited.add(res.status === STATUS.TOO_MANY_REQUESTS ? 1 : 0);
-  check(res, {
-    [`${label} ${status}`]: (r) => r.status === status,
-    'never 429': (r) => r.status !== STATUS.TOO_MANY_REQUESTS,
-  });
+  check(res, { [`${label} ${status}`]: (r) => r.status === status });
 }
 
 export default function ({ runId }) {

@@ -130,17 +130,9 @@ export function revertAreaToVersion(
 
 /** The `draw.session` row of a saved draft: its vertex count (without the ring's closing one). */
 function drawSessionRow(actor: Actor, geometry: Polygon): AuditRow {
-  const { userId, ip, userAgent, requestId } = actor;
   const [ring] = geometry.coordinates;
-  return {
-    userId,
-    action: AUDIT.ACTIONS.DRAW_SESSION,
-    entity: AUDIT.ENTITIES.DRAFT,
-    ip,
-    userAgent,
-    requestId,
-    details: { vertices: ring.length - 1 },
-  };
+  const details = { vertices: ring.length - 1 };
+  return { ...actor, action: AUDIT.ACTIONS.DRAW_SESSION, entity: AUDIT.ENTITIES.DRAFT, details };
 }
 
 function auditRow(actor: Actor, action: AuditAction, entityId: string, version: number): AuditRow {

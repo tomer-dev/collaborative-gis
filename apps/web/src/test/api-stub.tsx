@@ -32,15 +32,6 @@ export function stubApi(handler: StubHandler): StubRequest[] {
 export const jsonResponse = (status: number, body: unknown) => Response.json(body, { status });
 export const emptyResponse = (status: number) => new Response(null, { status });
 
-/** A promise with its resolver, to hold a response until the test has looked at the pending state. */
-export function deferred<T>() {
-  let resolve: (value: T) => void = () => {};
-  const promise = new Promise<T>((settle) => {
-    resolve = settle;
-  });
-  return { promise, resolve };
-}
-
 /** 0.1° box at 32°N, about 104.9 km² (the T11 acceptance square), as a closed GeoJSON ring. */
 export const SQUARE: Area['geometry']['coordinates'][0] = [
   [34.9, 32],

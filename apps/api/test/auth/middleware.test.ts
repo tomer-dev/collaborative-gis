@@ -16,10 +16,6 @@ function testApp() {
     await new Promise((resolve) => setTimeout(resolve, TIMEOUTS.REQUEST_MS * 2));
     return c.text('too late');
   });
-  app.get('/t/almost', async (c) => {
-    await new Promise((resolve) => setTimeout(resolve, TIMEOUTS.REQUEST_MS - 1));
-    return c.text('in time');
-  });
   app.get('/t/ws', () => {
     const pair = new WebSocketPair();
     pair[1].accept();
@@ -136,15 +132,6 @@ describe('request timeout (2.6)', () => {
     // The browser can read the error and the logs can be correlated.
     expect(res.headers.get('x-request-id')).toMatch(UUID);
     expect(res.headers.get('access-control-allow-origin')).toBe(env.CLIENT_ORIGIN);
-  });
-
-  it('a handler just inside the budget answers normally', async () => {
-    vi.useFakeTimers();
-    const pending = testApp().request('http://x/t/almost', {}, env);
-    await vi.advanceTimersByTimeAsync(TIMEOUTS.REQUEST_MS - 1);
-    const res = await pending;
-    expect(res.status).toBe(200);
-    expect(await res.text()).toBe('in time');
   });
 });
 

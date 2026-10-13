@@ -61,15 +61,13 @@ describe('RateLimiter: exact sliding window per user (D5)', () => {
     );
   });
 
-  it('rejects the next action with retryAfterMs in (0, WINDOW_MS]', async () => {
+  it('rejects the next action with retryAfterMs of a full window', async () => {
     const limiter = freshLimiter();
     await takeN(limiter, LIMIT);
 
     const result = await limiter.take(ACTIONS.DRAW);
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.retryAfterMs).toBeGreaterThan(0);
-    expect(result.retryAfterMs).toBeLessThanOrEqual(WINDOW_MS);
     // All actions happened at T0, so the oldest leaves the window a full window later.
     expect(result.retryAfterMs).toBe(WINDOW_MS);
   });
