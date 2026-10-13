@@ -31,9 +31,17 @@ services:
       # Service-internal address; the host keeps 127.0.0.1:5433.
       CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE: postgresql://cgis:cgis@postgis:5432/cgis
       DATABASE_URL: postgresql://cgis:cgis@postgis:5432/cgis
+    # Real init: `docker compose down` / Ctrl-C reach pnpm, wrangler and workerd promptly.
+    init: true
     volumes:
       # Worker secrets stay on the host: `cp apps/api/.dev.vars.example apps/api/.dev.vars` first.
-      - ./apps/api/.dev.vars:/app/apps/api/.dev.vars:ro
+      # Long syntax so a missing file fails `up` loudly instead of becoming a host directory.
+      - type: bind
+        source: ./apps/api/.dev.vars
+        target: /app/apps/api/.dev.vars
+        read_only: true
+        bind:
+          create_host_path: false
     ports:
       - '127.0.0.1:8787:8787'
 volumes:

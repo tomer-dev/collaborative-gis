@@ -5,9 +5,10 @@ FROM node:26.11.1-slim
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
     WRANGLER_SEND_METRICS=false
 # Node 25+ images no longer bundle corepack; install it so the `packageManager` pin picks pnpm.
-RUN npm install -g corepack && corepack enable
-USER node
+RUN npm install -g corepack@0.36.0 && corepack enable
 WORKDIR /app
+RUN chown node:node /app
+USER node
 # Manifests first so the install layer is cached until a dependency changes.
 # Every workspace package.json must be present for --frozen-lockfile; only the api subtree is installed.
 COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -21,4 +22,4 @@ EXPOSE 8787
 HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=5 \
   CMD node -e "fetch('http://127.0.0.1:8787/healthz').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
 # Migrate (direct URL, DATABASE_URL) then serve; both point at the compose postgis service.
-CMD ["sh", "-c", "pnpm --filter @cgis/api db:migrate && pnpm --filter @cgis/api exec wrangler dev --ip 0.0.0.0 --port 8787"]
+CMD ["sh", "-c", "pnpm --filter @cgis/api db:migrate && exec pnpm --filter @cgis/api exec wrangler dev --ip 0.0.0.0 --port 8787"]

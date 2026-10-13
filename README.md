@@ -17,7 +17,7 @@ Real-time collaborative polygon drawing on Leaflet with OpenStreetMap and govmap
 
 ## Setup
 
-Prerequisites: Node 26 (`.node-version` pins 26.11.1; `engines` requires `>=26.11.1`), pnpm 12.5.1 (pinned by `packageManager`), Docker (Compose v2; without Node on the host, see [Everything in containers](#everything-in-containers)). Wrangler and the Hono CLI (`@hono/cli`) are dev dependencies of `apps/api` and are installed by pnpm.
+Prerequisites: Node 26 (`.node-version` pins 26.11.1; `engines` requires `>=26.11.1`), pnpm 12.5.1 (pinned by `packageManager`), Docker (Compose v2 or later; to run the API without Node on the host, see [API in a container](#api-in-a-container)). Wrangler and the Hono CLI (`@hono/cli`) are dev dependencies of `apps/api` and are installed by pnpm.
 
 Workspace:
 
@@ -38,9 +38,9 @@ pnpm dev                                           # wrangler dev on :8787 and V
 
 Open http://localhost:5173, create an account and draw on `/map`; a second browser profile (or a private window) is a second user. Vite proxies `/api` and `/ws` to `wrangler dev`, so the SPA and the API share one origin. `CLIENT_ORIGIN` in `apps/api/wrangler.jsonc` must be the SPA's origin: the CORS policy, Better Auth's trusted origins and the WebSocket origin gate all read it. If 5173 is taken, run the two servers yourself instead of `pnpm dev`, with the SPA's port in `CLIENT_ORIGIN`: `pnpm --filter @cgis/api dev --var CLIENT_ORIGIN:http://localhost:<port>` and `pnpm --filter @cgis/web dev --port <port> --strictPort`.
 
-### Everything in containers
+### API in a container
 
-`docker compose up` starts only PostGIS; `docker compose --profile api up` also builds and runs the API in a container (`apps/api/Dockerfile.dev`, Node 26.11.1 slim) that migrates the compose database and then runs `wrangler dev --ip 0.0.0.0 --port 8787` on workerd, reachable at http://127.0.0.1:8787. The database is reached service-to-service (`postgis:5432`) through `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE`; Worker secrets come from `apps/api/.dev.vars`, bind-mounted read-only, so copy `.dev.vars.example` and set `BETTER_AUTH_SECRET` before the first `up`. The Vite SPA stays on the host: `pnpm --filter @cgis/web dev` proxies `/api` and `/ws` to the container. Rebuild after a dependency or source change with `docker compose --profile api up --build`.
+`docker compose up` starts only PostGIS; `docker compose --profile api up` also builds and runs the API in a container (`apps/api/Dockerfile.dev`, Node 26.11.1 slim) that migrates the compose database and then runs `wrangler dev --ip 0.0.0.0 --port 8787` on workerd, reachable at http://127.0.0.1:8787. The database is reached service-to-service (`postgis:5432`) through `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE`; Worker secrets come from `apps/api/.dev.vars`, bind-mounted read-only, so copy `.dev.vars.example` and set `BETTER_AUTH_SECRET` before the first `up`. The Vite SPA stays on the host and still needs Node, pnpm and `pnpm install`: `pnpm --filter @cgis/web dev` proxies `/api` and `/ws` to the container. Rebuild after a dependency or source change with `docker compose --profile api up --build`; stop both services with `docker compose --profile api down` (plain `pnpm db:down` ignores the profile). Durable Object state lives in the container under `apps/api/.wrangler/state` and is lost when it is recreated; the database volume persists.
 
 Day to day:
 

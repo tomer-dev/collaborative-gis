@@ -11,6 +11,11 @@ node_modules
 .env.*
 **/.dev.vars
 .superpowers
+.github
+.claude
+**/test-results
+**/playwright-report
+apps/web/src
 .codegraph
 docs
 bench
