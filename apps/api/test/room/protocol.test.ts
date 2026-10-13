@@ -31,6 +31,12 @@ type Client = {
   send: (type: string, payload: unknown, seq?: number) => void;
 };
 
+// Timing-dependent tests freeze the clock with vi.setSystemTime: it mocks Date for the whole
+// isolate, and the vitest plugin runs the Room in the test isolate, so the Room reads the same
+// clock. T0 is far ahead of the real clock: workerd schedules alarms on real time, so an alarm
+// armed at a mocked instant in the past would fire mid-test (see rate-limit/rate-limiter.test.ts).
+const T0 = Date.UTC(2100, 0, 1);
+
 // Each test gets its own Room (a fresh name): no drafts, counters or alarms leak between tests.
 let stub: DurableObjectStub<Room>;
 let clients: Client[] = [];
@@ -41,6 +47,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  vi.useRealTimers();
   if (clients.length === 0) return;
   // Eviction waits for in-flight requests; closing the sockets keeps them from outliving the test.
   await evictDurableObject(stub, { webSockets: 'close' });
@@ -181,19 +188,20 @@ describe('draft:update', () => {
     });
   });
 
-  it(`11 updates within 100 ms: the 11th gets error RATE_LIMITED on A only; B received ${WS.DRAFT_RATE_PER_SEC}`, async () => {
+  it(`${WS.DRAFT_RATE_PER_SEC + 1} updates at one instant: the last gets error RATE_LIMITED on A only; B received ${WS.DRAFT_RATE_PER_SEC}`, async () => {
+    // Frozen clock: every frame arrives at T0, so the socket's bucket cannot refill mid-burst
+    // however long the Room (or a loaded machine) takes to handle them.
+    vi.setSystemTime(T0);
     const a = await join('a');
     const b = await join('b');
-    const started = Date.now();
     for (let i = 0; i <= WS.DRAFT_RATE_PER_SEC; i++) a.send('draft:update', add(i));
     const error = await a.waitFor('error');
-    expect(Date.now() - started).toBeLessThan(100);
     expect(error.payload).toEqual({
       code: 'RATE_LIMITED',
       message: 'Too many requests',
-      retryAfter: expect.any(Number),
+      // One token's worth of time: 1 s / DRAFT_RATE_PER_SEC.
+      retryAfter: 1000 / WS.DRAFT_RATE_PER_SEC,
     });
-    expect(error.payload['retryAfter']).toBeGreaterThan(0);
     await barrier(a);
     await barrier(b);
     expect(b.of('draft:update')).toHaveLength(WS.DRAFT_RATE_PER_SEC);
@@ -214,11 +222,14 @@ describe('draft:update', () => {
     expect(a.of('error')).toEqual([]);
   });
 
-  it('answers an op that does not fit the draft with BAD_REQUEST and relays nothing', async () => {
+  it('answers an op that does not fit the draft with DRAFT_OP_MISFIT and relays nothing', async () => {
     const a = await join('a');
     const b = await join('b');
     a.send('draft:update', add(3));
-    expect((await a.waitFor('error')).payload).toMatchObject({ code: 'BAD_REQUEST' });
+    expect((await a.waitFor('error')).payload).toEqual({
+      code: 'DRAFT_OP_MISFIT',
+      message: 'draft op does not fit the current draft',
+    });
     await barrier(b);
     expect(b.of('draft:update')).toEqual([]);
   });

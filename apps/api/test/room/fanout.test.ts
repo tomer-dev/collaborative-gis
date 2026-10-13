@@ -208,6 +208,7 @@ describe('fan-out from the area routes', () => {
     expect(JSON.parse(String(logged.mock.calls[0]?.[0]))).toEqual({
       level: 'error',
       msg: 'fanout failed',
+      requestId: res.headers.get('x-request-id'),
       type: 'area:created',
       areaId: area.id,
       error: expect.stringContaining('room unavailable'),

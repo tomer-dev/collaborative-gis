@@ -1,8 +1,6 @@
 import {
-  forwardRef,
   useEffect,
   useId,
-  useImperativeHandle,
   useRef,
   type DialogHTMLAttributes,
   type ReactNode,
@@ -44,25 +42,21 @@ export interface DialogProps extends Omit<
  * returns to the opener on close, Tab stays inside (the rest of the page is inert), Escape closes,
  * the title labels it and the description describes it.
  */
-export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog(
-  {
-    open,
-    onClose,
-    title,
-    description,
-    footer,
-    role = 'dialog',
-    initialFocusRef,
-    size = 'md',
-    className,
-    children,
-    ...rest
-  },
-  forwardedRef,
-) {
+export function Dialog({
+  open,
+  onClose,
+  title,
+  description,
+  footer,
+  role = 'dialog',
+  initialFocusRef,
+  size = 'md',
+  className,
+  children,
+  ...rest
+}: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
-  useImperativeHandle(forwardedRef, () => ref.current as HTMLDialogElement);
   const titleId = useId();
   const descriptionId = useId();
   const hasDescription = description !== undefined && description !== null && description !== false;
@@ -117,4 +111,4 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
       </div>
     </dialog>
   );
-});
+}

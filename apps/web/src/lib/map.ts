@@ -1,7 +1,5 @@
+import type { Bbox } from '@cgis/shared';
 import type L from 'leaflet';
-
-/** `[west, south, east, north]` in degrees, the order of the API's `?bbox=w,s,e,n`. */
-export type Bbox = [west: number, south: number, east: number, north: number];
 
 /**
  * The map's visible bounds as a `Bbox` the API accepts. `map.getBounds()` is unbounded: on a

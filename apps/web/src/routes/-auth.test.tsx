@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { FakeSocket } from '../lib/fake-websocket';
 import { AppRouterProvider, createAppRouter } from '../router';
 
 // What Better Auth's authClient.useSession() returns (only the fields the app reads).
@@ -78,6 +79,8 @@ function renderAppAt(path: string, session: BetterAuthSession) {
       disconnect() {}
     },
   );
+  // /map opens the room socket; keep it in memory (never opened, so the room stays connecting).
+  vi.stubGlobal('WebSocket', FakeSocket);
   const queryClient = new QueryClient();
   const router = createAppRouter(queryClient, createMemoryHistory({ initialEntries: [path] }));
   // Every path the router settles on, to prove a sign-in never lands back on /login.
@@ -103,6 +106,18 @@ afterEach(() => {
 });
 
 describe('/login', () => {
+  it('shows the session status on the first check only, not during a later refetch', async () => {
+    renderAppAt(ROUTES.APP.LOGIN, { data: null, isPending: true });
+    expect(screen.getByRole('status').textContent).toBe(COPY.AUTH.SESSION_CHECKING);
+    await act(async () => auth.set(signedOut));
+    await screen.findByRole('heading', { name: COPY.AUTH.LOGIN_TITLE });
+
+    // What Better Auth does while signed out and refetching (after a sign-in, for one).
+    await act(async () => auth.set({ data: null, isPending: true }));
+    expect(screen.queryByText(COPY.AUTH.SESSION_CHECKING)).toBeNull();
+    expect(screen.getByRole('heading', { name: COPY.AUTH.LOGIN_TITLE })).toBeTruthy();
+  });
+
   it('signs in through authClient, then lands on /map once Better Auth has the session', async () => {
     auth.signInEmail.mockResolvedValue(ok({ redirect: false, token: 'tok_1', user: ada }));
     const { router, resolved } = renderAppAt(ROUTES.APP.LOGIN, signedOut);
@@ -266,6 +281,7 @@ describe('/register', () => {
     expect(screen.getByText(COPY.AUTH.PASSWORD_HINT)).toBeTruthy();
     expect(screen.getByLabelText(COPY.AUTH.NAME_LABEL, { exact: false })).toMatchObject({
       autocomplete: 'name',
+      maxLength: LIMITS.USER_NAME_MAX,
       required: true,
     });
   });
