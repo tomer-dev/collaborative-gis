@@ -2,7 +2,7 @@ import { MAP, type Bbox, type Area } from '@cgis/shared';
 import { createFileRoute } from '@tanstack/react-router';
 import type * as L from 'leaflet';
 import { use, useEffect, useState } from 'react';
-import { AreaPanel, type AreasListState } from '../../components/AreaPanel';
+import { AreaPanel, type AreaPanelProps } from '../../components/AreaPanel';
 import { AreasLayer } from '../../components/AreasLayer';
 import { ConflictDialog } from '../../components/ConflictDialog';
 import { ConnectionBanner } from '../../components/ConnectionBanner';
@@ -125,7 +125,7 @@ type MapOverlayProps = {
   /** An area picked in the panel's list. */
   onPick: (area: Area) => void;
   areas: readonly Area[];
-  list: AreasListState;
+  list: AreaPanelProps['list'];
   bbox: Bbox | null;
   zoom: number | null;
   pendingIds: ReadonlySet<string>;
