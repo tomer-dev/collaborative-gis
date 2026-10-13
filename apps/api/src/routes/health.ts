@@ -21,25 +21,35 @@ health.get(
 );
 
 /**
- * Both dependencies at once, each under its own deadline. 200 `{ status, db, room }` when both
- * answer; otherwise one log line with each failure and 503 `NOT_READY` with `details: { db, room }`.
+ * Both dependencies at once, each under its own deadline, plus the origin vars. 200
+ * `{ status, db, room, config }` when all three are up; otherwise one log line with each failure
+ * and 503 `NOT_READY` with `details: { db, room, config }`.
  */
 health.get(
   ROUTES.READYZ,
   describeRoute({
-    summary: 'Readiness: the database and the Room answer',
+    summary: 'Readiness: the database and the Room answer, the origin vars are set',
     responses: {
-      200: { description: '`{ status: ready, db: up, room: up }`' },
-      503: error('`NOT_READY`: `details: { db, room }` says which is `down`'),
+      200: { description: '`{ status: ready, db: up, room: up, config: up }`' },
+      503: error('`NOT_READY`: `details: { db, room, config }` says which is `down`'),
     },
   }),
   async (c) => {
-    const [db, room] = await Promise.allSettled([checkDatabase(c.env), checkRoom(c.env)]);
-    const state = { db: stateOf(db), room: stateOf(room) };
-    if (db.status === 'fulfilled' && room.status === 'fulfilled') {
+    const [db, room, config] = await Promise.allSettled([
+      checkDatabase(c.env),
+      checkRoom(c.env),
+      checkConfig(c.env),
+    ]);
+    const state = { db: stateOf(db), room: stateOf(room), config: stateOf(config) };
+    if (Object.values(state).every((s) => s === READINESS.UP)) {
       return c.json({ status: READINESS.READY, ...state });
     }
-    log('error', 'not ready', { ...requestFields(c), db: reasonOf(db), room: reasonOf(room) });
+    log('error', 'not ready', {
+      ...requestFields(c),
+      db: reasonOf(db),
+      room: reasonOf(room),
+      config: reasonOf(config),
+    });
     return apiError(c, ERROR_CODES.NOT_READY, undefined, state);
   },
 );
@@ -63,6 +73,18 @@ export async function checkDatabase(env: Env): Promise<void> {
 export async function checkRoom(env: Env): Promise<void> {
   const room = env.ROOM.get(env.ROOM.idFromName(ROOM.DEFAULT_ROOM_ID));
   await withDeadline(room.getVersion(), TIMEOUTS.DO_PING_MS, 'room ping');
+}
+
+/**
+ * `CLIENT_ORIGIN` and `BETTER_AUTH_URL` are absolute URLs. Production declares both as `""` and
+ * the deploy fills them with `--var`; a deploy without those flags would refuse every browser
+ * (CORS) and every sign-in, so readiness, which the post-deploy check reads, fails instead.
+ */
+export async function checkConfig(env: Env): Promise<void> {
+  const invalid = (['CLIENT_ORIGIN', 'BETTER_AUTH_URL'] as const).filter(
+    (name) => !URL.canParse(env[name]),
+  );
+  if (invalid.length) throw new Error(`not an absolute URL: ${invalid.join(', ')}`);
 }
 
 const stateOf = (result: PromiseSettledResult<void>) =>
