@@ -22,10 +22,9 @@ jobs:
     if: >-
       vars.DEPLOY_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
-    # ubuntu-slim: 1 vCPU, 5 GB, a 15-minute limit; a migrate plus a wrangler upload takes about two
-    # minutes. It is a container on a shared VM, and this job holds the deploy secrets: the owner
-    # accepted that trade-off; `ubuntu-24.04` is the one-line fallback.
-    runs-on: ubuntu-slim
+    # A pinned VM image, never `ubuntu-latest` (the image moves under the job) and not the slim
+    # label (a container on a shared VM with no version in its name): this job holds the secrets.
+    runs-on: ubuntu-24.04
     # The secrets can move from the repository to this environment (Settings → Environments).
     environment: production
     steps:
