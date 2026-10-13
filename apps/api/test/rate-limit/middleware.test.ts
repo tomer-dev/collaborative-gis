@@ -1,16 +1,15 @@
-import { RATE_LIMIT } from '@cgis/shared';
+import { type AuthUser as User, RATE_LIMIT } from '@cgis/shared';
 import { env } from 'cloudflare:workers';
 import { Hono } from 'hono';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppEnv } from '../../src/app';
 import { rateLimit } from '../../src/middleware/rate-limit';
+import { TEST } from '../helpers';
 
 const { DRAW_ACTIONS_PER_WINDOW: LIMIT, WINDOW_MS, ACTIONS } = RATE_LIMIT;
 // Far ahead of the real clock: workerd schedules alarms on real time, so an alarm armed at a
 // mocked instant in the past would fire mid-test (see rate-limiter.test.ts).
 const T0 = Date.UTC(2100, 0, 1);
-
-type User = { id: string; name: string };
 
 const freshUser = (): User => ({ id: `user-${crypto.randomUUID()}`, name: 'Test User' });
 
@@ -43,49 +42,65 @@ describe('rateLimit middleware', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
-  it('lets DRAW_ACTIONS_PER_WINDOW requests through, then answers 429 with Retry-After', async () => {
-    const { post, handler } = appFor(freshUser());
-    for (let i = 0; i < LIMIT; i++) expect((await post()).status).toBe(201);
-    expect(handler).toHaveBeenCalledTimes(LIMIT);
+  it(
+    'lets DRAW_ACTIONS_PER_WINDOW requests through, then answers 429 with Retry-After',
+    async () => {
+      const { post, handler } = appFor(freshUser());
+      for (let i = 0; i < LIMIT; i++) expect((await post()).status).toBe(201);
+      expect(handler).toHaveBeenCalledTimes(LIMIT);
 
-    const res = await post();
-    expect(res.status).toBe(429);
-    expect(res.headers.get('Retry-After')).toBe(String(WINDOW_MS / 1000));
-    expect(await res.json()).toEqual({
-      code: 'RATE_LIMITED',
-      message: 'Too many requests',
-      details: { retryAfterMs: WINDOW_MS },
-    });
-    expect(handler).toHaveBeenCalledTimes(LIMIT);
-  });
+      const res = await post();
+      expect(res.status).toBe(429);
+      expect(res.headers.get('Retry-After')).toBe(String(WINDOW_MS / 1000));
+      expect(await res.json()).toEqual({
+        code: 'RATE_LIMITED',
+        message: 'Too many requests',
+        details: { retryAfterMs: WINDOW_MS },
+      });
+      expect(handler).toHaveBeenCalledTimes(LIMIT);
+    },
+    TEST.SLOW_TIMEOUT_MS,
+  );
 
-  it('rounds Retry-After up to whole seconds', async () => {
-    const { post } = appFor(freshUser());
-    for (let i = 0; i < LIMIT; i++) await post();
+  it(
+    'rounds Retry-After up to whole seconds',
+    async () => {
+      const { post } = appFor(freshUser());
+      for (let i = 0; i < LIMIT; i++) await post();
 
-    vi.setSystemTime(T0 + 20_500);
-    const res = await post();
-    expect(res.status).toBe(429);
-    expect(res.headers.get('Retry-After')).toBe('40');
-    expect(await res.json()).toMatchObject({ details: { retryAfterMs: 39_500 } });
-  });
+      vi.setSystemTime(T0 + 20_500);
+      const res = await post();
+      expect(res.status).toBe(429);
+      expect(res.headers.get('Retry-After')).toBe('40');
+      expect(await res.json()).toMatchObject({ details: { retryAfterMs: 39_500 } });
+    },
+    TEST.SLOW_TIMEOUT_MS,
+  );
 
-  it('shares one budget with direct take() calls (the Room DO path)', async () => {
-    const user = freshUser();
-    const limiter = env.RATE_LIMITER.get(env.RATE_LIMITER.idFromName(user.id));
-    for (let i = 0; i < LIMIT; i++) await limiter.take(ACTIONS.DRAW);
+  it(
+    'shares one budget with direct take() calls (the Room DO path)',
+    async () => {
+      const user = freshUser();
+      const limiter = env.RATE_LIMITER.get(env.RATE_LIMITER.idFromName(user.id));
+      for (let i = 0; i < LIMIT; i++) await limiter.take(ACTIONS.DRAW);
 
-    const { post, handler } = appFor(user);
-    expect((await post()).status).toBe(429);
-    expect(handler).not.toHaveBeenCalled();
-  });
+      const { post, handler } = appFor(user);
+      expect((await post()).status).toBe(429);
+      expect(handler).not.toHaveBeenCalled();
+    },
+    TEST.SLOW_TIMEOUT_MS,
+  );
 
-  it('keeps budgets per user', async () => {
-    const alice = appFor(freshUser());
-    const bob = appFor(freshUser());
-    for (let i = 0; i < LIMIT; i++) await alice.post();
+  it(
+    'keeps budgets per user',
+    async () => {
+      const alice = appFor(freshUser());
+      const bob = appFor(freshUser());
+      for (let i = 0; i < LIMIT; i++) await alice.post();
 
-    expect((await alice.post()).status).toBe(429);
-    expect((await bob.post()).status).toBe(201);
-  });
+      expect((await alice.post()).status).toBe(429);
+      expect((await bob.post()).status).toBe(201);
+    },
+    TEST.SLOW_TIMEOUT_MS,
+  );
 });

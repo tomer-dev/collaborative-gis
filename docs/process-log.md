@@ -34,3 +34,51 @@ Chronological record of how this roadmap was produced, for the reviewer. Facts o
 29. Task 6 (TOM-16): `.github/workflows/ci.yml`, job `ci` on pull requests and pushes to `main`: install (frozen lockfile), lint, format check, typecheck, tests for all packages, `wrangler deploy --dry-run` (no Cloudflare credentials needed, verified locally with none present). PostGIS service mapped to runner port 5433 so the api tests use `localConnectionString` unchanged. Actions at current majors: `actions/checkout@v7`, `pnpm/action-setup@v6` (v6.1.0 added pnpm 12 support), `actions/setup-node@v7` with pnpm cache. Node pinned to 22.23.3 in `.node-version` (latest 22.x); root `engines.node` raised to `>=22.22.2` (jsdom 30). Commit f2a50cc. Local PostGIS image switched from `postgis/postgis:16-3.4` (amd64-only on Docker Hub) to `imresamu/postgis:18-3.6` (amd64 + arm64, PG 18 / PostGIS 3.6 like Neon) in compose and CI; PG 18 images set `PGDATA=/var/lib/postgresql/18/docker`, so the compose volume now mounts `/var/lib/postgresql`; local volume recreated, `pnpm db:check` reports PostGIS 3.6 (lib 3.6.1, PostgreSQL 18.1), api tests 4/4. Commit 1a4d60c. Pushed `main` (docs-only ancestor, now the GitHub default branch) and `worktree-m0-foundation` to `tomer-dev/collaborative-gis`; draft PR #1 into `main`; CI run 38273835856 on 1a4d60c green on first attempt (Node 22.23.3, pnpm 12.5.1, service healthy, tests 13 + 1 + 4 passed, dry run 258.81 KiB).
 30. Task 7 (TOM-17), M0 executed: workspace root, shared contracts (13 tests), Hono Worker with `/healthz` and `/readyz` (4 tests, workerd), Vite placeholder (1 test), local + Neon PostGIS with Hyperdrive binding (Neon project `winter-credit-61110991`), CI green on draft PR #1 (runs 38273835856 on 1a4d60c and 38274096578 on ef26d67), README + ADR template + ADR 0001–0003. README setup lists only commands run in this task (`pnpm install`, `pnpm db:up`, `pnpm db:check`, `pnpm test`, `pnpm --filter @cgis/api dev`, `pnpm --filter @cgis/web dev`, typecheck, lint, format check, `pnpm db:down`, `hono request --runtime workerd`); no govmap terms-of-use line, per user ruling. Roadmap and M0 plan updated to name `imresamu/postgis:18-3.6` and `@cloudflare/vitest-plugin`; the plan's `defineWorkersConfig` snippet marked superseded. Reviews were per epic from Task 5 onward (user ruling): one review for the whole of M0.
 31. M0 close-out and follow-up. Commit 8c18aba amended to 79f5d8f to add the co-author trailer, force-pushed with lease; CI run 38275136103 ran on the pre-amend head 8c18aba (green). 65b9414 makes `pnpm db:up` wait for PostGIS health (`docker compose up -d --wait`). M0 merged into `main` via PR #1 (merge commit 1d38206, which also carries babb7cc, the M1 vertical-slice plan). Epic review of M0 (fable): verdict "with fixes". Branch `m0-followup` (from 65b9414), PR #2, carries those fixes plus the three review comments on PR #1: errors consolidated in `apps/api/src/errors.ts` (per user clarification: one code-to-status table with per-code helpers such as `badRequestError`, not a raw `apiError(c, status, code, message)`), an own favicon, and Tailwind 4.3.3 with an `@theme` light/dark palette. Review fixes: `/readyz` time limit (pg connect/query timeouts plus a 3 s hard deadline, because workerd's `socket.close()` waits on a pending TCP connect), `HTTPException` keeps its status in `onError`, 500 log carries the stack, pg `error` listener narrowed, `AreaVersion` schema, empty `zoom` treated as absent, `Env = CloudflareBindings`, CI hardening (read-only token, concurrency, web build, PostGIS start period), port comments in `.env.example` and `scripts/db-check.sh`, stale tool names in roadmap/spec/M0 plan. Tests: shared 16, api 20, web 1.
+
+## 2026-10-12/13 — M1: vertical slice
+
+Plan: `docs/superpowers/plans/2026-10-12-m1-vertical-slice.md`. Parallel lanes in separate worktrees, each task a PR (stacked PRs while their parents were open); one review per PR and one for the whole milestone. Ticket ids are Linear issues.
+
+Tasks, one line each:
+
+- T0 (TOM-75), PR #4: scaffold for parallel lanes: one shared constants module plus `docs/constants.md` (ruling: no hardcoded values), the error table, a stub per lane.
+- T1 (TOM-18, TOM-19), PR #9: Drizzle schema (areas, area versions, audit log) and migrations 0000–0001; a custom polygon column, because Drizzle's `geometry()` is points-only; a Node `db` test project.
+- T2 (TOM-20, TOM-21), PR #15: spatial helpers (insert, update-if-version, bounds, soft delete, audit), each write one statement with `ST_IsValid` and the geodesic area.
+- T3 (TOM-27, TOM-31), PR #7: request id, CORS, secure headers, timeout, structured `log()`.
+- T4 (TOM-25), PR #13: Better Auth on Workers through the Drizzle adapter on a per-request `pg` client (migration 0002). D21: Better Auth's scrypt stays; deploying needs Workers Paid (a spike measured hashing against the Free plan's 10 ms CPU cap).
+- T5 (TOM-26), PR #18: `attachUser`, `requireUser` and the WebSocket session gate; the Origin check was added in review.
+- RateLimiter (TOM-29, pulled forward from M2), PR #10: exact per-user sliding window in a Durable Object, 429 middleware.
+- T6 (TOM-33), PR #8: Room Durable Object on the hibernation API; the stub auth was removed from production code in review (tests inject the user).
+- T7 (TOM-34, TOM-35, TOM-36), PR #16: WebSocket protocol handlers, hibernation-safe presence, draft relay with a per-socket token bucket.
+- T8 (TOM-37), PR #21 (into #20): fan-out of committed area changes to the Room, map version counter.
+- T9 (TOM-42), PR #6: TanStack Router/Query shell with the protected `/map`. D19 (HTTP clients) was decided here and amended: Better Auth's React client for auth, Hono `hc` for the areas API.
+- T9b (TOM-77), PR #14: design system "Grid 4" (D15–D18): tokens, UI components, Storybook.
+- T10 (TOM-44), PR #12: Leaflet OSM map with the areas and drafts panes and a debounced bbox.
+- T11a (TOM-48, TOM-49), PR #11: geodesic area and self-intersection. Ruling: prefer maintained libraries, so `@turf/area` and `@turf/kinks` 7.4.0 replaced the hand-written maths. The draw tool went through three rulings: Geoman adapter; reversed under the product brief's "no third-party plugins for the collaborative features"; D25 final: the clause is read narrowly (collaboration SDKs are out, map drawing is not collaborative), so the tool is an adapter over `leaflet-editable` 1.3.2 and the realtime protocol stays ours.
+- T11b (TOM-49), PR #17: draw control with the live area readout.
+- T12 (TOM-43), PR #19: login, register and sign-out on Better Auth's React client.
+- T15 (TOM-28, TOM-54, TOM-55, TOM-56), PR #20: areas routes with 422 validation, 409 optimistic concurrency, the audit row in the same transaction (D20, migration 0003), OpenAPI and a `hono batch` contract file. D23: every query through the Drizzle builder.
+- T13 (TOM-50), PR #24: areas data layer on `hc`, polygons on the map, save, area and conflict dialogs.
+- T14 (TOM-51), PR #22: WebSocket hook: connection state machine, presence, ghost drafts, cache patching.
+- T16 (TOM-78), PR #36: `m1/integration` = `main` + #20 + #22 + #24; the carried fixes and audit cuts below, the milestone review fixes, this log and the README.
+- Docs: PR #5 (ADR-0004, horizontal scaling), PR #23 (M2 plan, decisions D19–D25), PR #25 (public naming).
+
+Rulings that changed scope:
+
+- Audit cuts (whole-repo over-engineering audit, owner-approved): icons to `lucide-react`, a native tooltip, MapControl trimmed, the legacy-names test deleted, the server-assigned presence colour only, the area formatter folded into `Stat`, the form on `FormData`, `class-variance-authority` dropped (T9b, T11b, T12); in T16: one `log()` at every log site, Hono's `requestId`, one `apiError`, delegating wrappers inlined, unused constants deleted, one `AuthUser` and one `Bbox` type, `toWellFormed()` for the name cap, one Vite config, one test sign-up helper.
+- D19 HTTP clients; D20 `audit_log` stays (versions are state, audit rows outlive them); D21 scrypt on Workers Paid; D22 Proj4Leaflet for EPSG:2039; D23 Drizzle builder only; D24 Better Auth cookie cache, 5 minutes; D25 narrow reading of the no-plugins clause.
+- Constants: one file per domain under `packages/shared/src/constants/`, and `docs/constants.md` generated from their doc comments (`pnpm constants:docs`, checked in CI), to stop parallel lanes conflicting on one file.
+
+T16 checks in a browser (headless Chrome driven by Playwright, two isolated browser contexts as two users, against `wrangler dev` and the Vite dev server on ports 8799 and 5199 because 5173 was taken):
+
+- Both users signed up and reached `/map`; each presence list showed both, the user marked "(you)".
+- The header avatar carried the user's own presence colour (`#e87ba4` for A).
+- Loading `/map` made one `GET /api/areas`.
+- A drew three vertices; B saw the ghost polygon with stroke `#e87ba4`, A's colour as B's presence list showed it.
+- With A's UI in the dark theme, an open draw handle was still filled white (`oklch(1 0 0)`).
+- A finished and saved "Orchard"; B saw one saved polygon and no ghost.
+- B opened the area; B's socket was made to drop `area:updated` (Playwright WebSocket routing), A renamed the area, and B's rename from the stale version opened the conflict dialog showing A's name; "Load theirs" showed A's version.
+- A signed out and landed on `/login`; B's presence list then showed B alone.
+- No page errors in either context.
+- On the production build (`vite build`, `vite preview`): one Leaflet in the bundle; `L.Editable` attaches to it and is the map's default `editToolsClass`; drawing works. Reading `L.Editable` from the ESM namespace instead fails with or without `resolve.dedupe: ['leaflet']`: the bundler's CommonJS interop copies Leaflet's exports into the namespace before the plugin adds `Editable`. The `editToolsClass` lookup stays, with that reason in its comment.
+- Not reproduced: a tab hidden for more than five minutes in desktop Chrome (timer throttling against the Room's idle sweep); the client now pings when the tab is shown again, and the server-side cutoff is an M2 lane's.

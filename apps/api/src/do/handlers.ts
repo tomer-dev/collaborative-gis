@@ -58,7 +58,7 @@ export function draftUpdate(
   }
   save(socket, { ...take.bucket, lastSeq: seq });
   if (!room.drafts.apply(attachment.userId, op, now)) {
-    sendError(room.ctx, ws, ERROR_CODES.BAD_REQUEST, WS_MESSAGES.DRAFT_OP_MISFIT);
+    sendError(room.ctx, ws, ERROR_CODES.DRAFT_OP_MISFIT, ERROR_MESSAGES.DRAFT_OP_MISFIT);
     return;
   }
   // userId after the spread: the sender's id overwrites any userId the client put in the op.

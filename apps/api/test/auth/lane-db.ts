@@ -23,7 +23,7 @@ const MIGRATIONS = Object.entries(
 
 /**
  * The test env with `HYPERDRIVE` pointed at the lane database `name` (created and migrated on
- * first use). Pass it to `createApp().request(path, init, laneEnv)` and to `getSessionUser`.
+ * first use). Pass it to `createApp().request(path, init, laneEnv)` and to `readSession`.
  *
  * Does in workerd what `scripts/db-lane.sh` + `db:migrate` do in Node, since a workerd test can
  * neither run bash nor read SQL files from disk: creates `name` on the server behind

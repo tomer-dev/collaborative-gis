@@ -39,6 +39,17 @@ describe('BoundsQuerySchema', () => {
     if (r.success) expect(r.data.zoom).toBeUndefined();
   });
 
+  it('parses w,s,e,n into numbers', () => {
+    expect(BoundsQuerySchema.parse({ bbox }).bbox).toEqual([34.7, 31.9, 35, 32.2]);
+  });
+
+  it.each([',,35,32', '34.7, ,35,32', '34.7,31.9,35,', 'a,31.9,35,32.2', '34.7,31.9,35'])(
+    'rejects %j: empty, blank, non-numeric or missing parts are not 0',
+    (bad) => {
+      expect(BoundsQuerySchema.safeParse({ bbox: bad }).success).toBe(false);
+    },
+  );
+
   it('still coerces a zoom string and accepts a missing zoom', () => {
     expect(BoundsQuerySchema.parse({ bbox, zoom: '12' }).zoom).toBe(12);
     expect(BoundsQuerySchema.parse({ bbox }).zoom).toBeUndefined();
