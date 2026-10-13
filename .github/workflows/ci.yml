@@ -80,8 +80,11 @@ jobs:
         run: pnpm --filter @cgis/api types
       - name: web build
         run: pnpm --filter @cgis/web build
-      # Static build only (D18 reduced): proves every story and .storybook file compiles. Story
-      # play functions and a11y checks run in the Storybook UI; the browser run is the e2e job.
+      # Static build (D18 reduced): proves every story and .storybook file compiles here. Every
+      # story also runs as a browser test (play functions, a11y as errors) in the e2e job's
+      # "storybook tests" step. The split: this job has no browser, so the web package's `test`
+      # script (run by `pnpm test` above) is the jsdom `unit` project only; `test:storybook`, the
+      # browser project, runs in e2e.
       - name: storybook build
         run: pnpm --filter @cgis/web build-storybook
       # The production config (env.production: assets from the web build above, its own bindings).

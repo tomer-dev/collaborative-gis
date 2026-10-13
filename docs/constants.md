@@ -514,7 +514,7 @@ Saved areas on /map: the save dialog, the area panel (the areas in view, the sel
 
 ## TELEMETRY
 
-`telemetry.ts`. Metrics (ticket 6.7): Analytics Engine datapoints. Every datapoint is `{ indexes: [event], blobs: [event, subject], doubles: [value] }`, so one SQL query over the dataset groups by `blob1` (the README's Observability paragraph).
+`telemetry.ts`. Metrics (ticket 6.7): Analytics Engine datapoints. Every datapoint is `{ indexes: [event], blobs: [event, subject], doubles: [value] }`, so one SQL query over the dataset groups by `blob1` (the README's Metrics paragraph, under Performance considerations).
 
 | Name | Value | Notes |
 |---|---|---|
@@ -528,9 +528,9 @@ Saved areas on /map: the save dialog, the area panel (the areas in view, the sel
 | Name | Value | Notes |
 |---|---|---|
 | `WS_OPEN` | `'ws_open'` | A Room socket accepted. `blob2`: the room id; `double1`: 1. |
-| `WS_CLOSE` | `'ws_close'` | A Room socket closed or errored. `blob2`: the room id; `double1`: 1. |
+| `WS_CLOSE` | `'ws_close'` | A Room socket closed or errored. `blob2`: the room id; `double1`: 1. Not paired one-to-one with `WS_OPEN`: sockets dropped by an eviction or a deploy write none, so `ws_open - ws_close` is not a live-socket count. |
 | `ROOM_MESSAGES` | `'room_messages'` | Client frames a Room received in one `MESSAGES_FLUSH_MS` window. `blob2`: the room id; `double1`: the count. |
-| `DB_QUERY` | `'db_query'` | One areas request's database time. `blob2`: a `DB_OPS` value; `double1`: milliseconds. |
+| `DB_QUERY` | `'db_query'` | One areas request's database time, connect + query (the Hyperdrive connection is acquired inside the timed span). `blob2`: a `DB_OPS` value; `double1`: milliseconds. |
 
 ### TELEMETRY.DB_OPS
 

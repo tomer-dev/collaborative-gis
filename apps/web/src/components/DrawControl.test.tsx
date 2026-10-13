@@ -242,20 +242,28 @@ it('discards the sketch on Escape, as Cancel does, unless a text field or a dial
   expect(document.activeElement).toBe(button(DRAW.START_LABEL));
 });
 
-it('counts placed vertices up to the reachable cap, 999, where the handler stops', () => {
-  renderOnMap();
-  startDrawing();
+/** 999 clicks build 999 Leaflet vertex markers in jsdom: about 2 s on an idle machine. */
+const SLOW_TIMEOUT_MS = 15_000;
 
-  act(() => {
-    for (let i = 0; i < 999; i++) clickOn(map, 32 + i * 1e-4, 35 + (i % 2) * 1e-4);
-  });
-  expect(readout(DRAW.VERTICES_LABEL)).toBe('999 / 999');
-  expect(screen.queryByRole('alert')).toBeNull();
+// shortcut: longer timeout masks machine load, not a bug; revisit when the suite runs on a quiet CI runner
+it(
+  'counts placed vertices up to the reachable cap, 999, where the handler stops',
+  () => {
+    renderOnMap();
+    startDrawing();
 
-  act(() => clickOn(map, 33, 36));
-  expect(readout(DRAW.VERTICES_LABEL)).toBe('999 / 999');
-  expect(screen.getByRole('alert').textContent).toBe(DRAW.MAX_VERTICES_REASON);
-});
+    act(() => {
+      for (let i = 0; i < 999; i++) clickOn(map, 32 + i * 1e-4, 35 + (i % 2) * 1e-4);
+    });
+    expect(readout(DRAW.VERTICES_LABEL)).toBe('999 / 999');
+    expect(screen.queryByRole('alert')).toBeNull();
+
+    act(() => clickOn(map, 33, 36));
+    expect(readout(DRAW.VERTICES_LABEL)).toBe('999 / 999');
+    expect(screen.getByRole('alert').textContent).toBe(DRAW.MAX_VERTICES_REASON);
+  },
+  SLOW_TIMEOUT_MS,
+);
 
 it('disables the handler and stops listening on unmount', () => {
   const { handler, onDone, unmount, container: root } = renderOnMap();
