@@ -371,6 +371,8 @@ describe('cold load', () => {
       isPending: true,
     });
     expect(screen.getByRole('heading', { name: COPY.APP.NAME })).toBeTruthy();
+    // The gap is the session round trip: a map-coloured surface, not the page background.
+    expect(screen.getByRole('main').className).toContain('bg-map-bg');
     // Still announced to a screen reader, just not shown.
     expect(screen.getByRole('status').textContent).toBe(COPY.AUTH.SESSION_CHECKING);
     expect(screen.queryByTestId('map-root')).toBeNull();

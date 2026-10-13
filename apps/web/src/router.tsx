@@ -32,15 +32,18 @@ export function createAppRouter(
 
 export type AppRouter = ReturnType<typeof createAppRouter>;
 
-/** The app frame with nothing in it: what the screen shows while a route is on its way. */
+/**
+ * The app frame with nothing in it: what the screen shows while a route is on its way. The main
+ * is map-coloured, so a remembered cold load never shows the page background before the tiles.
+ */
 function EmptyFrame() {
-  return <AppFrame>{null}</AppFrame>;
+  return <AppFrame mainClassName="bg-map-bg">{null}</AppFrame>;
 }
 
 /** The empty frame during the first session check; a screen reader still hears the status. */
 function CheckingFrame() {
   return (
-    <AppFrame>
+    <AppFrame mainClassName="bg-map-bg">
       <p role="status" className="sr-only">
         {COPY.AUTH.SESSION_CHECKING}
       </p>

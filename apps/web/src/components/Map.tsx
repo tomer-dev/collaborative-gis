@@ -73,5 +73,7 @@ export function MapView({ onReady, onBoundsChange }: MapViewProps) {
     };
   }, []);
 
-  return <div ref={containerRef} role="region" aria-label="Map" className="h-full w-full" />;
+  return (
+    <div ref={containerRef} role="region" aria-label="Map" className="h-full w-full bg-map-bg" />
+  );
 }
