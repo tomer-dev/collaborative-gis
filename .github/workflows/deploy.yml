@@ -22,7 +22,10 @@ jobs:
     if: >-
       vars.DEPLOY_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
-    runs-on: ubuntu-latest
+    # ubuntu-slim: 1 vCPU, 5 GB, a 15-minute job limit; the deploy is a migrate plus a wrangler
+    # upload and takes about two minutes. `ci` and `e2e` keep a 4-vCPU runner for their
+    # Postgres service container, which the slim runner does not support.
+    runs-on: ubuntu-slim
     # The secrets can move from the repository to this environment (Settings → Environments).
     environment: production
     steps:

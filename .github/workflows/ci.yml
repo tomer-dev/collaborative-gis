@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   ci:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgis:
         image: imresamu/postgis:18-3.6
@@ -73,7 +73,7 @@ jobs:
   # runs the `chromium` project only: the `aerial` project loads govmap's tiles from its CDN, so
   # playwright.config.ts leaves it out when CI is set. `pnpm bench` (k6) is never run here.
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgis:
         image: imresamu/postgis:18-3.6
