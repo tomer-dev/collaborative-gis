@@ -84,12 +84,15 @@ function renderAppAt(path: string, session: BetterAuthSession) {
   // Every path the router settles on, to prove a sign-in never lands back on /login.
   const resolved: string[] = [];
   router.subscribe('onResolved', (event) => resolved.push(event.toLocation.pathname));
+  // Every path the history moves to, even one whose route never finishes loading.
+  const visited: string[] = [];
+  router.history.subscribe(({ location }) => visited.push(location.pathname));
   render(
     <QueryClientProvider client={queryClient}>
       <AppRouterProvider router={router} />
     </QueryClientProvider>,
   );
-  return { router, resolved };
+  return { router, resolved, visited };
 }
 
 function fill(label: string, value: string) {
@@ -306,6 +309,41 @@ describe('signed-in visitor', () => {
     expect(router.state.location.pathname).toBe(ROUTES.APP.MAP);
     expect(screen.queryByRole('heading', { name: COPY.AUTH.LOGIN_TITLE })).toBeNull();
     expect(screen.queryByRole('heading', { name: COPY.AUTH.REGISTER_TITLE })).toBeNull();
+  });
+});
+
+describe('cold load', () => {
+  // The real get-session takes a round trip; give the router time to act while it is pending.
+  const sessionRoundTrip = () => act(() => new Promise((resolve) => setTimeout(resolve, 100)));
+
+  it('signed in: never goes to /login while the first session check is pending', async () => {
+    const { router, resolved, visited } = renderAppAt(ROUTES.APP.MAP, {
+      data: null,
+      isPending: true,
+    });
+    await sessionRoundTrip();
+    await act(async () => auth.set(signedIn));
+
+    await waitFor(() => expect(resolved).toContain(ROUTES.APP.MAP));
+    // The _authed guard never ran against the unknown session, so it never redirected.
+    expect(visited).not.toContain(ROUTES.APP.LOGIN);
+    expect(resolved).toEqual([ROUTES.APP.MAP]);
+    expect(router.state.location.pathname).toBe(ROUTES.APP.MAP);
+  });
+
+  it('signed out: lands on /login with a single redirect', async () => {
+    const { router, resolved, visited } = renderAppAt(ROUTES.APP.MAP, {
+      data: null,
+      isPending: true,
+    });
+    await sessionRoundTrip();
+    await act(async () => auth.set(signedOut));
+
+    await waitFor(() => expect(resolved).toContain(ROUTES.APP.LOGIN));
+    expect(screen.getByRole('heading', { name: COPY.AUTH.LOGIN_TITLE })).toBeTruthy();
+    expect(visited).toEqual([ROUTES.APP.LOGIN]);
+    expect(resolved).toEqual([ROUTES.APP.LOGIN]);
+    expect(router.state.location.pathname).toBe(ROUTES.APP.LOGIN);
   });
 });
 
