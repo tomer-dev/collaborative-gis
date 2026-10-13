@@ -10,9 +10,10 @@ concurrency:
   cancel-in-progress: true
 jobs:
   # The checks that need no database or browser run on the slim image (1 vCPU, a 15-minute limit):
-  # install, lint, format, the constants doc and the typecheck finish in a few minutes there.
+  # install, lint, format, the constants doc and the typecheck finish in about three minutes there.
   checks:
     runs-on: ubuntu-slim
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -26,7 +27,8 @@ jobs:
       # docs/constants.md is generated from packages/shared/src/constants/; fails when it is stale.
       - run: pnpm constants:docs --check
       - run: pnpm typecheck
-  # Tests, the API contract batch and the builds need the PostGIS service container, so a full VM.
+  # The tests and the API contract batch need the PostGIS service container (Docker, so a full VM);
+  # the builds follow them because the wrangler dry run reads the web build from the same checkout.
   ci:
     runs-on: ubuntu-24.04
     services:
