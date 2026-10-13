@@ -198,6 +198,15 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 | `DOCS` | `'/docs'` | API reference UI (Scalar) rendering OPENAPI; public and read-only, like the document. |
 | `APP` | `{ HOME: '/', LOGIN: '/login', REGISTER: '/register', MAP: '/map' }` | SPA routes: redirect/Link/navigate targets (file-route ids in createFileRoute stay literal). |
 
+## ROUTER
+
+`routes.ts`. SPA router: how the app frame covers a route whose chunk (autoCodeSplitting) is still loading.
+
+| Name | Value | Notes |
+|---|---|---|
+| `PENDING_MS` | `0` | Delay before the empty app frame shows for a pending route; 0 = at once, never a blank. |
+| `PENDING_MIN_MS` | `0` | Shortest time the empty frame stays once shown; 0 = it leaves the moment the route is ready. |
+
 ## DEV
 
 `routes.ts`. Local dev origins.

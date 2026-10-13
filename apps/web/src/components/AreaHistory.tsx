@@ -146,7 +146,11 @@ function VersionRow({ version, isCurrent, reverting, onRevert }: VersionRowProps
       </div>
       <p className="truncate text-sm">{version.name}</p>
       <p className="flex flex-wrap gap-x-2 text-xs text-fg-muted">
-        <span>{COPY.AREAS.VERSION_BY(version.changedBy.slice(0, LIMITS.USER_ID_PREFIX))}</span>
+        <span>
+          {COPY.AREAS.VERSION_BY(
+            version.authorName ?? version.changedBy.slice(0, LIMITS.USER_ID_PREFIX),
+          )}
+        </span>
         <time dateTime={version.changedAt} title={dateFormat.format(Date.parse(version.changedAt))}>
           {formatDistanceToNow(version.changedAt, { addSuffix: true })}
         </time>

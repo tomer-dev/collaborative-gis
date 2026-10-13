@@ -8,6 +8,8 @@ import { Avatar, Button } from '../../ui';
 type AppFrameProps = {
   /** Right side of the top bar; the `_authed` layout puts `SessionMenu` here. */
   headerEnd?: ReactNode;
+  /** Extra classes on the main, e.g. `bg-map-bg` while the map is on its way. */
+  mainClassName?: string;
   children: ReactNode;
 };
 
@@ -15,14 +17,14 @@ type AppFrameProps = {
  * Top bar with the app name, then a full-height main. Each layout route picks its header content.
  * The bar stays one line at phone width: the name and the user's name truncate.
  */
-export function AppFrame({ headerEnd, children }: AppFrameProps) {
+export function AppFrame({ headerEnd, mainClassName = '', children }: AppFrameProps) {
   return (
     <>
       <header className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-line bg-bg-raised px-4">
         <h1 className="min-w-0 truncate text-lg font-semibold">{COPY.APP.NAME}</h1>
         {headerEnd}
       </header>
-      <main className="relative min-h-0 flex-1">{children}</main>
+      <main className={`relative min-h-0 flex-1 ${mainClassName}`}>{children}</main>
     </>
   );
 }

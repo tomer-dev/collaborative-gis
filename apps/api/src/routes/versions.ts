@@ -47,7 +47,7 @@ export const versions = new Hono<AppEnv>().get(
   describeRoute({
     summary: 'Versions of an area',
     description:
-      'The saved versions of a live area, newest first and at most `LIMITS.VERSIONS_PAGE` (200): its name, geometry and area at that version, who saved it and when.',
+      'The saved versions of a live area, newest first and at most `LIMITS.VERSIONS_PAGE` (200): its name, geometry and area at that version, who saved it (`changedBy`, and `authorName`: their display name, null when the user is gone) and when.',
     responses: {
       200: { description: 'The versions, newest first', content: json(VersionsResponseSchema) },
       401: UNAUTHORIZED,

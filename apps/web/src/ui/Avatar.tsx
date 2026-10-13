@@ -8,9 +8,15 @@ declare module 'react' {
   }
 }
 
-/** Up to two initials, from the first and last words of the name. */
+/**
+ * Up to two initials, from the first and last words of the name; punctuation is dropped first, so
+ * "Alice (demo)" is "AD" and "O'Neil" is "O".
+ */
 export function initials(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean);
+  const words = name
+    .split(/\s+/)
+    .map((word) => word.replace(/[^\p{L}\p{N}]/gu, ''))
+    .filter(Boolean);
   const first = words[0];
   if (!first) return '?';
   const last = words.length > 1 ? words[words.length - 1] : undefined;

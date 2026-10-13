@@ -26,6 +26,14 @@ export const ROUTES = {
   APP: { HOME: '/', LOGIN: '/login', REGISTER: '/register', MAP: '/map' },
 } as const;
 
+/** SPA router: how the app frame covers a route whose chunk (autoCodeSplitting) is still loading. */
+export const ROUTER = {
+  /** Delay before the empty app frame shows for a pending route; 0 = at once, never a blank. */
+  PENDING_MS: 0,
+  /** Shortest time the empty frame stays once shown; 0 = it leaves the moment the route is ready. */
+  PENDING_MIN_MS: 0,
+} as const;
+
 /** Local dev origins. */
 export const DEV = {
   /** `wrangler dev` default port: the Vite proxy target and the tests' `BETTER_AUTH_URL`. */
