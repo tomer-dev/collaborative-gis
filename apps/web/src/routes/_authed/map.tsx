@@ -2,7 +2,7 @@ import type { Bbox, Area } from '@cgis/shared';
 import { createFileRoute } from '@tanstack/react-router';
 import type * as L from 'leaflet';
 import { use, useEffect, useState } from 'react';
-import { AreaPanel } from '../../components/AreaPanel';
+import { AreaPanel, type AreasListState } from '../../components/AreaPanel';
 import { AreasLayer } from '../../components/AreasLayer';
 import { ConflictDialog } from '../../components/ConflictDialog';
 import { ConnectionBanner } from '../../components/ConnectionBanner';
@@ -58,7 +58,8 @@ function MapRoute() {
     reportSelfColor(selfColor);
     return () => reportSelfColor(null);
   }, [reportSelfColor, selfColor]);
-  const areas = useAreasInBounds(bbox, zoom).data?.areas ?? NO_AREAS;
+  const areasQuery = useAreasInBounds(bbox, zoom);
+  const areas = areasQuery.data?.areas ?? NO_AREAS;
   const pendingIds = usePendingAreaIds();
   const selectedId = mode.kind === 'selected' ? mode.id : null;
 
@@ -91,6 +92,7 @@ function MapRoute() {
           mode={mode}
           setMode={setMode}
           areas={areas}
+          list={areasQuery}
           bbox={bbox}
           zoom={zoom}
           pendingIds={pendingIds}
@@ -108,13 +110,14 @@ type MapOverlayProps = {
   mode: MapMode;
   setMode: (mode: MapMode) => void;
   areas: readonly Area[];
+  list: AreasListState;
   bbox: Bbox | null;
   zoom: number | null;
   pendingIds: ReadonlySet<string>;
 };
 
 /** The one overlay for the current mode. */
-function MapOverlay({ mode, setMode, areas, bbox, zoom, pendingIds }: MapOverlayProps) {
+function MapOverlay({ mode, setMode, areas, list, bbox, zoom, pendingIds }: MapOverlayProps) {
   const select = (area: Area) => setMode({ kind: 'selected', id: area.id });
   const onConflict = (edit: AreaEdit, current: Area) =>
     setMode({ kind: 'conflict', edit, current });
@@ -127,6 +130,7 @@ function MapOverlay({ mode, setMode, areas, bbox, zoom, pendingIds }: MapOverlay
       return (
         <AreaPanel
           areas={areas}
+          list={list}
           bbox={bbox}
           pendingIds={pendingIds}
           selectedId={mode.kind === 'selected' ? mode.id : null}
