@@ -10,6 +10,7 @@ const tokensCss = readFileSync(join(import.meta.dirname, 'tokens.css'), 'utf8');
 
 const decls = parseTokens(tokensCss);
 const themeValue = (name: string) => decls.find((d) => d.name === name)?.value;
+// Parsed here, not via stories/tokens.ts's darkTokens: that module imports tokens.css?raw (empty).
 const darkDecls = parseTokens(tokensCss.slice(tokensCss.indexOf('@variant dark {')));
 
 /** A token's literal value, following `var(--other)` through the given declarations first. */
@@ -67,7 +68,10 @@ describe('tokens.css', () => {
     ]);
     for (const d of light) expect(d.value, d.name).toBe(resolve(d.name));
     for (const d of dark) expect(d.value, `dark ${d.name}`).toBe(resolve(d.name, darkDecls));
-    expect(dark.map((d) => d.name)).toEqual(['--color-bg-raised', '--color-line', '--color-fg']);
+    // Every one of the four that tokens.css themes, and only those, gets a dark value here too.
+    expect(dark.map((d) => d.name)).toEqual(
+      light.map((d) => d.name).filter((n) => darkDecls.some((d) => d.name === n)),
+    );
   });
 
   it('mirrors the map pane z-indexes from MAP', () => {
@@ -93,8 +97,7 @@ describe('tokens.css', () => {
   });
 
   it('keeps the map tokens off the colours the dark theme redefines (the basemap stays light)', () => {
-    const darkBlock = tokensCss.slice(tokensCss.indexOf('@variant dark {'));
-    const darkNames = new Set(parseTokens(darkBlock).map((d) => d.name));
+    const darkNames = new Set(darkDecls.map((d) => d.name));
     const themed = decls
       .filter((d) => d.name.startsWith('--map-'))
       .flatMap((d) => [...d.value.matchAll(/var\((--[\w-]+)\)/g)].map(([, ref]) => ref!))
@@ -103,8 +106,7 @@ describe('tokens.css', () => {
   });
 
   it('gives every themed semantic colour a dark value', () => {
-    const darkBlock = tokensCss.slice(tokensCss.indexOf('@variant dark {'));
-    const darkNames = new Set(parseTokens(darkBlock).map((d) => d.name));
+    const darkNames = new Set(darkDecls.map((d) => d.name));
     for (const name of [
       '--color-bg',
       '--color-bg-raised',

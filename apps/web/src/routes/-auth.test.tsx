@@ -97,6 +97,21 @@ function renderAppAt(path: string, session: BetterAuthSession) {
   return { router, resolved, visited };
 }
 
+/** Counts, over every DOM commit until `stop`, the moments the app-name h1 is missing. */
+function watchH1() {
+  let gone = 0;
+  const observer = new MutationObserver(() => {
+    if (!document.querySelector('h1')) gone += 1;
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  return {
+    stop() {
+      observer.disconnect();
+      return gone;
+    },
+  };
+}
+
 function fill(label: string, value: string) {
   // Labels end in an aria-hidden " *" for required fields, so match on the label's start.
   fireEvent.change(screen.getByLabelText(label, { exact: false }), { target: { value } });
@@ -335,6 +350,7 @@ describe('cold load', () => {
   });
 
   it('signed out, nothing remembered: shows the status, then lands on /login with a single redirect', async () => {
+    const h1 = watchH1();
     const { router, resolved, visited } = renderAppAt(ROUTES.APP.MAP, {
       data: null,
       isPending: true,
@@ -347,6 +363,8 @@ describe('cold load', () => {
 
     await waitFor(() => expect(resolved).toContain(ROUTES.APP.LOGIN));
     expect(screen.getByRole('heading', { name: COPY.AUTH.LOGIN_TITLE })).toBeTruthy();
+    // The header stayed through the hand-off to /login, not only at the two ends.
+    expect(h1.stop()).toBe(0);
     expect(visited).toEqual([ROUTES.APP.LOGIN]);
     expect(resolved).toEqual([ROUTES.APP.LOGIN]);
     expect(router.state.location.pathname).toBe(ROUTES.APP.LOGIN);
@@ -364,11 +382,7 @@ describe('cold load', () => {
   it('remembered as signed in: shows the empty app frame at once, no visible status, then the map', async () => {
     localStorage.setItem(AUTH.SIGNED_IN_HINT_KEY, AUTH.SIGNED_IN_HINT_VALUE);
     // Every commit, not just the settled states: the app name must never leave the DOM once there.
-    let h1Gone = 0;
-    const observer = new MutationObserver(() => {
-      if (!document.querySelector('h1')) h1Gone += 1;
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
+    const h1 = watchH1();
     const { router, resolved, visited } = renderAppAt(ROUTES.APP.MAP, {
       data: null,
       isPending: true,
@@ -389,8 +403,7 @@ describe('cold load', () => {
     // The hand-off never blanks the screen: the frame is there the moment the router takes over.
     expect(screen.getByRole('heading', { name: COPY.APP.NAME })).toBeTruthy();
     expect(await screen.findByTestId('map-root')).toBeTruthy();
-    observer.disconnect();
-    expect(h1Gone).toBe(0);
+    expect(h1.stop()).toBe(0);
     expect(visited).not.toContain(ROUTES.APP.LOGIN);
     expect(resolved).toEqual([ROUTES.APP.MAP]);
     expect(router.state.location.pathname).toBe(ROUTES.APP.MAP);
