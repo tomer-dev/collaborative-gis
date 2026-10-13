@@ -13,6 +13,7 @@ export default tseslint.config(
   {
     ignores: [
       '**/dist/**',
+      '**/dist-types/**',
       '**/.wrangler/**',
       '**/node_modules/**',
       '**/worker-configuration.d.ts',
@@ -43,6 +44,14 @@ export default tseslint.config(
           message: 'Raw hex colour in TSX: use a colour token from apps/web/src/styles/tokens.css.',
         },
       ],
+    },
+  },
+  {
+    // No type assertions in the SPA (`as const` stays allowed): parse at the boundary with the
+    // shared Zod schemas, or narrow. The generated route tree is ignored above.
+    files: ['apps/web/src/**/*.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/consistent-type-assertions': ['error', { assertionStyle: 'never' }],
     },
   },
 );

@@ -2,7 +2,8 @@ import { DRAW, LIMITS, MAP } from '@cgis/shared';
 import * as L from 'leaflet';
 import { useEffect, useEffectEvent, useRef, useState, type Ref } from 'react';
 import { flushSync } from 'react-dom';
-import { createPolygonDraw, onDraw, ringAreaKm2, ringAreaM2, type LngLat } from '../lib/geo';
+import { areaReadout } from '../lib/area-readout';
+import { createPolygonDraw, onDraw, ringAreaKm2, type LngLat } from '../lib/geo';
 import {
   Banner,
   Button,
@@ -22,13 +23,12 @@ export type DrawControlProps = {
 };
 
 /**
- * The area Stat's value and unit: whole m² below `MAP.AREA_KM2_THRESHOLD` (`12,345 m²`), km² to
- * 3 decimals, i.e. 1,000 m², from there up (`1.234 km²`). No value below 3 vertices (area 0).
+ * The area Stat: `areaReadout`, the one readout rule (whole m² below `MAP.AREA_KM2_THRESHOLD`,
+ * km² to 3 decimals from there up). No value below 3 vertices (area 0).
  */
 function areaStat(vertices: LngLat[]): Pick<StatProps, 'value' | 'unit' | 'decimals'> {
   const km2 = ringAreaKm2(vertices);
-  if (km2 >= MAP.AREA_KM2_THRESHOLD) return { value: km2, unit: DRAW.KM2_UNIT, decimals: 3 };
-  return { value: km2 > 0 ? ringAreaM2(vertices) : null, unit: DRAW.M2_UNIT, decimals: 0 };
+  return km2 > 0 ? areaReadout(km2) : { ...areaReadout(0), value: null };
 }
 
 /** Placed vertices against the cap a user can reach (the closing vertex is not placed). */

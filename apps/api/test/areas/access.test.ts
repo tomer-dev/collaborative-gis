@@ -1,7 +1,7 @@
 import { AreaSchema, RATE_LIMIT, ROUTES } from '@cgis/shared';
 import { createExecutionContext } from 'cloudflare:test';
-import { env as workerEnv } from 'cloudflare:workers';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { TEST } from '../helpers';
 import { createApp, type Env } from '../../src/app';
 import {
   areasClient,
@@ -13,16 +13,15 @@ import {
   randomSpot,
   squareAt,
 } from './fixtures';
-
-const SESSION_COOKIE = 'better-auth.session_token';
-const PASSWORD = 'correct horse battery staple';
+import { signUp } from '../auth/session';
 
 let env: Env;
 beforeAll(async () => {
   env = await areasEnv();
 });
 
-describe('authentication', () => {
+// Real sign-ups (scrypt, Better Auth's first import): { timeout } for a loaded machine.
+describe('authentication', { timeout: TEST.SLOW_TIMEOUT_MS }, () => {
   it('answers 401 on every area route without a session, before validation', async () => {
     const api = areasClient(env);
     const id = crypto.randomUUID();
@@ -45,32 +44,13 @@ describe('authentication', () => {
 
   it('serves a signed-in Better Auth session end to end (cookie, no test user injection)', async () => {
     const app = createApp();
-    const signUp = await app.request(
-      `${workerEnv.BETTER_AUTH_URL}${ROUTES.AUTH}/sign-up/email`,
-      {
-        method: 'POST',
-        headers: { origin: workerEnv.CLIENT_ORIGIN, 'content-type': 'application/json' },
-        body: JSON.stringify({
-          email: `areas-${crypto.randomUUID()}@example.com`,
-          password: PASSWORD,
-          name: 'Cookie User',
-        }),
-      },
-      env,
-    );
-    expect(signUp.status).toBe(200);
-    const { user } = await signUp.json<{ user: { id: string } }>();
-    const cookie = signUp.headers
-      .getSetCookie()
-      .find((c) => c.startsWith(`${SESSION_COOKIE}=`))
-      ?.split(';')[0];
-    expect(cookie).toBeDefined();
+    const { user, cookie } = await signUp(env, 'Cookie User');
 
     const res = await app.request(
       ROUTES.AREAS,
       {
         method: 'POST',
-        headers: { cookie: cookie!, 'content-type': 'application/json' },
+        headers: { cookie, 'content-type': 'application/json' },
         body: JSON.stringify({ name: 'by cookie', geometry: squareAt(randomSpot()) }),
       },
       env,

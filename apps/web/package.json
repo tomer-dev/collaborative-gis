@@ -10,7 +10,7 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "tsc -p .storybook && storybook build"
+    "build-storybook": "tsc -b .storybook && storybook build"
   },
   "dependencies": {
     "@cgis/shared": "workspace:*",
@@ -20,6 +20,7 @@
     "@turf/area": "7.4.0",
     "@turf/kinks": "7.4.0",
     "better-auth": "^1.7.7",
+    "hono": "^4.13.13",
     "leaflet": "^1.9.4",
     "leaflet-editable": "1.3.2",
     "lucide-react": "1.55.0",
@@ -28,6 +29,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@cgis/api": "workspace:*",
     "@storybook/addon-a11y": "^10.6.1",
     "@storybook/addon-docs": "^10.6.1",
     "@storybook/addon-themes": "^10.6.1",

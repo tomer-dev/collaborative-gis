@@ -8,7 +8,7 @@ import { MapView, type MapViewProps } from './Map';
 
 // jsdom has no ResizeObserver; this fake records each instance so a test can fire its callback.
 let observers: FakeResizeObserver[] = [];
-class FakeResizeObserver {
+class FakeResizeObserver implements ResizeObserver {
   callback: ResizeObserverCallback;
   observe = vi.fn();
   unobserve = vi.fn();
@@ -77,7 +77,7 @@ it('invalidates the map size when its container resizes', () => {
   const [observer] = observers;
   expect(observer?.observe).toHaveBeenCalledWith(map.getContainer());
 
-  observer?.callback([], observer as unknown as ResizeObserver);
+  observer?.callback([], observer);
   expect(invalidateSize).toHaveBeenCalledTimes(1);
 });
 
