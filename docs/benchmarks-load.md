@@ -1,7 +1,7 @@
 # Load test results (k6)
 
 Scripts and how to run them: `bench/README.md`. One run of each script, 2026-10-13, defaults
-unless stated.
+unless stated. The setup below is the REST run's; the WebSocket run states its own differences.
 
 ## Setup
 
@@ -35,29 +35,37 @@ paced to 40 creates per VU per minute.
 
 ## WebSocket (`k6 run bench/ws.js`)
 
-5 VUs, one socket each, all in the `default` room. Each VU sent 45 `draft:update` frames
-(1.5 per second for 30 s) after every VU appeared in presence, then listened 3 s more. Each frame
-spends one action from the user's budget of 50 per minute, so 45 per user stays under it.
+Run 2026-10-13 on `m2/draft-session-budget` (the D5 draft-session change on `m2/integration` at
+`4c3a857`), same machine and versions as above; load average 5.86 at start. The Worker ran as
+`wrangler dev --port 8797` on its own migrated database `cgis_load_d5` (empty), with
+`-e BASE_URL=http://localhost:8797`; every other value is the script's default.
 
-| Metric                                         | Value                                    |
-| ---------------------------------------------- | ---------------------------------------- |
-| Frames sent                                    | 225 (45 per VU)                          |
-| Echoes received from other VUs                 | 900 (each frame at each of the 4 others) |
-| Echo ratio, (frame, other VU) pairs within 1 s | 100.00 % (900 of 900)                    |
-| Echo delay p50 / p95 / p99 / max               | 5 ms / 10 ms / 13 ms / 14 ms (whole ms)  |
-| `error` frames from the Room                   | 0                                        |
-| Sign-up p50 (5 requests)                       | 273.00 ms                                |
-| WebSocket connect p50 / max                    | 14.71 ms / 28.78 ms                      |
-| Error rate (HTTP)                              | 0.00 % (0 of 5)                          |
-| Checks                                         | 20 of 20 passed                          |
-| Threshold                                      | ≥ 95 % echoed within 1 s: pass           |
+5 VUs, one socket each, all in the `default` room. Each VU sent 300 `draft:update` frames
+(10 per second, the Room's per-socket limit, for 30 s: one `add`, then `move`s) after every VU
+appeared in presence, then listened 3 s more. Since D5's ruling (2026-10-13) a frame is not a
+drawing action: each VU's frames are one draft session, which spends one action of the user's
+50 per minute.
+
+| Metric                                         | Value                                     |
+| ---------------------------------------------- | ----------------------------------------- |
+| Frames sent                                    | 1500 (300 per VU)                         |
+| Echoes received from other VUs                 | 6000 (each frame at each of the 4 others) |
+| Echo ratio, (frame, other VU) pairs within 1 s | 100.00 % (6000 of 6000)                   |
+| Echo delay p50 / p95 / p99 / max               | 3 ms / 8 ms / 15 ms / 31 ms (whole ms)    |
+| `error` frames from the Room                   | 0                                         |
+| Sign-up p50 (5 requests)                       | 347.26 ms                                 |
+| WebSocket connect p50 / max                    | 34.25 ms / 37.08 ms                       |
+| Error rate (HTTP)                              | 0.00 % (0 of 5)                           |
+| Checks                                         | 20 of 20 passed                           |
+| Threshold                                      | ≥ 95 % echoed within 1 s: pass            |
 
 Every frame reached every other VU within 1 s, so the share of frames echoed to at least one
 other VU within 1 s was also 100 %.
 
-With `-e VUS=2 -e FRAMES_PER_SEC=10 -e SEND_SECONDS=8` (80 frames per user), the Room accepted
-50 frames per user and answered the other 30 with `error RATE_LIMITED`. The echo ratio was 62.5 %
-(100 of 160) and both thresholds failed.
+The previous run, on `m3/load-test` at `39bc2f1` while every frame spent one action, sent 1.5
+frames per second for 30 s (45 per VU, under the budget) and measured 900 of 900 pairs within
+1 s (delay p95 10 ms). At 10 frames per second for 8 s (2 VUs) that code accepted 50 frames per
+user and answered the other 30 with `error RATE_LIMITED` (echo ratio 62.5 %).
 
 An earlier run on `m1/integration` at `ca4b2bb`, before the per-user drawing budget existed, sent
 10 frames per second for 30 s (1500 frames) and measured 6000 of 6000 pairs echoed within 1 s

@@ -58,7 +58,7 @@ Rule: the Worker never holds state between requests; all coordination state live
 
 **Concurrent edit.** `PUT /areas/:id` carries `version`. `UPDATE … WHERE id=$1 AND version=$2 AND deleted_at IS NULL`; zero rows → 409 with the current server row. Client shows a two-button prompt: Overwrite with mine (resend with the server version) or Load theirs. Success bumps version and writes a version row.
 
-**Live drawing.** Client sends `draft:update` deltas (≤10/s, `seq`). Room DO validates, calls `RateLimiter.take`, rebroadcasts to peers except sender. Peers render ghost polygons. On `join` the DO sends the presence list and current drafts.
+**Live drawing.** Client sends `draft:update` deltas (≤10/s, `seq`). Room DO validates, calls `RateLimiter.take` once per draft session (D5), rebroadcasts to peers except sender. Peers render ghost polygons. On `join` the DO sends the presence list and current drafts.
 
 **Viewport fetch.** `GET /areas?bbox=w,s,e,n&zoom=z` → bbox quantised to a tile → cache key includes the map's version counter (held by the Room DO, bumped on every write) → Cache API lookup → miss: `geom && ST_MakeEnvelope(...)` with limit and optional simplification → cached with ETag. Writes invalidate by changing the key; old entries expire by TTL.
 
@@ -97,6 +97,7 @@ In: everything in the brief's sections 1–6, bonus Docker/tests/OpenAPI/benchma
 - Out of scope as design notes only: multi-region room sharding, Queues for audit batching, OpenTelemetry export, geometry merge beyond rename, restore-from-trash UI (D14).
 - Retention: soft-deleted areas purged after 7 days (D8).
 - Rate limiting: exact per-user Durable Object (D5).
+- Draw budget (D5 amended, 2026-10-13, owner ruling): a WebSocket `draft:update` frame is not a drawing action; a draft session is. A session runs from the `add` that starts a new draft to its save (the drafter's area create, which the Room learns from `area:created`) or the idle sweep (60 s without an edit). It spends ONE action from the shared 50-per-minute budget, taken by that first `add`; REST mutations keep spending one each, and the save itself is one of them. A `clear` and the `add`s after it (a resync replay, a cancel and a new sketch), a disconnect and hibernation all stay in the open session; the session lives in the draft's SQLite row in the Room. The per-socket 10 frames/s bucket stays as the burst guard. A refused session start answers `error RATE_LIMITED { retryAfter }` and leaves the draft empty; the client's pause path retries it.
 - Rooms: one Durable Object per map; sharding by tile documented as an ADR only (D7).
 - Two-browser Playwright E2E is in scope (D10).
 - govmap imagery is a requirement; option A (CRS swap) chosen, no proxy, no fallback provider (D3).
