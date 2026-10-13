@@ -36,16 +36,20 @@ export const AreaVersionSchema = z.object({
 });
 export type AreaVersion = z.infer<typeof AreaVersionSchema>;
 
+/** One `bbox` part: a non-empty number in [min, max] (`Number('')` would read an empty part as 0). */
+const coordinate = (min: number, max: number) =>
+  z.string().trim().min(1).transform(Number).pipe(z.number().min(min).max(max));
+
 export const BoundsQuerySchema = z.object({
   bbox: z
     .string()
-    .transform((s) => s.split(',').map(Number))
+    .transform((s) => s.split(','))
     .pipe(
       z.tuple([
-        z.number().min(-180).max(180),
-        z.number().min(-90).max(90),
-        z.number().min(-180).max(180),
-        z.number().min(-90).max(90),
+        coordinate(-180, 180),
+        coordinate(-90, 90),
+        coordinate(-180, 180),
+        coordinate(-90, 90),
       ]),
     )
     // w < e rejects antimeridian-crossing boxes by design (fine for M0's Israel-area demo)
@@ -57,3 +61,9 @@ export const BoundsQuerySchema = z.object({
   ),
 });
 export type BoundsQuery = z.infer<typeof BoundsQuerySchema>;
+
+/**
+ * `[west, south, east, north]` in degrees: a parsed `?bbox=w,s,e,n` (`BoundsQuery['bbox']`), the
+ * map's viewport, and the bounds query's envelope.
+ */
+export type Bbox = readonly [west: number, south: number, east: number, north: number];

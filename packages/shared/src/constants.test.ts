@@ -1,33 +1,16 @@
 import { describe, expect, it } from 'vitest';
+import * as constants from './constants';
 import * as shared from './index';
 
 describe('constants', () => {
-  it('the barrel exports every constant group as a non-empty object', () => {
-    const groups = [
-      'LIMITS',
-      'GEO',
-      'SEED',
-      'WS',
-      'TIMEOUTS',
-      'ROUTES',
-      'DEV',
-      'HEADERS',
-      'ROOM',
-      'MAP',
-      'DRAW',
-      'ERROR_CODES',
-      'ERROR_MESSAGES',
-      'ERROR_REASONS',
-      'WS_MESSAGES',
-      'COPY',
-      'OPENAPI',
-      'AUDIT',
-      'QUERY',
-    ] as const;
-    for (const name of groups) {
-      const group: unknown = shared[name];
+  it('every export of the constants barrel is a non-empty group that @cgis/shared re-exports', () => {
+    const fromShared = new Map(Object.entries(shared));
+    const groups = Object.entries(constants);
+    expect(groups.length).toBeGreaterThan(0);
+    for (const [name, group] of groups) {
       expect(group, name).toBeTypeOf('object');
-      expect(Object.keys(group as object).length, name).toBeGreaterThan(0);
+      expect(Object.keys(group).length, name).toBeGreaterThan(0);
+      expect(fromShared.get(name), name).toBe(group);
     }
   });
 
@@ -46,10 +29,6 @@ describe('constants', () => {
 
   it('POLYGON_MAX_PLACED_VERTICES is the ring cap minus the closing vertex', () => {
     expect(shared.LIMITS.POLYGON_MAX_PLACED_VERTICES).toBe(shared.LIMITS.POLYGON_MAX_VERTICES - 1);
-  });
-
-  it('POLYGON_MAX_VERTICES keeps its old import path and matches LIMITS', () => {
-    expect(shared.POLYGON_MAX_VERTICES).toBe(shared.LIMITS.POLYGON_MAX_VERTICES);
   });
 
   it('the WS client thresholds are ordered and the ping beats the Room idle sweep', () => {

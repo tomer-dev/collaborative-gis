@@ -9,9 +9,11 @@
   "scripts": {
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
+    "dev": "pnpm --parallel --filter @cgis/api --filter @cgis/web dev",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "constants:docs": "node packages/shared/scripts/constants-docs.ts",
     "db:up": "docker compose up -d --wait postgis",
     "db:down": "docker compose down",
     "db:check": "bash scripts/db-check.sh"

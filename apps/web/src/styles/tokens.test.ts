@@ -70,6 +70,16 @@ describe('tokens.css', () => {
     expect(MAP.DRAFT_STYLE.dashArray).toBe('8 4');
   });
 
+  it('keeps the map tokens off the colours the dark theme redefines (the basemap stays light)', () => {
+    const darkBlock = tokensCss.slice(tokensCss.indexOf('@variant dark {'));
+    const darkNames = new Set(declarations(darkBlock).map((d) => d.name));
+    const themed = decls
+      .filter((d) => d.name.startsWith('--map-'))
+      .flatMap((d) => [...d.value.matchAll(/var\((--[\w-]+)\)/g)].map(([, ref]) => ref!))
+      .filter((ref) => darkNames.has(ref));
+    expect(themed).toEqual([]);
+  });
+
   it('gives every themed semantic colour a dark value', () => {
     const darkBlock = tokensCss.slice(tokensCss.indexOf('@variant dark {'));
     const darkNames = new Set(declarations(darkBlock).map((d) => d.name));

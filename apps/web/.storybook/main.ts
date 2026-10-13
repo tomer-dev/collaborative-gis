@@ -5,11 +5,9 @@ import type { StorybookConfig } from '@storybook/react-vite';
 const config: StorybookConfig = {
   stories: ['../src/**/*.stories.@(ts|tsx)'],
   addons: ['@storybook/addon-docs', '@storybook/addon-a11y', '@storybook/addon-themes'],
-  framework: {
-    name: '@storybook/react-vite',
-    // Storybook-only Vite config: React + Tailwind, without the app's router codegen and dev proxy.
-    options: { builder: { viteConfigPath: '.storybook/vite.config.ts' } },
-  },
+  // The react-vite builder reads the app's vite.config.ts (React and Tailwind; the router plugin
+  // only touches src/routes and the proxy only the dev server).
+  framework: '@storybook/react-vite',
   core: { disableTelemetry: true },
 };
 

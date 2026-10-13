@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { POLYGON_MAX_VERTICES, PolygonSchema } from './geo';
+import { LIMITS } from './constants';
+import { PolygonSchema } from './geo';
 
 const square = (n = 0) => ({
   type: 'Polygon' as const,
@@ -85,8 +86,8 @@ describe('PolygonSchema', () => {
       pts.push(pts[0]!);
       return { type: 'Polygon' as const, coordinates: [pts] };
     };
-    expect(PolygonSchema.safeParse(ring(POLYGON_MAX_VERTICES)).success).toBe(true);
-    expect(PolygonSchema.safeParse(ring(POLYGON_MAX_VERTICES + 1)).success).toBe(false);
+    expect(PolygonSchema.safeParse(ring(LIMITS.POLYGON_MAX_VERTICES)).success).toBe(true);
+    expect(PolygonSchema.safeParse(ring(LIMITS.POLYGON_MAX_VERTICES + 1)).success).toBe(false);
   });
 
   it('cannot detect swapped lng/lat when both are in range (documented limitation)', () => {
