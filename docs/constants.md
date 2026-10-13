@@ -176,6 +176,8 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 | `RATE_LIMIT_PATH` | `'/sign-in/*'` | Better Auth path pattern (relative to `ROUTES.AUTH`) the sign-in rate limit covers. On only under an https `BETTER_AUTH_URL` (a deployed Worker). |
 | `RATE_LIMIT_WINDOW_S` | `60` | Sign-in rate limit window, in seconds; over the limit Better Auth answers 429 `X-Retry-After`. |
 | `RATE_LIMIT_MAX` | `10` | Sign-in attempts per client IP per window. Counted in each Worker isolate's memory, so it slows one client; the zone's WAF rate rule (docs/deploy.md) is the global cap. |
+| `SIGNED_IN_HINT_KEY` | `'cgis.signedIn'` | `localStorage` key the web app sets while this browser holds a session and removes once it holds none. On a cold load it decides whether the app frame shows before the first session check answers (set) or the session status does (unset). Never carries who was signed in. |
+| `SIGNED_IN_HINT_VALUE` | `'1'` | The only value `SIGNED_IN_HINT_KEY` holds; any other (or none) means nothing remembered. |
 
 ## ROUTES
 
