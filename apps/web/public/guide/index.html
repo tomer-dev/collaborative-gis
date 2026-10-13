@@ -851,8 +851,9 @@
       <section class="slide" id="start" aria-labelledby="h-start">
         <div class="inner">
           <p class="eyebrow">
-            Reviewer guide · audit of 2026-10-13 against <code>main</code> at 1a581e7 · page updated
-            after PRs #67 and #71 merged
+            Reviewer guide · audit of 2026-10-13 against <code>main</code> at 1a581e7 · feature
+            check repeated at 267deb2 (Codex, 2026-10-13) · page updated after PRs #67 and #71
+            merged
           </p>
           <h1 id="h-start">Collaborative GIS</h1>
           <p class="lede" style="margin-top: 1.2rem">
@@ -894,13 +895,16 @@
           </div>
           <p>
             Against the product brief's requirement lines:
-            <strong>74 of 78 met, 4 partial, 0 not met</strong>. Our line-by-line audit of the brief
-            against the repository (<a href="criteria-matrix.md">criteria-matrix.md</a>, 2026-10-13)
-            counted 73 and 5; the docker-compose row became met the same day, when PR #67 merged and
-            the container was verified. The other 31 lines it counts (overview, stack, "focus on",
-            evaluation criteria, submission) are all met; the submission items map to README
-            headings (<a href="#docs">section 14</a>). The partial rows have their own section:
-            <a href="#limitations">12 · Limitations</a>.
+            <strong>73 of 78 met, 5 partial, 0 not met</strong>. Our line-by-line audit of the brief
+            against the repository (<a href="criteria-matrix.md">criteria-matrix.md</a>, 2026-10-13,
+            at 1a581e7) counted 73 and 5 with a different split: since then the docker-compose row
+            became met (PR #67 merged, container verified) and an independent feature check (<a
+              href="codex-check.md"
+              >codex-check.md</a
+            >, Codex at 267deb2) moved “smooth layer transition” to partial. The other 31 lines the
+            audit counts (overview, stack, "focus on", evaluation criteria, submission) are all met;
+            the submission items map to README headings (<a href="#docs">section 14</a>). The
+            partial rows have their own section: <a href="#limitations">12 · Limitations</a>.
           </p>
           <p class="stack">
             Hono on Cloudflare Workers + Durable Objects · PostGIS 3.6 on Neon via Hyperdrive ·
@@ -1306,7 +1310,11 @@
           <ul class="checks">
             <li>
               <b class="st">Met</b
-              ><span>rate limiting (max 50 drawing actions per minute per user)</span>
+              ><span
+                >rate limiting (max 50 drawing actions per minute per user): 50 per rolling minute
+                per user, counted as draft sessions plus REST mutations; individual drawing edits
+                within a session are not counted</span
+              >
             </li>
             <li>
               <b class="st">Met</b
@@ -2053,7 +2061,16 @@ vary: Origin</pre>
               ><span>Leaflet.js with two base layers: OpenStreetMap default</span>
             </li>
             <li><b class="st">Met</b><span>satellite imagery from govmap.gov.il</span></li>
-            <li><b class="st">Met</b><span>smooth layer transition</span></li>
+            <li class="partial">
+              <b class="st partial">Partial</b
+              ><span
+                >smooth layer transition: a 300 ms crossfade is tested, but the old-layer snapshot
+                is removed when the animation ends, not when the new tiles have loaded (<a
+                  href="#limitations"
+                  >see 12</a
+                >)</span
+              >
+            </li>
             <li>
               <b class="st">Met</b
               ><span>drawn elements remain properly positioned when switching layers</span>
@@ -2085,7 +2102,11 @@ vary: Origin</pre>
               /></a>
               <figcaption>
                 The same viewport on aerial imagery (govmap level 3). Polygons stay in place. A 300
-                ms crossfade over a still copy of the old tiles, skipped under reduced motion.
+                ms crossfade over a still copy of the old tiles, skipped under reduced motion; the
+                snapshot goes when the animation ends, not when the new tiles have loaded (<a
+                  href="#limitations"
+                  >see 12</a
+                >).
               </figcaption>
             </figure>
             <figure>
@@ -2409,8 +2430,10 @@ vary: Origin</pre>
             <li class="partial">
               <b class="st partial">Partial</b
               ><span
-                >message queuing for high-volume WebSocket traffic: ordering queues only, no broker
-                (<a href="#limitations">see 12</a>)</span
+                >message queuing for high-volume WebSocket traffic: no delivery queue (<a
+                  href="#limitations"
+                  >see 12</a
+                >)</span
               >
             </li>
             <li>
@@ -2687,7 +2710,9 @@ vary: Origin</pre>
                 2026-10-13 16:40 UTC (<a href="evidence/analytics-db-latency.json"
                   >evidence/analytics-db-latency.json</a
                 >); 31 points for <code>areas.list</code>, 2 for <code>areas.write</code>. The query
-                is in the README, Performance considerations.
+                is in the README, Performance considerations. These saved samples are small (two
+                write points, 31 read points): they show that collection works, not production
+                capacity.
               </p>
               <details>
                 <summary>Table</summary>
@@ -3289,9 +3314,11 @@ vary: Origin</pre>
             <p>
               Our audit of the brief against the repository (<a href="criteria-matrix.md"
                 >criteria-matrix.md</a
-              >, 2026-10-13) marked 5 of 78 requirement lines as partial; one of them,
-              docker-compose, became met the same day. One card each: the brief's line, what is
-              delivered, what is missing, and where to look.
+              >, 2026-10-13) marked 5 of 78 requirement lines as partial. Since then docker-compose
+              became met (PR #67) and the independent feature check (<a href="codex-check.md"
+                >codex-check.md</a
+              >, 267deb2) moved smooth layer transition to partial: 5 partial rows, 6 cards. One
+              card each: the brief's line, what is delivered, what is missing, and where to look.
             </p>
           </div>
           <div class="cards">
@@ -3387,18 +3414,46 @@ vary: Origin</pre>
               </dl>
             </div>
             <div class="card">
+              <h3>“smooth layer transition”</h3>
+              <dl>
+                <dt>Delivered</dt>
+                <dd>
+                  A 300 ms crossfade of the new base layer over a still copy of the old tiles,
+                  skipped under reduced motion; <code>layer-switch.test.ts</code> asserts the
+                  animation and the snapshot.
+                </dd>
+                <dt>Missing</dt>
+                <dd>
+                  The old-layer snapshot is removed when the animation ends, not when the new tiles
+                  have loaded, so slow tile loads can show a gap (feature check at 267deb2).
+                </dd>
+                <dt>Where</dt>
+                <dd>
+                  <a
+                    href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/src/lib/geo/layer-switch.ts"
+                    ><code>apps/web/src/lib/geo/layer-switch.ts</code></a
+                  >
+                  ·
+                  <a
+                    href="https://github.com/tomer-dev/collaborative-gis/blob/main/docs/adr/0005-govmap-crs-swap.md"
+                    ><code>docs/adr/0005</code></a
+                  >
+                </dd>
+              </dl>
+            </div>
+            <div class="card">
               <h3>“message queuing for high-volume WebSocket traffic”</h3>
               <dl>
                 <dt>Delivered</dt>
                 <dd>
-                  Ordering queues: a per-user frame queue in the Room, a client send queue while
-                  connecting, a 10 frames/s cap per socket, and batched frame metrics.
+                  Ordering buffers for sequence gaps (a per-user frame queue in the Room, a client
+                  send queue while connecting), a 10 frames/s cap per socket, and batched frame
+                  metrics.
                 </dd>
                 <dt>Missing</dt>
                 <dd>
-                  No queue or broker absorbs bursts: fan-out is a synchronous loop over every socket
-                  in the one Room, and Cloudflare Queues is a documented growth step in ADR-0004,
-                  not built.
+                  No delivery queue: fan-out writes directly to sockets and failed sends are logged;
+                  Cloudflare Queues are in the ADR-0004 growth path, not built.
                 </dd>
                 <dt>Where</dt>
                 <dd>
@@ -3503,6 +3558,15 @@ vary: Origin</pre>
             <li>
               Not built from the roadmap: a Neon branch and preview URL per pull request (7.3).
             </li>
+            <li>History shows only the newest 200 versions of an area, with no pagination.</li>
+            <li>
+              Viewport reads use grid-expanded bounds and bounding-box comparison, so a few areas
+              just outside the viewport can be returned.
+            </li>
+            <li>
+              If the cache invalidation (the map-version bump) fails and the fan-out does not repair
+              it, an old tile can stay readable for up to 30 s.
+            </li>
           </ul>
         </div>
       </section>
@@ -3537,9 +3601,9 @@ vary: Origin</pre>
               ><span
                 >API documentation (OpenAPI/Swagger): <code>/openapi.json</code> (OpenAPI 3.1,
                 validated in a test) and <code>/docs</code> rendered by Scalar's pinned build with
-                Subresource Integrity. Auth routes and the WebSocket protocol are outside the
-                document; the protocol is the Zod schemas in
-                <code>packages/shared/src/ws.ts</code>.</span
+                Subresource Integrity. Areas, versions and health are in the OpenAPI document; auth
+                and the WebSocket protocol are documented separately (README,
+                <code>packages/shared/src/ws.ts</code> schemas).</span
               >
             </li>
             <li>
@@ -3701,8 +3765,9 @@ vary: Origin</pre>
             <code>/guide/</code>; the audit it cites is
             <a href="criteria-matrix.md">criteria-matrix.md</a> and the production query results are
             under <code>evidence/</code>. Emails in the screenshots are covered. The audit is from
-            2026-10-13 at <code>main</code> 1a581e7; the page was updated after PRs #67 and #71
-            merged.
+            2026-10-13 at <code>main</code> 1a581e7; the feature check was repeated at 267deb2
+            (Codex, 2026-10-13, <a href="codex-check.md">codex-check.md</a>); the page was updated
+            after PRs #67 and #71 merged.
           </p>
         </div>
       </section>
