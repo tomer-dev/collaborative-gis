@@ -27,10 +27,11 @@ import {
   useAreasInBounds,
   useCreateArea,
   useDeleteArea,
+  usePendingAreaIds,
   useUpdateArea,
 } from './areas-query';
 import { ringAreaKm2 } from './geo/geodesic';
-import type { Bbox } from './map';
+import type { Bbox } from '@cgis/shared';
 
 vi.mock('./auth-client', () => ({
   authClient: {
@@ -140,6 +141,28 @@ describe('useCreateArea', () => {
     expect(error).toBeInstanceOf(ApiRequestError);
     expect(error instanceof ApiRequestError && error.reason).toBe(reason);
     expect(error instanceof ApiRequestError && error.status).toBe(422);
+  });
+
+  it('lists the optimistic area as pending until the server answers', async () => {
+    const response = deferred<Response>();
+    const requests = listing([orchard], (path, method) =>
+      method === 'POST' && path === '/api/areas' ? response.promise : jsonResponse(500, {}),
+    );
+    const { queryClient, wrapper } = queryWrapper();
+    queryClient.setQueryData<AreaList>(areasKey(ISRAEL), { areas: [orchard] });
+    const { result } = renderHook(
+      () => ({ create: useCreateArea(ISRAEL), pending: usePendingAreaIds() }),
+      { wrapper },
+    );
+
+    act(() => result.current.create.mutate(input));
+    await waitFor(() => expect(result.current.pending.size).toBe(1));
+    const tempId = queryClient.getQueryData<AreaList>(areasKey(ISRAEL))?.areas[1]?.id;
+    expect(tempId && result.current.pending.has(tempId)).toBe(true);
+    expect(requests.some((request) => request.method === 'POST')).toBe(true);
+
+    response.resolve(jsonResponse(201, makeArea(OTHER_ID, { name: 'Grove' })));
+    await waitFor(() => expect(result.current.pending.size).toBe(0));
   });
 
   it("puts the server's area in place of the optimistic one", async () => {

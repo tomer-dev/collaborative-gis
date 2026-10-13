@@ -17,14 +17,14 @@ type FieldSpec = {
   hint?: string;
   input: Pick<
     InputHTMLAttributes<HTMLInputElement>,
-    'type' | 'autoComplete' | 'autoCapitalize' | 'spellCheck' | 'minLength'
+    'type' | 'autoComplete' | 'autoCapitalize' | 'spellCheck' | 'minLength' | 'maxLength'
   >;
 };
 
 const NAME: FieldSpec = {
   name: 'name',
   label: COPY.AUTH.NAME_LABEL,
-  input: { type: 'text', autoComplete: 'name' },
+  input: { type: 'text', autoComplete: 'name', maxLength: LIMITS.USER_NAME_MAX },
 };
 const EMAIL: FieldSpec = {
   name: 'email',
@@ -51,7 +51,7 @@ const SignInForm = z.object({
   password: z.string().min(1),
 });
 const SignUpForm = z.object({
-  name: z.string().min(1),
+  name: z.string().trim().min(1).max(LIMITS.USER_NAME_MAX),
   email: z.string().min(1),
   password: z.string().min(LIMITS.PASSWORD_MIN),
 });

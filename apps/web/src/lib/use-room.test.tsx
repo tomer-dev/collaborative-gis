@@ -7,14 +7,15 @@ import {
   QUERY,
   ROOM,
   WS,
-  WS_MESSAGES,
+  ERROR_MESSAGES,
   type WsClientEvent,
 } from '@cgis/shared';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, QueryObserver } from '@tanstack/react-query';
 import { act, cleanup, renderHook } from '@testing-library/react';
 import * as L from 'leaflet';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiRequestError } from './api-client';
 import { fakeSockets, serverFrame } from './fake-websocket';
 import { createPolygonDraw } from './geo';
 import {
@@ -256,18 +257,57 @@ describe('useRoom', () => {
     ).toEqual([A2]);
   });
 
-  it('invalidates the areas queries on every open (the reconnect resync)', () => {
+  it('fetches a viewport again when an area event lands while its first GET is in flight', async () => {
+    const room = renderRoom();
+    room.open();
+    let gets = 0;
+    const viewport = new QueryObserver(room.queryClient, {
+      queryKey: areasKey,
+      queryFn: () => {
+        gets += 1;
+        return new Promise<AreaList>(() => {});
+      },
+    });
+    const unsubscribe = viewport.subscribe(() => {});
+    expect(gets).toBe(1);
+
+    room.receive(serverFrame({ type: 'area:created', payload: { area: area(A2) } }));
+    await act(async () => {});
+    expect(gets).toBe(2);
+    unsubscribe();
+  });
+
+  it('leaves a viewport with a list alone (patched, not refetched) on an area event', () => {
+    const room = renderRoom();
+    room.queryClient.setQueryData<AreaList>(areasKey, { areas: [area(A1)] });
+    room.open();
+    room.receive(serverFrame({ type: 'area:created', payload: { area: area(A2) } }));
+    expect(room.queryClient.getQueryState(areasKey)?.isInvalidated).toBe(false);
+  });
+
+  it('invalidates the areas queries on every reopen (the resync), not on the first open', () => {
     const room = renderRoom();
     const invalidate = vi.spyOn(room.queryClient, 'invalidateQueries');
     room.open();
-    expect(invalidate).toHaveBeenCalledTimes(1);
-    expect(invalidate).toHaveBeenLastCalledWith({ queryKey: [QUERY.AREAS_KEY] });
+    expect(invalidate).not.toHaveBeenCalled();
 
     act(() => room.socket().drop(WS.CLOSE_IDLE));
     room.advance(backoffDelay(1, () => 0));
-    expect(invalidate).toHaveBeenCalledTimes(1);
+    expect(invalidate).not.toHaveBeenCalled();
     room.open();
-    expect(invalidate).toHaveBeenCalledTimes(2);
+    expect(invalidate).toHaveBeenCalledTimes(1);
+    expect(invalidate).toHaveBeenLastCalledWith({ queryKey: [QUERY.AREAS_KEY] });
+  });
+
+  it('resyncs on the first open when the connection degraded before it', () => {
+    const room = renderRoom();
+    const invalidate = vi.spyOn(room.queryClient, 'invalidateQueries');
+    for (let failures = 1; failures <= WS.CLIENT_DEGRADED_AFTER; failures++) {
+      act(() => room.socket().drop(1006));
+      room.advance(backoffDelay(failures, () => 0));
+    }
+    room.open();
+    expect(invalidate).toHaveBeenCalledTimes(1);
   });
 
   it('polls the areas queries every WS.OFFLINE_POLL_MS while offline, and stops once open', () => {
@@ -291,6 +331,27 @@ describe('useRoom', () => {
     const afterOpen = invalidate.mock.calls.length;
     room.advance(WS.OFFLINE_POLL_MS * 3);
     expect(invalidate).toHaveBeenCalledTimes(afterOpen);
+  });
+
+  it('stops the offline poll once the areas API answers 401 (the session ended)', async () => {
+    const room = renderRoom();
+    for (let failures = 1; failures <= WS.CLIENT_OFFLINE_AFTER; failures++) {
+      act(() => room.socket().drop(1006));
+      room.advance(backoffDelay(failures, () => 0));
+    }
+    expect(room.result.current.state).toBe('offline');
+    const signedOut = new ApiRequestError(401, {
+      code: ERROR_CODES.UNAUTHORIZED,
+      message: ERROR_MESSAGES.UNAUTHORIZED,
+    });
+    await act(() =>
+      room.queryClient
+        .fetchQuery({ queryKey: areasKey, queryFn: () => Promise.reject(signedOut) })
+        .catch(() => undefined),
+    );
+    const invalidate = vi.spyOn(room.queryClient, 'invalidateQueries');
+    room.advance(WS.OFFLINE_POLL_MS * 3);
+    expect(invalidate).not.toHaveBeenCalled();
   });
 
   it(`throttles draw:change bursts to ${WS.DRAFT_RATE_PER_SEC} draft:update/s with ops that rebuild the sketch; draw:done sends clear`, () => {
@@ -396,7 +457,7 @@ describe('useRoom', () => {
     room.receive(
       serverFrame({
         type: 'error',
-        payload: { code: ERROR_CODES.BAD_REQUEST, message: WS_MESSAGES.DRAFT_OP_MISFIT },
+        payload: { code: ERROR_CODES.DRAFT_OP_MISFIT, message: ERROR_MESSAGES.DRAFT_OP_MISFIT },
       }),
     );
     room.advance(DRAFT_INTERVAL_MS * 4);

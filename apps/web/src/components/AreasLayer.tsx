@@ -12,7 +12,11 @@ export type AreasLayerProps = {
   selectedId: string | null;
   /** Called with the area whose polygon was clicked. */
   onSelect: (area: Area) => void;
+  /** Optimistic areas still being created (`usePendingAreaIds`): drawn, but a click ignores them. */
+  pendingIds?: ReadonlySet<string>;
 };
+
+const NO_PENDING: ReadonlySet<string> = new Set();
 
 /**
  * Saved areas as `L.polygon`s in the areas pane (`areaPathOptions`: pane + `.map-area` class).
@@ -31,9 +35,17 @@ function latLngs(area: Area): L.LatLng[] {
   return area.geometry.coordinates[0].map(([lng, lat]) => L.latLng(lat, lng));
 }
 
-function MapAreasLayer({ map, areas, selectedId, onSelect }: AreasLayerProps) {
+function MapAreasLayer({
+  map,
+  areas,
+  selectedId,
+  onSelect,
+  pendingIds = NO_PENDING,
+}: AreasLayerProps) {
   const entries = useRef(new Map<string, Entry>());
-  const select = useEffectEvent((area: Area) => onSelect(area));
+  const select = useEffectEvent((area: Area) => {
+    if (!pendingIds.has(area.id)) onSelect(area);
+  });
 
   // Keyed diff: Leaflet layers follow the area ids, not the render.
   useEffect(() => {

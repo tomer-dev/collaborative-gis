@@ -2,6 +2,7 @@ import { TIMEOUTS } from '@cgis/shared';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import type { Env } from '../app';
+import { log } from '../log';
 import * as schema from './schema';
 
 /**
@@ -20,7 +21,7 @@ export async function withClient<T>(env: Env, fn: (client: pg.Client) => Promise
   // would otherwise vanish, so it is logged.
   client.on('error', (err) => {
     if (/socket.*closed/i.test(err.message)) return;
-    console.error(JSON.stringify({ level: 'error', msg: err.message, src: 'pg' }));
+    log('error', err.message, { src: 'pg' });
   });
 
   try {

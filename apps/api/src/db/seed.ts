@@ -1,6 +1,6 @@
-import { SEED, type Polygon } from '@cgis/shared';
+import { type Bbox, SEED, type Polygon } from '@cgis/shared';
 import type pg from 'pg';
-import { insertArea, type AreaRow, type Bbox } from './spatial';
+import { insertArea, type AreaRow } from './spatial';
 
 /**
  * Inserts `count` random polygons inside `bbox` through `insertArea`, so each gets its real
