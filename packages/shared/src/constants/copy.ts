@@ -83,6 +83,10 @@ export const COPY = {
     RENAME_PENDING: 'Renaming…',
     RENAME_ERROR_TITLE: 'Could not rename the area',
     DELETE: 'Delete',
+    /** Delete asks once, inline: this question, then Yes (deletes) or No (back to Delete). */
+    DELETE_CONFIRM: 'Delete?',
+    DELETE_YES: 'Yes',
+    DELETE_NO: 'No',
     DELETE_PENDING: 'Deleting…',
     DELETE_ERROR_TITLE: 'Could not delete the area',
     CONFLICT_TITLE: 'Someone else changed this area',
