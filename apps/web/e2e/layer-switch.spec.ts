@@ -3,8 +3,8 @@
  * (EPSG:2039) keeps the view's centre and the saved polygons where they were, and keeps a draft in
  * progress.
  *
- * Run: `pnpm e2e` at the repo root (apps/web/e2e/README.md); the environment variables are those of
- * collaboration.spec.ts. The aerial tiles come from govmap's CDN, so the run needs the internet.
+ * Run: `pnpm e2e` at the repo root (apps/web/e2e/README.md). The aerial tiles come from govmap's
+ * CDN, so the run needs the internet.
  *
  * The app keeps its Leaflet map private. Leaflet's UMD build always sets `window.L`, so an init
  * script intercepts that write and registers a map init hook: `window.cgisMaps` lists every map the
@@ -14,6 +14,7 @@ import { randomUUID } from 'node:crypto';
 import { COPY, DRAW, GOVMAP, MAP, ROUTES, type AreaCreate } from '@cgis/shared';
 import { expect, test, type Page } from '@playwright/test';
 import type * as Leaflet from 'leaflet';
+import { register } from './stack';
 
 declare global {
   interface Window {
@@ -23,8 +24,6 @@ declare global {
 }
 
 const WAIT = {
-  /** Sign-up and the first /map load (Vite compiles the app on its first request). */
-  PAGE_MS: 30_000,
   /** The aerial modules' first load and govmap's first tiles. */
   SWITCH_MS: 15_000,
 } as const;
@@ -110,16 +109,7 @@ function trackMaps() {
 async function signUp(page: Page): Promise<void> {
   await page.addInitScript(trackMaps);
   const label = randomUUID();
-  await page.goto(ROUTES.APP.REGISTER);
-  await page.getByRole('textbox', { name: COPY.AUTH.NAME_LABEL, exact: true }).fill(`E2E ${label}`);
-  await page
-    .getByRole('textbox', { name: COPY.AUTH.EMAIL_LABEL, exact: true })
-    .fill(`e2e-layers-${label}@example.com`);
-  await page
-    .getByRole('textbox', { name: COPY.AUTH.PASSWORD_LABEL, exact: true })
-    .fill(randomUUID());
-  await page.getByRole('button', { name: COPY.AUTH.REGISTER_SUBMIT }).click();
-  await expect(page).toHaveURL(ROUTES.APP.MAP, { timeout: WAIT.PAGE_MS });
+  await register(page, `E2E ${label}`, `e2e-layers-${label}@example.com`);
   await expect.poll(() => page.evaluate(() => window.cgisMaps?.length ?? 0)).toBeGreaterThan(0);
 }
 

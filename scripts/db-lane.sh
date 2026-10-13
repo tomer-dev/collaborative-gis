@@ -17,14 +17,9 @@ fi
 base="postgresql://cgis:cgis@127.0.0.1:5433"
 export PGOPTIONS='-c client_min_messages=warning'
 
-exists() {
-  psql "$base/cgis" -v ON_ERROR_STOP=1 -tAc "select 1 from pg_database where datname = '$name'"
-}
-
-if [[ "$(exists)" != 1 ]]; then
-  # A concurrent run may win the race; that is fine as long as the database exists afterwards.
-  psql "$base/cgis" -v ON_ERROR_STOP=1 -q -c "create database \"$name\"" >&2 || [[ "$(exists)" == 1 ]]
-fi
+# Fails when the database exists (or a concurrent run created it first); the next step fails if
+# it still does not exist.
+psql "$base/cgis" -q -c "create database \"$name\"" >/dev/null 2>&1 || true
 psql "$base/$name" -v ON_ERROR_STOP=1 -q -c 'create extension if not exists postgis' >&2
 
 echo "$base/$name"
