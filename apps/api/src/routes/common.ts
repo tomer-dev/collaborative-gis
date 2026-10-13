@@ -1,8 +1,9 @@
-import { ApiErrorSchema, type AreaEvent, HEADERS } from '@cgis/shared';
+import { ApiErrorSchema, type AreaEvent } from '@cgis/shared';
 import type { Context } from 'hono';
 import { type ContentWithResolver, resolver, type ResponsesWithResolver } from 'hono-openapi';
 import type { AppEnv } from '../app';
 import type { SignedIn } from '../middleware';
+import { requestFacts } from '../middleware/audit';
 import type { Actor } from '../services/areas';
 import { bumpMapVersion, fanout } from '../services/fanout';
 
@@ -10,12 +11,7 @@ import { bumpMapVersion, fanout } from '../services/fanout';
 
 /** The session user, the client hints and the request id the audit row records. */
 export function actor(c: Context<AppEnv & SignedIn>): Actor {
-  return {
-    userId: c.get('user').id,
-    ip: c.req.header(HEADERS.CF_CONNECTING_IP) ?? null,
-    userAgent: c.req.header(HEADERS.USER_AGENT) ?? null,
-    requestId: c.get('requestId'),
-  };
+  return { userId: c.get('user').id, ...requestFacts(c) };
 }
 
 /**
