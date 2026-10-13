@@ -112,6 +112,46 @@ CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgresql://cgis:cgis@
 
 `BETTER_AUTH_SECRET` comes from `apps/api/.dev.vars` (or the shell). `env.production` has no `localConnectionString`, hence the variable. Open http://localhost:8787: the same app, served by the Worker instead of Vite.
 
+## Durable Objects in production
+
+Last checked on 2026-10-13 (script `collaborative-gis-api-production`, version `1089df4b`). Every check was read-only.
+
+### Migration tags
+
+`wrangler.jsonc` declares `migrations` once, at the top level, and `env.production` inherits it:
+
+- `v1` creates `Room` (`new_sqlite_classes`).
+- `v2` creates `RateLimiter` (`new_sqlite_classes`).
+
+`wrangler deployments list --env production` and `wrangler versions list --env production` list the deployments and versions, but neither shows DO migrations. Two facts are the evidence instead. The deploy workflow uploads from this same `wrangler.jsonc`. Cloudflare also refuses an upload whose migrations disagree with the namespace's history.
+
+To add the next migration, append one entry and never edit or reorder the existing ones. For example, `{ "tag": "v3", "new_sqlite_classes": ["NewClass"] }`, or `renamed_classes` / `deleted_classes`. Bind the class in both `durable_objects` blocks (top level and `env.production`), since bindings are not inherited. Run `pnpm -F @cgis/api exec wrangler deploy --dry-run --env production`, then merge; the deploy job applies the migration. A `deleted_classes` migration destroys that class's stored data.
+
+### Workers Logs
+
+The Worker and both DOs log to Workers Logs (`observability.enabled: true`, inherited by production). During the check, `wrangler tail --env production --format json` delivered the structured JSON lines (`requestId`, `userId`). Workers Logs keeps logs for 7 days on Workers Paid and 3 days on Workers Free ([Workers Logs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/), read 2026-10-13). See [Production hardening → Logs](#logs) for sampling and for keeping logs longer.
+
+### Hibernation
+
+The Room uses the WebSocket Hibernation API:
+
+- `ctx.acceptWebSocket` (`apps/api/src/do/room.ts:245`)
+- the `setWebSocketAutoResponse` ping/pong, answered without waking the Room (`room.ts:56`)
+- `webSocketMessage` / `webSocketClose` / `webSocketError` (`room.ts:133`, `203`, `212`)
+
+Observed in production: during a 7-minute tail with one browser session open, the Room got a `durableObject` event of type `getWebSocketEvent`, followed by `rpcMethod` events (area saves). The captured window had no `fetch` upgrade into the DO, so the socket had been accepted earlier and the message reached the Room through the hibernation path. The idle time before that event was not measured, so this check shows the hibernation path is in use. It is not a measurement of wake latency.
+
+To repeat the check:
+
+1. `wrangler tail --env production --format json > tail.jsonl`; stop it after a few minutes.
+2. Open the map in a browser, signed in, and wait more than 10 s without interacting.
+3. Draw one shape.
+4. In `tail.jsonl`, look for a `getWebSocketEvent` event with no `fetch` into the DO just before it.
+
+### Cross-region
+
+All realtime traffic goes through one Room, reached as `ROOM.idFromName(ROOM.DEFAULT_ROOM_ID)` (`apps/api/src/ws.ts:34`, `apps/api/src/services/fanout.ts:7`). It lives near the location of its first request. Clients elsewhere reach it over Cloudflare's network (ADR-0004). The config sets no `placement` (Smart Placement is off), and the code passes no `locationHint`. None of this was tested across regions. A single machine can only confirm these settings.
+
 ## Production hardening
 
 ### In the Worker (nothing to set up)
