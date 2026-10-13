@@ -54,6 +54,7 @@ function MapDrawControl({ map, onDone }: DrawControlProps) {
   const [drawing, setDrawing] = useState(false);
   const [sketch, setSketch] = useState(EMPTY_SKETCH);
   const startButton = useRef<HTMLButtonElement>(null);
+  const cancelButton = useRef<HTMLButtonElement>(null);
   // Always the latest onDone, without resubscribing (which would disable the handler mid-sketch).
   const finished = useEffectEvent((ring: LngLat[]) => onDone(ring));
 
@@ -91,16 +92,19 @@ function MapDrawControl({ map, onDone }: DrawControlProps) {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [drawing, handler]);
 
+  // The start button that had focus is gone: render the panel now and put focus on its Cancel.
   const start = () => {
     setSketch(EMPTY_SKETCH);
-    setDrawing(true);
+    flushSync(() => setDrawing(true));
     handler.enable();
+    cancelButton.current?.focus();
   };
 
   return (
     <div className="absolute top-3 right-3 z-controls">
       {drawing ? (
         <DrawingControls
+          cancelRef={cancelButton}
           sketch={sketch}
           onFinish={() => handler.finish()}
           onUndo={() => handler.undo()}
@@ -122,13 +126,14 @@ function IdleControls({ ref, onStart }: { ref: Ref<HTMLButtonElement>; onStart: 
 }
 
 type DrawingControlsProps = {
+  cancelRef: Ref<HTMLButtonElement>;
   sketch: Sketch;
   onFinish: () => void;
   onUndo: () => void;
   onCancel: () => void;
 };
 
-function DrawingControls({ sketch, onFinish, onUndo, onCancel }: DrawingControlsProps) {
+function DrawingControls({ cancelRef, sketch, onFinish, onUndo, onCancel }: DrawingControlsProps) {
   const { vertices, invalidReason } = sketch;
   return (
     <Panel
@@ -146,7 +151,7 @@ function DrawingControls({ sketch, onFinish, onUndo, onCancel }: DrawingControls
           >
             {DRAW.UNDO_LABEL}
           </Button>
-          <Button variant="secondary" size="sm" onClick={onCancel}>
+          <Button ref={cancelRef} variant="secondary" size="sm" onClick={onCancel}>
             {DRAW.CANCEL_LABEL}
           </Button>
           <Button size="sm" onClick={onFinish}>

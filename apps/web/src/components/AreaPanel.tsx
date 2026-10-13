@@ -1,9 +1,7 @@
 import { COPY, LIMITS, type Area, type Bbox } from '@cgis/shared';
-import * as L from 'leaflet';
 import { useRef, useState, type FormEvent } from 'react';
 import { flushSync } from 'react-dom';
-import { areaReadout, formatArea } from '../lib/area-readout';
-import { areaBounds } from '../lib/map';
+import { areaReadout } from '../lib/area-readout';
 import {
   AreaConflictError,
   areaErrorMessage,
@@ -12,41 +10,23 @@ import {
   useUpdateArea,
   type AreaEdit,
 } from '../lib/areas-mutations';
-import {
-  Banner,
-  Button,
-  Field,
-  IconChevronDown,
-  IconChevronUp,
-  IconClose,
-  Input,
-  Panel,
-  Stat,
-} from '../ui';
+import { Banner, Button, Field, IconClose, Input, Panel, Stat } from '../ui';
 import { AreaHistory } from './AreaHistory';
+import {
+  AreasInViewPanel,
+  inView,
+  PANEL_SIZE,
+  type AreasListState,
+  type CardRef,
+} from './AreasInViewPanel';
 
-/**
- * Both cards stop at `max-h-panel` and scroll their body. In the map's corner column, when the
- * column runs out of height, they give up height four times as readily as the presence list
- * below, so its short list of people stays readable.
- */
-const PANEL_SIZE = 'max-h-panel shrink-4';
+export type { AreasListState };
 
 type SelectedAreaProps = {
   onClose: () => void;
   /** A rename or a revert met a newer version (409): the parent asks the user (ConflictDialog). */
   onConflict: (edit: AreaEdit, current: Area) => void;
   onDeleted: () => void;
-};
-
-/** What the list needs from the viewport query (`useAreasInBounds`) besides its areas. */
-export type AreasListState = {
-  /** No answer yet for this viewport (and no last one to show meanwhile). */
-  isPending: boolean;
-  /** The first load failed (no areas to show); a failed refetch keeps the areas it has. */
-  isLoadingError: boolean;
-  /** The error's Retry. */
-  refetch: () => unknown;
 };
 
 export type AreaPanelProps = SelectedAreaProps & {
@@ -79,99 +59,58 @@ export function AreaPanel({
   pendingIds,
   selectedId,
   onSelect,
+  onClose,
   ...selectedProps
 }: AreaPanelProps) {
+  const card = useRef<HTMLElement>(null);
   const saved = areas.filter((area) => !pendingIds.has(area.id));
   const selected = saved.find((area) => area.id === selectedId);
-  if (selected) return <SelectedAreaPanel key={selected.id} area={selected} {...selectedProps} />;
-  return <AreasInViewPanel areas={inView(saved, bbox)} list={list} onSelect={onSelect} />;
-}
+  // A pick or a Close swaps the card under the button that had focus: the other card renders now
+  // and focus goes to its control for the same area (the picked area's Close, the closed row).
+  const swapTo = (change: () => void, id: string) => {
+    flushSync(change);
+    const target = card.current?.querySelector(`[data-area-id="${id}"]`);
+    if (target instanceof HTMLElement) target.focus();
+  };
 
-/** The areas whose bounds meet `bbox`, the same test as the server's `&&` on the bounds query. */
-function inView(areas: readonly Area[], bbox: Bbox | null): Area[] {
-  if (bbox === null) return [];
-  const [west, south, east, north] = bbox;
-  const view = L.latLngBounds([south, west], [north, east]);
-  return areas.filter((area) => areaBounds(area).intersects(view));
-}
-
-type AreasInViewPanelProps = {
-  areas: readonly Area[];
-  list: AreasListState;
-  onSelect: (area: Area) => void;
-};
-
-/**
- * The areas in view with their size; the panel body scrolls (the server caps a viewport's areas).
- * On a phone (below `sm`) the list starts folded behind a header button, so the map stays free.
- */
-function AreasInViewPanel({ areas, list, onSelect }: AreasInViewPanelProps) {
-  const [unfolded, setUnfolded] = useState(false);
-  return (
-    <Panel
-      as="section"
-      variant="floating"
-      title={COPY.AREAS.LIST_TITLE}
-      className={PANEL_SIZE}
-      bodyClassName={unfolded ? undefined : 'max-sm:hidden'}
-      actions={
-        <Button
-          variant="ghost"
-          size="sm"
-          className="sm:hidden"
-          icon={unfolded ? IconChevronDown : IconChevronUp}
-          aria-label={unfolded ? COPY.AREAS.LIST_HIDE : COPY.AREAS.LIST_SHOW}
-          onClick={() => setUnfolded(!unfolded)}
-        />
-      }
-    >
-      <AreaList areas={areas} list={list} onSelect={onSelect} />
-    </Panel>
-  );
-}
-
-/** Loading, a failed first load (with Retry), no areas in view, or the areas. */
-function AreaList({ areas, list, onSelect }: AreasInViewPanelProps) {
-  if (list.isPending) return <p className="text-sm text-fg-muted">{COPY.AREAS.LIST_LOADING}</p>;
-  if (list.isLoadingError) {
-    const retry = (
-      <Button variant="secondary" size="sm" onClick={() => list.refetch()}>
-        {COPY.AREAS.LIST_RETRY}
-      </Button>
-    );
+  if (selected) {
     return (
-      <Banner tone="danger" title={COPY.AREAS.LIST_ERROR_TITLE} action={retry}>
-        {COPY.AREAS.ERROR_GENERIC}
-      </Banner>
+      <SelectedAreaPanel
+        key={selected.id}
+        cardRef={card}
+        area={selected}
+        onClose={() => swapTo(onClose, selected.id)}
+        {...selectedProps}
+      />
     );
   }
-  if (areas.length === 0) return <p className="text-sm text-fg-muted">{COPY.AREAS.LIST_EMPTY}</p>;
   return (
-    <ul className="-mx-2 flex flex-col">
-      {areas.map((area) => (
-        <li key={area.id}>
-          <Button variant="ghost" size="sm" className="w-full" onClick={() => onSelect(area)}>
-            <span className="min-w-0 flex-1 truncate text-left">{area.name}</span>
-            <span className="font-normal text-fg-muted tabular-nums">
-              {formatArea(area.areaKm2)}
-            </span>
-          </Button>
-        </li>
-      ))}
-    </ul>
+    <AreasInViewPanel
+      cardRef={card}
+      areas={inView(saved, bbox)}
+      list={list}
+      onSelect={(area) => swapTo(() => onSelect(area), area.id)}
+    />
   );
 }
 
-type SelectedAreaPanelProps = SelectedAreaProps & {
-  /** The selected area, as the viewport query has it now. */
-  area: Area;
-};
+type SelectedAreaPanelProps = SelectedAreaProps &
+  CardRef & {
+    /** The selected area, as the viewport query has it now. */
+    area: Area;
+  };
 
 /**
  * The selected area: its server-measured size, a rename form (`PUT` with the version shown here),
  * delete, and its history with revert. Keyed by area id so the form starts over per area.
  */
-function SelectedAreaPanel({ area, onClose, onConflict, onDeleted }: SelectedAreaPanelProps) {
+function SelectedAreaPanel({
+  cardRef,
+  area,
+  onClose,
+  onConflict,
+  onDeleted,
+}: SelectedAreaPanelProps) {
   const update = useUpdateArea();
   const remove = useDeleteArea();
   const [nameError, setNameError] = useState<string | null>(null);
@@ -194,6 +133,7 @@ function SelectedAreaPanel({ area, onClose, onConflict, onDeleted }: SelectedAre
 
   return (
     <Panel
+      ref={cardRef}
       as="section"
       variant="floating"
       title={area.name}
@@ -204,6 +144,7 @@ function SelectedAreaPanel({ area, onClose, onConflict, onDeleted }: SelectedAre
           size="sm"
           icon={IconClose}
           aria-label={COPY.AREAS.CLOSE}
+          data-area-id={area.id}
           onClick={onClose}
         />
       }
