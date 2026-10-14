@@ -121,7 +121,10 @@ function AvatarSlot() {
  */
 export function SessionMenuPlaceholder() {
   return (
-    <div aria-hidden="true" className="flex min-w-0 items-center gap-3 text-sm max-sm:flex-col max-sm:items-stretch">
+    <div
+      aria-hidden="true"
+      className="flex min-w-0 items-center gap-3 text-sm max-sm:flex-col max-sm:items-stretch"
+    >
       <span className="flex min-w-0 items-center gap-3">
         <AvatarSlot />
         <span className="h-4 w-16 min-w-4 rounded-sm bg-line" />
