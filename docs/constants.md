@@ -350,6 +350,8 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 |---|---|---|
 | `NAME` | `'Collaborative GIS'` |  |
 | `GUIDE` | `'Guide'` | Top-bar link to the reviewer guide (ROUTES.APP.GUIDE), on every page. |
+| `MENU_OPEN` | `'Open menu'` | Phone width only: the top-bar button that opens the panel holding the guide link and the session menu. |
+| `MENU_CLOSE` | `'Close menu'` | The same button while the panel is open. |
 
 ### COPY.CONNECTION
 
