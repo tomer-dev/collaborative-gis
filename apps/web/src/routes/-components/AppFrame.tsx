@@ -1,9 +1,10 @@
 import type { AuthUser } from '@cgis/shared';
 import { COPY, ROUTES } from '@cgis/shared/constants';
 import { useMutation } from '@tanstack/react-query';
-import { createContext, type ReactNode } from 'react';
+import { createContext, type ReactNode, useState } from 'react';
 import { authClient } from '../../lib/auth-client';
-import { Avatar, Button, buttonClass } from '../../ui';
+import { Avatar, Button, buttonClass, IconClose, IconMenu } from '../../ui';
+import { cx } from '../../ui/cx';
 
 type AppFrameProps = {
   /** Right side of the top bar; the `_authed` layout puts `SessionMenu` here. */
@@ -15,20 +16,50 @@ type AppFrameProps = {
 
 /**
  * Top bar with the app name and the guide link, then a full-height main. Each layout route picks
- * its header content. The bar stays one line at phone width: the name and the user's name truncate.
+ * its header content. Below `sm` the bar shows only the name and a menu button: the guide link and
+ * the session menu move into a panel that slides in under the bar, so nothing is squeezed or cut.
  */
 export function AppFrame({ headerEnd, mainClassName = '', children }: AppFrameProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = () => setMenuOpen(false);
   // Its own full-height column: the frame also renders outside the root route (the session check).
   return (
     <div className="flex h-full flex-col">
-      <header className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-line bg-bg-raised px-4">
+      <header className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-line bg-bg-raised px-3 sm:px-4">
         <h1 className="min-w-0 truncate text-lg font-semibold">{COPY.APP.NAME}</h1>
-        <div className="flex min-w-0 items-center gap-3 text-sm">
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={menuOpen ? IconClose : IconMenu}
+          className="sm:hidden"
+          aria-label={menuOpen ? COPY.APP.MENU_CLOSE : COPY.APP.MENU_OPEN}
+          aria-expanded={menuOpen}
+          aria-controls="app-menu"
+          onClick={() => setMenuOpen((open) => !open)}
+        />
+        {menuOpen ? (
+          // Tap outside the panel closes it; the button above stays the keyboard way out.
+          <div
+            aria-hidden="true"
+            className="fixed inset-x-0 top-12 bottom-0 z-40 bg-fg/30 sm:hidden"
+            onClick={closeMenu}
+          />
+        ) : null}
+        <div
+          id="app-menu"
+          className={cx(
+            'text-sm',
+            'max-sm:fixed max-sm:top-12 max-sm:right-0 max-sm:bottom-0 max-sm:z-50 max-sm:w-64 max-sm:max-w-[85vw] max-sm:flex-col max-sm:items-stretch max-sm:gap-4 max-sm:overflow-y-auto max-sm:border-l max-sm:border-line max-sm:bg-bg-raised max-sm:p-4',
+            'sm:flex sm:shrink-0 sm:items-center sm:gap-3',
+            menuOpen ? 'flex' : 'hidden sm:flex',
+          )}
+        >
           <a
             href={ROUTES.APP.GUIDE}
             target="_blank"
             rel="noopener"
             className={buttonClass('secondary', 'sm')}
+            onClick={closeMenu}
           >
             {COPY.APP.GUIDE}
           </a>
@@ -56,14 +87,16 @@ export function SessionMenu({ user, color }: { user: AuthUser; color: string | n
   const signOutMutation = useMutation({ mutationFn: () => authClient.signOut() });
 
   return (
-    <div className="flex min-w-0 items-center gap-3 text-sm">
+    <div className="flex min-w-0 items-center gap-3 text-sm max-sm:flex-col max-sm:items-stretch">
       {signOutMutation.isError ? (
         <span role="alert" className="text-danger-strong">
           {COPY.AUTH.SIGN_OUT_ERROR}
         </span>
       ) : null}
-      {color ? <Avatar name={user.name} color={color} size="sm" decorative /> : <AvatarSlot />}
-      <span className="min-w-0 truncate">{user.name}</span>
+      <span className="flex min-w-0 items-center gap-3">
+        {color ? <Avatar name={user.name} color={color} size="sm" decorative /> : <AvatarSlot />}
+        <span className="min-w-0 truncate">{user.name}</span>
+      </span>
       <Button
         variant="secondary"
         size="sm"
@@ -88,9 +121,11 @@ function AvatarSlot() {
  */
 export function SessionMenuPlaceholder() {
   return (
-    <div aria-hidden="true" className="flex min-w-0 items-center gap-3 text-sm">
-      <AvatarSlot />
-      <span className="h-4 w-16 min-w-4 rounded-sm bg-line" />
+    <div aria-hidden="true" className="flex min-w-0 items-center gap-3 text-sm max-sm:flex-col max-sm:items-stretch">
+      <span className="flex min-w-0 items-center gap-3">
+        <AvatarSlot />
+        <span className="h-4 w-16 min-w-4 rounded-sm bg-line" />
+      </span>
       <Button variant="secondary" size="sm" className="invisible">
         {COPY.AUTH.SIGN_OUT}
       </Button>

@@ -38,41 +38,37 @@
         gap: 1rem;
         flex-shrink: 0;
         height: 3rem;
-        padding: 0 1rem;
+        padding: 0 0.75rem;
         border-bottom: 1px solid var(--color-line);
         background: var(--color-bg-raised);
         color: var(--color-fg);
       }
-      /* As AppFrame lays it out at phone width: the name truncates, the bar's end shrinks. */
+      /* As AppFrame lays it out: the name truncates; below sm only the menu button's box shows. */
       #skeleton .title {
         min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      /* The bar's end as AppFrame draws it: the Guide button, then (remembered only) the
-         session menu's box: avatar slot, name bar, invisible sign-out button. */
+      /* The bar's end as AppFrame draws it at sm and up: the Guide button, then (remembered only)
+         the session menu's box: avatar slot, name bar, invisible sign-out button. */
       #skeleton .end,
       #skeleton .session {
-        display: flex;
-        min-width: 0;
+        display: none;
+        flex-shrink: 0;
         align-items: center;
         gap: 0.75rem;
         font-size: 0.875rem;
         line-height: 1.25rem;
         font-weight: 500;
       }
-      #skeleton .session {
-        display: none;
-      }
-      #skeleton[data-remembered] .session {
-        display: flex;
-      }
+      #skeleton .menu,
       #skeleton .guide,
       #skeleton .avatar,
       #skeleton .button {
         flex-shrink: 0;
       }
+      #skeleton .menu,
       #skeleton .guide,
       #skeleton .button {
         display: inline-flex;
@@ -81,6 +77,10 @@
         padding: 0 0.75rem;
         border: 1px solid var(--color-line-control);
         border-radius: 0.375rem;
+      }
+      #skeleton .menu {
+        width: 2rem;
+        padding: 0;
       }
       #skeleton .button {
         visibility: hidden;
@@ -99,6 +99,18 @@
         width: 4rem;
         height: 1rem;
         border-radius: 0.25rem;
+      }
+      @media (min-width: 40rem) {
+        #skeleton header {
+          padding: 0 1rem;
+        }
+        #skeleton .menu {
+          display: none;
+        }
+        #skeleton .end,
+        #skeleton[data-remembered] .session {
+          display: flex;
+        }
       }
       #skeleton main {
         flex: 1;
@@ -119,6 +131,7 @@
       <div id="skeleton">
         <header>
           <span class="title">Collaborative GIS</span>
+          <span class="menu"></span>
           <span class="end">
             <span class="guide">Guide</span>
             <span class="session">

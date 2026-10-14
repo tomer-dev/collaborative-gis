@@ -10,6 +10,10 @@ export const COPY = {
     NAME: 'Collaborative GIS',
     /** Top-bar link to the reviewer guide (ROUTES.APP.GUIDE), on every page. */
     GUIDE: 'Guide',
+    /** Phone width only: the top-bar button that opens the panel holding the guide link and the session menu. */
+    MENU_OPEN: 'Open menu',
+    /** The same button while the panel is open. */
+    MENU_CLOSE: 'Close menu',
   },
   CONNECTION: {
     /** Banner while `degraded`: the socket keeps retrying with backoff. */

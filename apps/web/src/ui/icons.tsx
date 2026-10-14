@@ -16,6 +16,7 @@ export {
   Info as IconInfo,
   Layers as IconLayers,
   Map as IconMap,
+  Menu as IconMenu,
   Minus as IconMinus,
   Pencil as IconPencil,
   Plus as IconPlus,
