@@ -41,7 +41,7 @@ export function AppFrame({ headerEnd, mainClassName = '', children }: AppFramePr
           // Tap outside the panel closes it; the button above stays the keyboard way out.
           <div
             aria-hidden="true"
-            className="fixed inset-x-0 top-12 bottom-0 z-40 bg-fg/30 sm:hidden"
+            className="fixed inset-x-0 top-12 bottom-0 z-dialog bg-fg/30 sm:hidden"
             onClick={closeMenu}
           />
         ) : null}
@@ -49,7 +49,7 @@ export function AppFrame({ headerEnd, mainClassName = '', children }: AppFramePr
           id="app-menu"
           className={cx(
             'text-sm',
-            'max-sm:fixed max-sm:top-12 max-sm:right-0 max-sm:bottom-0 max-sm:z-50 max-sm:w-64 max-sm:max-w-[85vw] max-sm:flex-col max-sm:items-stretch max-sm:gap-4 max-sm:overflow-y-auto max-sm:border-l max-sm:border-line max-sm:bg-bg-raised max-sm:p-4',
+            'max-sm:fixed max-sm:top-12 max-sm:right-0 max-sm:bottom-0 max-sm:z-dialog max-sm:w-64 max-sm:max-w-[85vw] max-sm:flex-col max-sm:items-stretch max-sm:gap-4 max-sm:overflow-y-auto max-sm:border-l max-sm:border-line max-sm:bg-bg-raised max-sm:p-4',
             'sm:flex sm:shrink-0 sm:items-center sm:gap-3',
             menuOpen ? 'flex' : 'hidden sm:flex',
           )}
