@@ -130,7 +130,7 @@ Health checks, WAF rule, log retention and alerts: [`docs/deploy.md`](docs/deplo
 
 ## Known limitations
 
-The [capability guide](apps/web/public/guide/index.html) marks 5 of 78 capabilities as partial (§12). Those first, then the rest.
+The [capability guide](apps/web/public/guide/index.html) marks 5 of 78 capabilities as partial (§13). Those first, then the rest.
 
 - A viewport read returns at most the 500 most recently updated areas of its 0.1° tile, with no paging and no truncation flag. A denser tile silently drops areas, possibly inside the viewport.
 - The 10,000-polygon benchmark spread its areas over all of Israel (30 in the test viewport). A region that holds 10,000 is never served whole: no zoom simplification, clustering or paging; `zoom` is accepted and ignored.
