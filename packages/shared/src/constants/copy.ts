@@ -8,7 +8,7 @@ const MS_PER_SECOND = 1000;
 export const COPY = {
   APP: {
     NAME: 'Collaborative GIS',
-    /** Top-bar link to the reviewer guide (ROUTES.APP.GUIDE), on every page. */
+    /** Top-bar link to the capability guide (ROUTES.APP.GUIDE), on every page. */
     GUIDE: 'Guide',
     /** Phone width only: the top-bar button that opens the panel holding the guide link and the session menu. */
     MENU_OPEN: 'Open menu',

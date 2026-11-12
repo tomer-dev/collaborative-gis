@@ -4,7 +4,7 @@ Draw and analyse areas on a map together, in real time. Several people edit the 
 
 Stack: Cloudflare Workers + Durable Objects, Hono, Neon PostGIS via Hyperdrive (Cloudflare's connection pooler for Postgres), React + Leaflet with TanStack Router and Query.
 
-- Reviewer guide: [`apps/web/public/guide/index.html`](apps/web/public/guide/index.html), served by the app at `/guide/`. Screenshots, numbers and file pointers per requirement of the product brief.
+- Capability guide: [`apps/web/public/guide/index.html`](apps/web/public/guide/index.html), served by the app at `/guide/`. Screenshots, numbers and file pointers for each capability.
 - API reference: `/docs` on a running instance (OpenAPI 3.1, rendered with Scalar).
 
 ## Try it (2 minutes)
@@ -74,7 +74,7 @@ Architecture decision records: [Cloudflare Workers + Durable Objects instead of 
 - Cloudflare Workers + Durable Objects, not Vercel: Vercel caps every WebSocket at the function duration and needs Redis for fan-out ([ADR-0001](docs/adr/0001-cloudflare-over-vercel.md)).
 - Hono, not Fastify: Workers run fetch handlers, and Hono brings Zod validation, OpenAPI and a typed client ([ADR-0002](docs/adr/0002-hono-over-fastify.md)).
 - One `Room` Durable Object per map: one coordinator, so no pub/sub, no sticky sessions, no broker ([ADR-0004](docs/adr/0004-horizontal-scaling-on-cloudflare.md)).
-- The realtime protocol (presence, drafts, fan-out) is this repository's own code; the product brief rules out collaboration SDKs such as Yjs, partyserver or Liveblocks.
+- The realtime protocol (presence, drafts, fan-out) is this repository's own code; the product scope rules out collaboration SDKs such as Yjs, partyserver or Liveblocks.
 - Drawing adapts `leaflet-editable` 1.3.2; client-side area and self-intersection use `@turf/area` and `@turf/kinks`. Map drawing is not a collaborative feature, and PostGIS stays the authority (`ST_IsValid`, `ST_Area`).
 - Leaflet 1.9.4 with Proj4Leaflet: the aerial layer swaps the map's CRS to EPSG:2039 for govmap's legacy tile grid; no proxy, no fallback imagery ([ADR-0005](docs/adr/0005-govmap-crs-swap.md)).
 - Optimistic concurrency: an edit carries the version it started from; a stale one gets 409 with the stored area and the user decides.
@@ -130,7 +130,7 @@ Health checks, WAF rule, log retention and alerts: [`docs/deploy.md`](docs/deplo
 
 ## Known limitations
 
-The [reviewer guide](apps/web/public/guide/index.html) counts 5 of 78 requirement lines as partial (§12). Those first, then the rest.
+The [capability guide](apps/web/public/guide/index.html) marks 5 of 78 capabilities as partial (§12). Those first, then the rest.
 
 - A viewport read returns at most the 500 most recently updated areas of its 0.1° tile, with no paging and no truncation flag. A denser tile silently drops areas, possibly inside the viewport.
 - The 10,000-polygon benchmark spread its areas over all of Israel (30 in the test viewport). A region that holds 10,000 is never served whole: no zoom simplification, clustering or paging; `zoom` is accepted and ignored.

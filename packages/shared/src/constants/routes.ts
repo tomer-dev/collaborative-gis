@@ -24,7 +24,7 @@ export const ROUTES = {
   DOCS: '/docs',
   /**
    * SPA routes: redirect/Link/navigate targets (file-route ids in createFileRoute stay literal).
-   * GUIDE is not a router route: the static reviewer guide under apps/web/public/guide/, opened
+   * GUIDE is not a router route: the static capability guide under apps/web/public/guide/, opened
    * from the top bar in a new tab.
    */
   APP: { HOME: '/', LOGIN: '/login', REGISTER: '/register', MAP: '/map', GUIDE: '/guide/' },

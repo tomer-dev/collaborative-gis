@@ -2,7 +2,7 @@
 
 **Linear:** project [Collaborative GIS](https://linear.app/tomer-sharoni-personal/project/collaborative-gis-c2d5d7aca277) (P-TOM-1, team TOM). Epics TOM-5…TOM-12; tickets TOM-13…TOM-73 (61). Ticket numbering below (0.1, 1.1, …) is the prefix of each Linear issue title.
 
-Source: the written product brief for a collaborative GIS tool. Stack: React + Vite + TanStack Router/Query + Leaflet 1.9.4 (2.0 is alpha; Proj4Leaflet unmaintained); TypeScript Hono on Cloudflare Workers + Durable Objects (WebSocket Hibernation) ; Postgres/PostGIS on Neon via Drizzle + Hyperdrive; Better Auth; Cloudflare deploy (Worker + static assets). Research backing each choice: `docs/research-notes.md`.
+Source: the written product scope for a collaborative GIS tool. Stack: React + Vite + TanStack Router/Query + Leaflet 1.9.4 (2.0 is alpha; Proj4Leaflet unmaintained); TypeScript Hono on Cloudflare Workers + Durable Objects (WebSocket Hibernation) ; Postgres/PostGIS on Neon via Drizzle + Hyperdrive; Better Auth; Cloudflare deploy (Worker + static assets). Research backing each choice: `docs/research-notes.md`.
 
 ## Principles
 - Grouped by separation of concerns. Each epic is one lane with one owner-able skill.
@@ -27,7 +27,7 @@ E0 ──┬── E1 (db) ──┐
 | 0.2 | Shared contracts package: Zod schemas for Area, AreaVersion, bounds query, API error shape, WS message envelope + event types | Types exported; schema tests for one valid and one invalid polygon | 0.1 |
 | 0.3 | Local DB: docker-compose with imresamu/postgis:18-3.6 image; `.env.example`; Neon project + `CREATE EXTENSION postgis` (direct connection); Hyperdrive config with `localConnectionString` for dev | `select postgis_version()` works locally (via Hyperdrive local) and on Neon | 0.1 |
 | 0.4 | CI: GitHub Actions lint + typecheck + test on PR; `wrangler deploy --dry-run` | Green on empty repo | 0.1 |
-| 0.5 | Docs skeleton: README outline per submission checklist, ADR template, `docs/process-log.md` | Files exist with headings | 0.1 |
+| 0.5 | Docs skeleton: README outline with the documentation headings, ADR template, `docs/process-log.md` | Files exist with headings | 0.1 |
 
 ### E1 Database & Spatial — M1/M2 — skills: postgres-pro, database-optimizer, supabase-postgres-best-practices
 | # | Ticket | Acceptance | Blocked by |
@@ -100,7 +100,7 @@ E0 ──┬── E1 (db) ──┐
 | 6.2 | Integration tests: `@cloudflare/vitest-plugin` for Worker + DO (WS protocol tests), ephemeral PostGIS via compose; `hono batch` JSONL contract suite run in CI (`--runtime workerd`) | Green in CI; `hono batch` reports `failed: 0` | 6.1 |
 | 6.3 | E2E: Playwright two-browser collaborative scenario | Passes locally | 5.10 |
 | 6.4 | Local parity: docker-compose = `imresamu/postgis:18-3.6` + a `wrangler dev` (workerd) container with Hyperdrive `localConnectionString`; no Node port of the Worker | `docker compose up` serves app, API, WS | E1–E5 |
-| 6.5 | README: setup, architecture, decisions, performance, security, limitations, future work, testing approach; ADRs linked | Matches submission checklist | all |
+| 6.5 | README: setup, architecture, decisions, performance, security, limitations, future work, testing approach; ADRs linked | Covers every documentation heading | all |
 | 6.6 | Load test: k6 WS + REST scenario, results in `docs/benchmarks.md` | Numbers recorded | 6.4 |
 | 6.7 | Telemetry: Workers Logs + Workers Analytics Engine datapoints (ws connections, msgs/s, query latency); `/metrics` counters from the room DO; OpenTelemetry as design note | Endpoint returns counters | 2.7 |
 
@@ -157,6 +157,6 @@ Because 5.4 is both uncertain and early, it is scheduled **first in M2**, immedi
 `hono` (E0, E2, E3); `postgis`, `design-postgis-tables` (E1); `durable-objects`, `workers-best-practices` (E2.5, E4); `wrangler` (E0, E7); plus `better-auth-best-practices`, `react-expert`, `websocket-engineer`, `test-master`, `devops-engineer` already present.
 
 ## Known risks (facts only, no critique)
-- govmap imagery licence and tile scheme are undocumented; spike 5.4 is on the critical path for section 4 of the brief.
+- govmap imagery licence and tile scheme are undocumented; spike 5.4 is on the critical path for section 4 of the product scope.
 - Durable Objects: one object per room is a single-threaded coordinator (≈1,000 req/s soft limit); hibernation resets in-memory state, so all presence must live in attachments or storage.
 - Hyperdrive and Neon pooling are both transaction mode; session-level SQL and migrations must use the Neon direct URL.

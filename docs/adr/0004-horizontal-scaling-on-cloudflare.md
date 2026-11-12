@@ -3,7 +3,7 @@
 Date: 2026-10-12 · Status: accepted · Ticket: TOM-41 (roadmap 4.9)
 
 ## Context
-The brief asks: "how would you handle multiple server instances?" On a classic stack that question means sticky sessions, a pub/sub bus so a write on instance A reaches sockets on instance B, and a shared store for rate-limit counters, because every instance owns its own sockets and memory.
+The open question is how the app runs on multiple server instances. On a classic stack that question means sticky sessions, a pub/sub bus so a write on instance A reaches sockets on instance B, and a shared store for rate-limit counters, because every instance owns its own sockets and memory.
 
 Our stack (ADR-0001, spec §2) is one deployable Worker:
 
@@ -111,7 +111,7 @@ What we gain:
 
 | Option | Why not |
 |---|---|
-| Node servers (Fastify + `@fastify/websocket`) behind a load balancer + Redis pub/sub | Each instance holds a subset of sockets, so fan-out needs Redis pub/sub, presence needs a shared store and the limiter needs the `@fastify/rate-limit` Redis store; plus process supervision and capacity planning. More infrastructure than the brief warrants, and D9 rules out a Node port. |
+| Node servers (Fastify + `@fastify/websocket`) behind a load balancer + Redis pub/sub | Each instance holds a subset of sockets, so fan-out needs Redis pub/sub, presence needs a shared store and the limiter needs the `@fastify/rate-limit` Redis store; plus process supervision and capacity planning. More infrastructure than the product scope warrants, and D9 rules out a Node port. |
 | Vercel Functions with WebSockets (public beta) | Connection pinned to one instance and capped at the function max duration (300 s Hobby, 800 s Pro), so clients reconnect constantly and fan-out still needs Redis (ADR-0001). |
 | Workers rate-limit binding as the limiter | Local to each Cloudflare location, eventually consistent, period 10 or 60 s, not meant for accurate accounting ([binding docs](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/)). Kept only as an optional edge pre-filter (D5). |
 | Purging cached bounds on write | `cache.delete` purges only the current data center, so a write would leave stale entries elsewhere; version-stamped keys instead (D6). |

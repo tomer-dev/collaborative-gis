@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Collaborative GIS: reviewer guide</title>
+    <title>Collaborative GIS: capability guide</title>
     <meta
       name="description"
-      content="A presentation-style walk through the collaborative GIS project for a reviewer of the product brief: what to try in five minutes, each requirement block with screenshots and file pointers, real numbers, the architecture, and the honest limitations."
+      content="A presentation-style walk through the collaborative GIS app: what to try in five minutes, each capability with screenshots and file pointers, real numbers, the architecture, and the honest limitations."
     />
     <meta name="color-scheme" content="light dark" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -842,7 +842,7 @@
           <a href="#limitations"><span>12</span><span>Limitations</span></a>
         </li>
         <li>
-          <a href="#bonus"><span>13</span><span>Bonus</span></a>
+          <a href="#bonus"><span>13</span><span>Extras</span></a>
         </li>
         <li>
           <a href="#docs"><span>14</span><span>Documents</span></a>
@@ -856,9 +856,8 @@
       <section class="slide" id="start" aria-labelledby="h-start">
         <div class="inner">
           <p class="eyebrow">
-            Reviewer guide · audit of 2026-10-13 against <code>main</code> at 1a581e7 · feature
-            check repeated at 267deb2 (Codex, 2026-10-13) · page updated after PRs #67 and #71
-            merged
+            Capability guide · state of <code>main</code> at 1a581e7 on 2026-10-13 · feature check
+            repeated at 267deb2 (Codex, 2026-10-13) · page updated after PRs #67 and #71 merged
           </p>
           <h1 id="h-start">Collaborative GIS</h1>
           <p class="lede" style="margin-top: 1.2rem">
@@ -866,8 +865,13 @@
             on aerial imagery.
           </p>
           <p class="small">
-            The deployed app's URL is in the submission note; this page works without it. Every
-            claim below points at a screenshot, a sourced number or a file in the repository.
+            This page works without the deployed app. Every claim below points at a screenshot, a
+            sourced number or a file in the repository.
+          </p>
+          <p class="small">
+            How the work itself ran, ticket by ticket:
+            <a href="../how-it-was-built/index.html">How it was built</a>, the project board as a
+            map with the lanes, code reviews and roles.
           </p>
           <div class="tiles">
             <div class="tile">
@@ -899,17 +903,16 @@
             </div>
           </div>
           <p>
-            Against the product brief's requirement lines:
-            <strong>73 of 78 met, 5 partial, 0 not met</strong>. Our line-by-line audit of the brief
-            against the repository (<a href="criteria-matrix.md">criteria-matrix.md</a>, 2026-10-13,
-            at 1a581e7) counted 73 and 5 with a different split: since then the docker-compose row
-            became met (PR #67 merged, container verified) and an independent feature check (<a
-              href="codex-check.md"
-              >codex-check.md</a
-            >, Codex at 267deb2) moved “smooth layer transition” to partial. The other 31 lines the
-            audit counts (overview, stack, "focus on", evaluation criteria, submission) are all met;
-            the submission items map to README headings (<a href="#docs">section 14</a>). The
-            partial rows have their own section: <a href="#limitations">12 · Limitations</a>.
+            Of the 78 capabilities in the product scope:
+            <strong>73 done, 5 partial, none missing</strong>. The line-by-line capability matrix,
+            <a href="capability-matrix.md">capability-matrix.md</a> (2026-10-13, at 1a581e7),
+            counted 73 and 5 with a different split: since then the docker-compose item became done
+            (PR #67 merged, container verified) and an independent feature check,
+            <a href="codex-check.md">codex-check.md</a> (Codex at 267deb2), moved “smooth layer
+            transition” to partial. The other 31 lines the matrix counts (overview, stack, focus
+            areas, quality focus, documentation) are all done; the documentation items map to README
+            headings, see <a href="#docs">section 14</a>. The partial items have their own section:
+            <a href="#limitations">12 · Limitations</a>.
           </p>
           <p class="stack">
             Hono on Cloudflare Workers + Durable Objects · PostGIS 3.6 on Neon via Hyperdrive ·
@@ -1046,7 +1049,7 @@
       <!-- 03 -->
       <section class="slide" id="backend" aria-labelledby="h-backend">
         <div class="inner">
-          <p class="eyebrow">03 / 14 · the brief, section 1</p>
+          <p class="eyebrow">03 / 14 · the backend</p>
           <div class="head">
             <h2 id="h-backend">Backend core</h2>
             <p>
@@ -1057,9 +1060,9 @@
             </p>
           </div>
           <ul class="checks">
-            <li><b class="st">Met</b><span>WebSocket server for real-time updates</span></li>
+            <li><b class="st">Done</b><span>WebSocket server for real-time updates</span></li>
             <li>
-              <b class="st">Met</b
+              <b class="st">Done</b
               ><span
                 >endpoints for: saving drawn areas with metadata (area name, size calculation)</span
               >
@@ -1071,13 +1074,15 @@
                 truncation flag (<a href="#limitations">see 12</a>)</span
               >
             </li>
-            <li><b class="st">Met</b><span>user authentication and session management</span></li>
-            <li><b class="st">Met</b><span>area versioning and edit history</span></li>
+            <li><b class="st">Done</b><span>user authentication and session management</span></li>
+            <li><b class="st">Done</b><span>area versioning and edit history</span></li>
             <li>
-              <b class="st">Met</b
+              <b class="st">Done</b
               ><span>calculate and return the area size in square kilometers</span>
             </li>
-            <li><b class="st">Met</b><span>handle concurrent drawing from multiple users</span></li>
+            <li>
+              <b class="st">Done</b><span>handle concurrent drawing from multiple users</span>
+            </li>
           </ul>
           <div class="shots">
             <figure>
@@ -1304,7 +1309,7 @@
       <!-- 04 -->
       <section class="slide" id="backend-more" aria-labelledby="h-backend-more">
         <div class="inner">
-          <p class="eyebrow">04 / 14 · the brief, section 1, additional challenges</p>
+          <p class="eyebrow">04 / 14 · the backend, additional challenges</p>
           <div class="head">
             <h2 id="h-backend-more">Additional backend challenges</h2>
             <p>
@@ -1314,7 +1319,7 @@
           </div>
           <ul class="checks">
             <li>
-              <b class="st">Met</b
+              <b class="st">Done</b
               ><span
                 >rate limiting (max 50 drawing actions per minute per user): 50 per rolling minute
                 per user, counted as draft sessions plus REST mutations; individual drawing edits
@@ -1322,21 +1327,21 @@
               >
             </li>
             <li>
-              <b class="st">Met</b
+              <b class="st">Done</b
               ><span>spatial indexing for efficient area queries within map bounds</span>
             </li>
             <li>
-              <b class="st">Met</b
+              <b class="st">Done</b
               ><span>caching layer for frequently accessed geographic data</span>
             </li>
             <li>
-              <b class="st">Met</b
+              <b class="st">Done</b
               ><span
                 >conflict resolution when multiple users edit the same area simultaneously</span
               >
             </li>
             <li>
-              <b class="st">Met</b
+              <b class="st">Done</b
               ><span>data validation for polygon coordinates and prevent invalid shapes</span>
             </li>
             <li class="partial">
@@ -1347,10 +1352,11 @@
               >
             </li>
             <li>
-              <b class="st">Met</b><span>graceful degradation when WebSocket connections fail</span>
+              <b class="st">Done</b
+              ><span>graceful degradation when WebSocket connections fail</span>
             </li>
             <li>
-              <b class="st">Met</b><span>health check endpoints for monitoring system status</span>
+              <b class="st">Done</b><span>health check endpoints for monitoring system status</span>
             </li>
           </ul>
           <div class="shots">
@@ -1624,7 +1630,7 @@
       <!-- 05 -->
       <section class="slide" id="database" aria-labelledby="h-database">
         <div class="inner">
-          <p class="eyebrow">05 / 14 · the brief, section 2</p>
+          <p class="eyebrow">05 / 14 · the database</p>
           <div class="head">
             <h2 id="h-database">Database design and performance</h2>
             <p>
@@ -1634,9 +1640,9 @@
             </p>
           </div>
           <ul class="checks">
-            <li><b class="st">Met</b><span>efficient schema for geospatial data</span></li>
-            <li><b class="st">Met</b><span>migrations</span></li>
-            <li><b class="st">Met</b><span>proper indexing for spatial queries</span></li>
+            <li><b class="st">Done</b><span>efficient schema for geospatial data</span></li>
+            <li><b class="st">Done</b><span>migrations</span></li>
+            <li><b class="st">Done</b><span>proper indexing for spatial queries</span></li>
             <li class="partial">
               <b class="st partial">Partial</b
               ><span
@@ -1644,7 +1650,7 @@
                 whole (<a href="#limitations">see 12</a>)</span
               >
             </li>
-            <li><b class="st">Met</b><span>soft deletes and data retention policies</span></li>
+            <li><b class="st">Done</b><span>soft deletes and data retention policies</span></li>
           </ul>
           <div class="two">
             <div class="chart">
@@ -1842,7 +1848,7 @@
       <!-- 06 -->
       <section class="slide" id="security" aria-labelledby="h-security">
         <div class="inner">
-          <p class="eyebrow">06 / 14 · the brief, section 3</p>
+          <p class="eyebrow">06 / 14 · security</p>
           <div class="head">
             <h2 id="h-security">Security and reliability</h2>
             <p>
@@ -1851,12 +1857,12 @@
             </p>
           </div>
           <ul class="checks">
-            <li><b class="st">Met</b><span>input sanitization and validation</span></li>
-            <li><b class="st">Met</b><span>CORS configuration</span></li>
-            <li><b class="st">Met</b><span>proper error logging and monitoring</span></li>
-            <li><b class="st">Met</b><span>request timeout handling</span></li>
+            <li><b class="st">Done</b><span>input sanitization and validation</span></li>
+            <li><b class="st">Done</b><span>CORS configuration</span></li>
+            <li><b class="st">Done</b><span>proper error logging and monitoring</span></li>
+            <li><b class="st">Done</b><span>request timeout handling</span></li>
             <li>
-              <b class="st">Met</b
+              <b class="st">Done</b
               ><span>secure WebSocket connections with authentication tokens</span>
             </li>
           </ul>
@@ -2051,7 +2057,7 @@ vary: Origin</pre>
       <!-- 07 -->
       <section class="slide" id="frontend" aria-labelledby="h-frontend">
         <div class="inner">
-          <p class="eyebrow">07 / 14 · the brief, section 4</p>
+          <p class="eyebrow">07 / 14 · the map</p>
           <div class="head">
             <h2 id="h-frontend">Frontend map integration</h2>
             <p>
@@ -2062,10 +2068,10 @@ vary: Origin</pre>
           </div>
           <ul class="checks">
             <li>
-              <b class="st">Met</b
+              <b class="st">Done</b
               ><span>Leaflet.js with two base layers: OpenStreetMap default</span>
             </li>
-            <li><b class="st">Met</b><span>satellite imagery from govmap.gov.il</span></li>
+            <li><b class="st">Done</b><span>satellite imagery from govmap.gov.il</span></li>
             <li class="partial">
               <b class="st partial">Partial</b
               ><span
@@ -2077,7 +2083,7 @@ vary: Origin</pre>
               >
             </li>
             <li>
-              <b class="st">Met</b
+              <b class="st">Done</b
               ><span>drawn elements remain properly positioned when switching layers</span>
             </li>
           </ul>
@@ -2237,7 +2243,7 @@ vary: Origin</pre>
       <!-- 08 -->
       <section class="slide" id="realtime" aria-labelledby="h-realtime">
         <div class="inner">
-          <p class="eyebrow">08 / 14 · the brief, section 5</p>
+          <p class="eyebrow">08 / 14 · real-time collaboration</p>
           <div class="head">
             <h2 id="h-realtime">Real-time drawing</h2>
             <p>
@@ -2246,21 +2252,21 @@ vary: Origin</pre>
             </p>
           </div>
           <ul class="checks">
-            <li><b class="st">Met</b><span>draw polygons on both map types</span></li>
+            <li><b class="st">Done</b><span>draw polygons on both map types</span></li>
             <li>
-              <b class="st">Met</b><span>show other users' drawing actions in real-time</span>
+              <b class="st">Done</b><span>show other users' drawing actions in real-time</span>
             </li>
             <li>
-              <b class="st">Met</b
+              <b class="st">Done</b
               ><span>display area calculations as the polygon is being drawn</span>
             </li>
             <li>
-              <b class="st">Met</b
+              <b class="st">Done</b
               ><span
                 >maintain drawing accuracy when switching between satellite and regular views</span
               >
             </li>
-            <li><b class="st">Met</b><span>show active users currently viewing/drawing</span></li>
+            <li><b class="st">Done</b><span>show active users currently viewing/drawing</span></li>
           </ul>
           <div class="shots">
             <figure>
@@ -2410,7 +2416,7 @@ vary: Origin</pre>
       <!-- 09 -->
       <section class="slide" id="challenges" aria-labelledby="h-challenges">
         <div class="inner">
-          <p class="eyebrow">09 / 14 · the brief, section 6</p>
+          <p class="eyebrow">09 / 14 · technical challenges</p>
           <div class="head">
             <h2 id="h-challenges">Technical challenges and backend optimization</h2>
             <p>
@@ -2420,18 +2426,18 @@ vary: Origin</pre>
           </div>
           <ul class="checks">
             <li>
-              <b class="st">Met</b
+              <b class="st">Done</b
               ><span>coordinate transformations between different map projections</span>
             </li>
-            <li><b class="st">Met</b><span>manage drawing state across layer switches</span></li>
+            <li><b class="st">Done</b><span>manage drawing state across layer switches</span></li>
             <li>
-              <b class="st">Met</b><span>optimize WebSocket messages for real-time updates</span>
+              <b class="st">Done</b><span>optimize WebSocket messages for real-time updates</span>
             </li>
             <li>
-              <b class="st">Met</b
+              <b class="st">Done</b
               ><span>calculate areas accurately considering Earth's curvature</span>
             </li>
-            <li><b class="st">Met</b><span>connection pooling for database access</span></li>
+            <li><b class="st">Done</b><span>connection pooling for database access</span></li>
             <li class="partial">
               <b class="st partial">Partial</b
               ><span
@@ -2442,10 +2448,10 @@ vary: Origin</pre>
               >
             </li>
             <li>
-              <b class="st">Met</b
+              <b class="st">Done</b
               ><span>horizontal scaling considerations (multiple server instances)</span>
             </li>
-            <li><b class="st">Met</b><span>telemetry and performance metrics collection</span></li>
+            <li><b class="st">Done</b><span>telemetry and performance metrics collection</span></li>
           </ul>
           <div class="tiles">
             <div class="tile">
@@ -3006,7 +3012,7 @@ vary: Origin</pre>
                 Source: the "Tests N passed" line of each package's vitest run on
                 <code>main</code> f16685f (the README commit), 2026-10-13: shared 42, api 348, web
                 345, 735 in total. Besides: 3 Playwright e2e tests in 2 specs, and 14 Storybook
-                story files run as browser tests in CI. The audit's earlier figure (615) was a
+                story files run as browser tests in CI. The matrix's earlier figure (615) was a
                 static count of <code>it</code>/<code>test</code> declarations at 1a581e7.
               </p>
               <details>
@@ -3311,22 +3317,21 @@ vary: Origin</pre>
       <!-- 12 -->
       <section class="slide" id="limitations" aria-labelledby="h-limitations">
         <div class="inner">
-          <p class="eyebrow">12 / 14 · the partial rows, and what was deferred</p>
+          <p class="eyebrow">12 / 14 · the partial items, and what was deferred</p>
           <div class="head">
             <h2 id="h-limitations">Honest limitations</h2>
             <p>
-              Our audit of the brief against the repository (<a href="criteria-matrix.md"
-                >criteria-matrix.md</a
-              >, 2026-10-13) marked 5 of 78 requirement lines as partial. Since then docker-compose
-              became met (PR #67) and the independent feature check (<a href="codex-check.md"
-                >codex-check.md</a
-              >, 267deb2) moved smooth layer transition to partial: 5 partial rows, 6 cards. One
-              card each: the brief's line, what is delivered, what is missing, and where to look.
+              The capability matrix,
+              <a href="capability-matrix.md">capability-matrix.md</a> (2026-10-13), marked 5 of 78
+              capabilities as partial. Since then docker-compose became done (PR #67) and the
+              independent feature check, <a href="codex-check.md">codex-check.md</a> (267deb2),
+              moved smooth layer transition to partial: 5 partial items, 6 cards. One card each: the
+              capability, what is delivered, what is missing, and where to look.
             </p>
           </div>
           <div class="cards">
             <div class="card">
-              <h3>“retrieving all areas within current map bounds”</h3>
+              <h3>Retrieving all areas within current map bounds</h3>
               <dl>
                 <dt>Delivered</dt>
                 <dd>
@@ -3354,7 +3359,7 @@ vary: Origin</pre>
               </dl>
             </div>
             <div class="card">
-              <h3>“log all user actions for audit trail and analytics”</h3>
+              <h3>Log all user actions for audit trail and analytics</h3>
               <dl>
                 <dt>Delivered</dt>
                 <dd>
@@ -3383,7 +3388,7 @@ vary: Origin</pre>
               </dl>
             </div>
             <div class="card">
-              <h3>“handle large datasets (10,000+ polygons per map region)”</h3>
+              <h3>Handle large datasets (10,000+ polygons per map region)</h3>
               <dl>
                 <dt>Delivered</dt>
                 <dd>
@@ -3417,7 +3422,7 @@ vary: Origin</pre>
               </dl>
             </div>
             <div class="card">
-              <h3>“smooth layer transition”</h3>
+              <h3>Smooth layer transition</h3>
               <dl>
                 <dt>Delivered</dt>
                 <dd>
@@ -3445,7 +3450,7 @@ vary: Origin</pre>
               </dl>
             </div>
             <div class="card">
-              <h3>“message queuing for high-volume WebSocket traffic”</h3>
+              <h3>Message queuing for high-volume WebSocket traffic</h3>
               <dl>
                 <dt>Delivered</dt>
                 <dd>
@@ -3478,7 +3483,7 @@ vary: Origin</pre>
               </dl>
             </div>
             <div class="card met">
-              <h3>“Docker containerization with docker-compose” (bonus): met since PR #67</h3>
+              <h3>Docker containerization with docker-compose (optional): done since PR #67</h3>
               <dl>
                 <dt>Delivered</dt>
                 <dd>
@@ -3491,10 +3496,10 @@ vary: Origin</pre>
                     >evidence/docker-run.txt</a
                   >).
                 </dd>
-                <dt>Was missing at audit time</dt>
+                <dt>Was missing at 1a581e7</dt>
                 <dd>
-                  The audit at 1a581e7 predates PR #67, when the Worker ran only on the host; that
-                  is why it counted this row as partial.
+                  The capability matrix at 1a581e7 predates PR #67, when the Worker ran only on the
+                  host; that is why it counted this item as partial.
                 </dd>
                 <dt>Where</dt>
                 <dd>
@@ -3580,14 +3585,14 @@ vary: Origin</pre>
       <!-- 13 -->
       <section class="slide" id="bonus" aria-labelledby="h-bonus">
         <div class="inner">
-          <p class="eyebrow">13 / 14 · the brief's optional list</p>
+          <p class="eyebrow">13 / 14 · optional extras</p>
           <div class="head">
-            <h2 id="h-bonus">Bonus coverage</h2>
+            <h2 id="h-bonus">Optional extras</h2>
             <p>Coverage only, one line each.</p>
           </div>
           <ul class="checks">
             <li>
-              <b class="st">Met</b
+              <b class="st">Done</b
               ><span
                 >Docker containerization with docker-compose: PostGIS and, since PR #67 (merged
                 2026-10-13), the API under <code>wrangler dev</code> in a container; verified with a
@@ -3596,7 +3601,7 @@ vary: Origin</pre>
               >
             </li>
             <li>
-              <b class="st">Met</b
+              <b class="st">Done</b
               ><span
                 >unit tests for critical backend functionality: 40 api test files on workerd plus a
                 Node project for migrations and seed; limiter, conflicts, validation, cache, purge,
@@ -3604,7 +3609,7 @@ vary: Origin</pre>
               >
             </li>
             <li>
-              <b class="st">Met</b
+              <b class="st">Done</b
               ><span
                 >API documentation (OpenAPI/Swagger): <code>/openapi.json</code> (OpenAPI 3.1,
                 validated in a test) and <code>/docs</code> rendered by Scalar's pinned build with
@@ -3614,7 +3619,7 @@ vary: Origin</pre>
               >
             </li>
             <li>
-              <b class="st">Met</b
+              <b class="st">Done</b
               ><span
                 >performance benchmarking results:
                 <a
@@ -3630,7 +3635,7 @@ vary: Origin</pre>
               >
             </li>
             <li>
-              <b class="st">Met</b
+              <b class="st">Done</b
               ><span
                 >load testing considerations: <code>bench/rest.js</code>, <code>bench/ws.js</code>,
                 <code>bench/auth.js</code> with pass thresholds in
@@ -3677,8 +3682,8 @@ vary: Origin</pre>
           <div class="head">
             <h2 id="h-docs">Documentation map</h2>
             <p>
-              One line per document. The README is the entry point and answers each item of the
-              brief's submission list under its own heading.
+              One line per document. The README is the entry point, with one heading per
+              documentation topic.
             </p>
           </div>
           <ul class="doclist">
@@ -3758,6 +3763,13 @@ vary: Origin</pre>
               ><span>Epics, tickets, milestones, the critical path and the risk register.</span>
             </li>
             <li>
+              <a href="../how-it-was-built/index.html">How it was built</a
+              ><span
+                >The board as a map: 93 tickets by milestone and epic, the longest blocking chain,
+                and how the lanes, reviews and roles ran.</span
+              >
+            </li>
+            <li>
               <a
                 href="https://github.com/tomer-dev/collaborative-gis/blob/main/apps/web/e2e/README.md"
                 >apps/web/e2e/README.md</a
@@ -3772,10 +3784,10 @@ vary: Origin</pre>
           <p class="small" style="margin-top: 2rem">
             This page: <code>apps/web/public/guide/index.html</code>, one file with its images in
             <code>apps/web/public/guide/img/</code>; the deployed app serves it at
-            <code>/guide/</code>; the audit it cites is
-            <a href="criteria-matrix.md">criteria-matrix.md</a>, and the evidence files (the
+            <code>/guide/</code>; the capability matrix it cites is
+            <a href="capability-matrix.md">capability-matrix.md</a>, and the evidence files (the
             production query results, the CI run list and the Docker log) are under
-            <code>evidence/</code>. Emails in the screenshots are covered. The audit is from
+            <code>evidence/</code>. Emails in the screenshots are covered. The matrix is from
             2026-10-13 at <code>main</code> 1a581e7; the feature check was repeated at 267deb2
             (Codex, 2026-10-13, <a href="codex-check.md">codex-check.md</a>); the page was updated
             after PRs #67 and #71 merged.

@@ -19,7 +19,7 @@
 - Polygon rules from the spec §3/§5: ≥3 unique vertices, closed ring (first == last), longitude in [-180,180], latitude in [-90,90], ≤1,000 vertices.
 - All API errors use `ApiError = { code: string; message: string; details?: unknown }` (spec §6).
 - WebSocket envelope `{ type, seq, ts, payload }`; event types `join`, `leave`, `presence`, `draft:update`, `area:created`, `area:updated`, `area:deleted`, `error` (spec §3).
-- Secrets never enter the repo. Neon credentials come from 1Password vault `Dev`, item `tomercouch-neon`, read with `op read`; the CLI runs as a service account, so `--vault Dev` is required.
+- Secrets never enter the repo. Neon credentials come from 1Password vault `<vault>`, item `<item>`, read with `op read`; the CLI runs as a service account, so `--vault <vault>` is required.
 - No `@hono/node-ws`, no Node server for the Worker (decision D9). `@hono/cli` is a dev dependency and `AGENTS.md` tells agents to use it.
 - Every commit message ends with the attribution line `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 - Keep `docs/process-log.md` current: append one numbered line per task when it lands.
@@ -303,7 +303,7 @@ const RingSchema = z
 
 export const PolygonSchema = z.object({
   type: z.literal('Polygon'),
-  coordinates: z.tuple([RingSchema]), // ponytail: outer ring only; holes are out of scope for the brief
+  coordinates: z.tuple([RingSchema]), // ponytail: outer ring only; holes are out of scope
 });
 export type Polygon = z.infer<typeof PolygonSchema>;
 ```
@@ -781,7 +781,7 @@ LOCAL_DATABASE_URL=postgresql://cgis:cgis@localhost:5432/cgis
 # Neon direct (migrations only; never used by the Worker at runtime)
 NEON_DATABASE_URL=
 # Neon API key: read from 1Password at use time, do not store here
-# NEON_API_KEY=$(op read "op://Dev/tomercouch-neon/credential")
+# NEON_API_KEY=$(op read "op://<vault>/<item>/credential")
 ```
 
 Add root scripts to `package.json`:
@@ -805,7 +805,7 @@ Expected: a `postgis_version` row like `3.4 USE_GEOS=1 ...`.
 
 Run (values never printed):
 ```bash
-export NEON_API_KEY="$(op read 'op://Dev/tomercouch-neon/credential')"
+export NEON_API_KEY="$(op read 'op://<vault>/<item>/credential')"
 neonctl projects create --name collaborative-gis --region-id aws-eu-central-1 --output json > /tmp/neon-project.json
 NEON_PROJECT_ID=$(python3 -c "import json;print(json.load(open('/tmp/neon-project.json'))['project']['id'])")
 neonctl set-context --project-id "$NEON_PROJECT_ID"
@@ -949,7 +949,7 @@ Expected: the `ci` job is green on GitHub (`gh run watch`). If the repository ha
 - Modify: `docs/process-log.md`
 
 **Interfaces:**
-- Produces: README with every heading from the submission checklist, filled where M0 already provides the answer (setup is real; later sections hold one sentence stating what will go there and which ticket fills it).
+- Produces: README with every documentation heading, filled where M0 already provides the answer (setup is real; later sections hold one sentence stating what will go there and which ticket fills it).
 
 - [ ] **Step 1: README**
 
@@ -1021,7 +1021,7 @@ Positive, negative, and what becomes easier or harder.
 Date: 2026-10-12 · Status: accepted
 
 ## Context
-The brief requires a WebSocket server with presence and graceful degradation. Vercel serves WebSockets natively only in public beta (June 2026), pins a connection to one instance, and caps every connection at the function max duration (300 s Hobby, 800 s Pro), so clients must reconnect constantly and fan-out needs Redis (research notes, "Cloudflare" and "Vercel").
+The product needs a WebSocket server with presence and graceful degradation. Vercel serves WebSockets natively only in public beta (June 2026), pins a connection to one instance, and caps every connection at the function max duration (300 s Hobby, 800 s Pro), so clients must reconnect constantly and fan-out needs Redis (research notes, "Cloudflare" and "Vercel").
 
 ## Decision
 Deploy a single Cloudflare Worker with one `Room` Durable Object per map using the WebSocket Hibernation API, a `RateLimiter` Durable Object per user, Hyperdrive to Neon PostGIS, and the Vite SPA as static assets.
@@ -1071,7 +1071,7 @@ Append to `docs/process-log.md`:
 
 ```bash
 git add README.md docs
-git commit -m "docs: README skeleton per submission checklist, ADR template, ADRs 0001-0003
+git commit -m "docs: README skeleton, ADR template, ADRs 0001-0003
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 git push

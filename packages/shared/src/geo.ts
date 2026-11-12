@@ -23,6 +23,6 @@ const RingSchema = z
 
 export const PolygonSchema = z.object({
   type: z.literal('Polygon'),
-  coordinates: z.tuple([RingSchema]), // ponytail: outer ring only; holes are out of scope for the brief
+  coordinates: z.tuple([RingSchema]), // ponytail: outer ring only; holes are out of scope
 });
 export type Polygon = z.infer<typeof PolygonSchema>;
