@@ -4,18 +4,22 @@
 Reads issues.json and milestones.json from EXPORT_DIR (kept outside this repository), merges
 scripts/how-it-was-built.json (one sentence per ticket, reworded titles, pull requests the board
 never attached), refuses any banned string, and rewrites the generated blocks of
-apps/web/public/how-it-was-built/index.html. Only tickets with a summary are published; links to
-any other ticket are dropped. No description or comment text is read into the output.
+apps/web/public/how-it-was-built/index.html, plus the board block (stat tiles and map) of
+apps/web/public/guide/index.html. Only tickets with a summary are published; links to any other
+ticket are dropped. No description or comment text is read into the output. Both pages load the
+map's styles and script from how-it-was-built/board.css and board.js.
 
 Data rules: a title loses its task-number prefix ("1.7 ", "5.0b "; an epic keeps its E-number) and
 any date in it; a blocking link is shown only when the blocker closed no later than the ticket it
 blocks (to the minute), or the blocked ticket is still open.
 
-    python3 scripts/how-it-was-built.py EXPORT_DIR    # rebuild the page
-    python3 scripts/how-it-was-built.py --check-page  # banned-string check of the committed page
+    python3 scripts/how-it-was-built.py EXPORT_DIR          # rebuild both pages
+    python3 scripts/how-it-was-built.py EXPORT_DIR --check  # fail when a committed page is stale
+    python3 scripts/how-it-was-built.py --check-page        # banned-string check of both pages
 
-The page is generated output (Prettier skips it), so a rebuild of an unchanged export reproduces it
-byte for byte. Besides the generic technical patterns below, private patterns are read, when the
+The How-it-was-built page is generated output (Prettier skips it); in the guide, the board block
+is one element after a prettier-ignore comment, so Prettier keeps it as written. A rebuild of an
+unchanged export reproduces both pages byte for byte. Besides the generic technical patterns below, private patterns are read, when the
 file exists, from $BANNED_PATTERNS_FILE or ~/.config/collaborative-gis/banned-patterns.txt: one
 regular expression per line, `#` starts a comment, kept outside the repository. A hit names the
 ticket and field or the page line, never the pattern or the matched text, so a CI log stays clean.
@@ -37,6 +41,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / 'scripts' / 'how-it-was-built.json'
 PAGE = ROOT / 'apps' / 'web' / 'public' / 'how-it-was-built' / 'index.html'
+GUIDE = ROOT / 'apps' / 'web' / 'public' / 'guide' / 'index.html'
+# In the guide, a ticket box links to its entry on the full page; the skip link lands on the
+# guide section that follows the board.
+GUIDE_BASE, GUIDE_NEXT = '../how-it-was-built/index.html', '#tour'
+CAPTION = (
+    'The accent line is the longest blocking chain. Hover, tap or focus a ticket to show what '
+    'blocked it, what it blocked and what it relates to; Enter on a focused ticket opens its '
+    'entry in the ticket lists.'
+)
 PRIVATE_PATTERNS = Path.home() / '.config' / 'collaborative-gis' / 'banned-patterns.txt'
 
 # What never reaches the public page, matched case-insensitively; \s+ also spans a wrapped line.
@@ -224,15 +237,19 @@ def short(title: str) -> str:
     return title.split(' (')[0]
 
 
+def epic_list(tickets: list[dict]) -> list[dict]:
+    return sorted((t for t in tickets if t['epic'] == t['id']), key=lambda t: t['title'])
+
+
 def render(public: dict) -> dict[str, str]:
+    """The generated blocks of the How-it-was-built page."""
     tickets = public['tickets']
-    by_id = {t['id']: t for t in tickets}
-    epics = sorted((t for t in tickets if t['epic'] == t['id']), key=lambda t: t['title'])
+    epics = epic_list(tickets)
     loose = [t for t in tickets if t['epic'] is None]
     payload = json.dumps(public, ensure_ascii=False, indent=2).replace('</', '<\\/')
     return {
         'tiles': tiles(public, epics),
-        'map': svg_map(public, epics, by_id),
+        'map': '\n'.join(svg_map(public, epics)),
         'lanes': lanes(tickets),
         'epics': '\n'.join(
             [details(e['title'], e, children(tickets, e['id'])) for e in epics]
@@ -240,6 +257,20 @@ def render(public: dict) -> dict[str, str]:
         ),
         'data': f'<script type="application/json" id="build-map">\n{payload}\n</script>',
     }
+
+
+def render_guide(public: dict) -> dict[str, str]:
+    """The guide's board block: the same tiles and map, with the fields the map's script reads."""
+    epics = epic_list(public['tickets'])
+    keys = ('id', 'title', 'state', 'started', 'closed', 'prs', 'blockedBy', 'blocks', 'related', 'summary')
+    slim = {'tickets': [{k: t[k] for k in keys} for t in public['tickets']]}
+    payload = json.dumps(slim, ensure_ascii=False, separators=(',', ':')).replace('</', '<\\/')
+    lists = 'The How it was built page lists the same tickets as text.'
+    parts = [f'<div class="tiles">{tiles(public, epics, "")}</div>']
+    parts += svg_map(public, epics, GUIDE_BASE, GUIDE_NEXT, lists)
+    parts.append(f'<script type="application/json" id="build-map">{payload}</script>')
+    # One line after prettier-ignore: Prettier prints the element exactly as written.
+    return {'board': '<!-- prettier-ignore -->\n<div class="board">' + ''.join(parts) + '</div>'}
 
 
 def children(tickets: list[dict], epic_id: str) -> list[dict]:
@@ -258,13 +289,13 @@ def tile(key: str, label: str, value: str, src: str) -> str:
     )
 
 
-def tiles(public: dict, epics: list[dict]) -> str:
+def tiles(public: dict, epics: list[dict], sep: str = '\n') -> str:
     tickets, chain, ms = public['tickets'], public['chain'], public['milestones']
     first = min(t['created'] for t in tickets)
     last = max(t['closed'] for t in tickets if t['closed'])
     span = datetime.strptime(last, '%Y-%m-%dT%H:%MZ') - datetime.strptime(first, '%Y-%m-%dT%H:%MZ')
     prs = {p for t in tickets for p in t['prs']}
-    return '\n'.join(
+    return sep.join(
         [
             tile(
                 'tickets',
@@ -290,7 +321,14 @@ def tiles(public: dict, epics: list[dict]) -> str:
     )
 
 
-def svg_map(public: dict, epics: list[dict], by_id: dict) -> str:
+def svg_map(
+    public: dict,
+    epics: list[dict],
+    base: str = '',
+    skip: str = '#lists',
+    lists: str = 'The lists further down carry the same tickets as text.',
+) -> list[str]:
+    """Skip link, legend, map and caption; `base` is the page a ticket box links to."""
     tickets = public['tickets']
     depth = {tid: len(c) for tid, c in chains(tickets).items()}
     rows = [e['id'] for e in epics] + ([None] if any(t['epic'] is None for t in tickets) else [])
@@ -332,7 +370,7 @@ def svg_map(public: dict, epics: list[dict], by_id: dict) -> str:
     out = [
         f'<svg id="map" viewBox="0 0 {width} {height}" role="group" aria-label="Ticket map: milestones '
         'left to right, epics top to bottom, one box per ticket. Each box is a link; focusing it shows '
-        'its links below the map. The lists further down carry the same tickets as text.">'
+        f'its links below the map. {lists}">'
     ]
     out.append('<text class="mh" x="16" y="18">Epic</text>')
     for c in cols:
@@ -357,7 +395,7 @@ def svg_map(public: dict, epics: list[dict], by_id: dict) -> str:
         cls = f'tk {t["state"]}' + (' epic' if is_epic else '') + (' on-chain' if t['id'] in on_chain else '')
         tx, anchor = (bx + 10, 'start') if is_epic else (bx + w / 2, 'middle')
         out.append(
-            f'<a class="{cls}" href="#{t["id"]}"><title>{esc(t["id"])} · {esc(t["title"])} · '
+            f'<a class="{cls}" href="{base}#{t["id"]}" data-id="{t["id"]}"><title>{esc(t["id"])} · {esc(t["title"])} · '
             f'{STATE_LABEL[t["state"]]}</title><rect x="{bx}" y="{by}" width="{w}" height="{h}" rx="5" />'
             f'<text x="{tx:g}" y="{by + h / 2 + 4:g}" text-anchor="{anchor}">{esc(label)}</text></a>'
         )
@@ -368,7 +406,13 @@ def svg_map(public: dict, epics: list[dict], by_id: dict) -> str:
         '<span><i class="ln chain"></i>Longest chain</span><span><i class="ln in"></i>Blocked by</span>'
         '<span><i class="ln out"></i>Blocks</span><span><i class="ln rel"></i>Related</span>'
     )
-    return f'<p class="legend">{legend}</p>\n<div class="arch">{"".join(out)}</div>'
+    return [
+        f'<p class="small"><a href="{skip}">Skip the map</a></p>',
+        f'<p class="board-legend">{legend}</p>',
+        '<p class="small board-hint">Scroll the map sideways to see every milestone.</p>',
+        f'<div class="board-map">{"".join(out)}</div>',
+        f'<p id="map-cap" class="board-cap" aria-live="polite">{CAPTION}</p>',
+    ]
 
 
 def lanes(tickets: list[dict]) -> str:
@@ -428,12 +472,23 @@ def details(title: str, epic: dict | None, items: list[dict]) -> str:
 
 
 def write_blocks(text: str, blocks: dict[str, str], label: str) -> str:
+    """Rewrite each gen block; its lines and closing marker take the opening marker's indent."""
     for name, body in blocks.items():
-        rx = re.compile(rf'(<!-- gen:{name} -->).*?(<!-- /gen:{name} -->)', re.S)
-        if not rx.search(text):
+        rx = re.compile(rf'^([ \t]*)<!-- gen:{name} -->.*?<!-- /gen:{name} -->', re.S | re.M)
+        m = rx.search(text)
+        if not m:
             sys.exit(f'{label}: no <!-- gen:{name} --> block')
-        text = rx.sub(lambda m: f'{m.group(1)}\n{body}\n{m.group(2)}', text, count=1)
+        ind = m.group(1)
+        lines = '\n'.join(ind + line if line else line for line in body.split('\n'))
+        new = f'{ind}<!-- gen:{name} -->\n{lines}\n{ind}<!-- /gen:{name} -->'
+        text = text[: m.start()] + new + text[m.end() :]
     return text
+
+
+def board_only(text: str) -> str:
+    """The guide with everything but its board block blanked, so a hit keeps its line number."""
+    m = re.search(r'<!-- gen:board -->.*?<!-- /gen:board -->', text, re.S)
+    return '\n' * text[: m.start()].count('\n') + m.group(0) if m else ''
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -441,12 +496,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('export', nargs='?', type=Path, help='folder with issues.json and milestones.json')
     parser.add_argument('--data', type=Path, default=DATA, help='summaries, titles and PRs (JSON)')
     parser.add_argument('--page', type=Path, default=PAGE, help='the page to rewrite or check')
-    parser.add_argument('--check-page', action='store_true', help='only check the page; write nothing')
+    parser.add_argument('--guide', type=Path, default=GUIDE, help='the guide whose board block is rewritten')
+    parser.add_argument('--check', action='store_true', help='build in memory; fail when a page differs')
+    parser.add_argument('--check-page', action='store_true', help='only check both pages; write nothing')
     args = parser.parse_args(argv)
     found = patterns()
 
     if args.check_page:
         hits = hits_in_page(args.page.read_text(encoding='utf-8'), found, args.page.name)
+        hits += hits_in_page(board_only(args.guide.read_text(encoding='utf-8')), found, args.guide.name)
     else:
         if args.export is None:
             parser.error('EXPORT_DIR is required unless --check-page is given')
@@ -456,11 +514,19 @@ def main(argv: list[str] | None = None) -> int:
         hits = hits_in_data(public, found)
         if not hits:
             text = write_blocks(args.page.read_text(encoding='utf-8'), render(public), args.page.name)
+            guide = write_blocks(args.guide.read_text(encoding='utf-8'), render_guide(public), args.guide.name)
             hits = hits_in_page(text, found, args.page.name)
+            hits += hits_in_page(board_only(guide), found, args.guide.name)
+        if not hits and args.check:
+            stale = [p for p, new in ((args.page, text), (args.guide, guide)) if p.read_text(encoding='utf-8') != new]
+            for p in stale:
+                print(f'stale: {p.name} differs from a fresh build', file=sys.stderr)
+            return 1 if stale else 0
         if not hits:
             args.page.write_text(text, encoding='utf-8')
+            args.guide.write_text(guide, encoding='utf-8')
             published = len(public['tickets'])
-            print(f'{published} tickets written to {args.page}; {len(issues) - published} in the export not published')
+            print(f'{published} tickets written to {args.page.name} and the guide board; {len(issues) - published} in the export not published')
     for hit in hits:
         print(f'banned: {hit}', file=sys.stderr)
     return 1 if hits else 0

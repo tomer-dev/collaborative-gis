@@ -1,0 +1,193 @@
+/* The project board's stat tiles and map, shared by guide/index.html and
+   how-it-was-built/index.html; written by scripts/how-it-was-built.py. Colours, fonts and
+   sizes come from the tokens both pages define (--card, --ink, --good, --sans, ...). */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1rem;
+  margin: 2rem 0;
+}
+.tile {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 1.1rem 1.2rem 0.95rem;
+}
+.tile .label {
+  font-size: 0.84rem;
+  color: var(--ink-2);
+  margin-bottom: 0.35rem;
+}
+.tile .value {
+  font: 600 2.4rem/1 var(--sans);
+  letter-spacing: -0.02em;
+}
+.tile .value small {
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: var(--ink-2);
+  margin-left: 0.35rem;
+}
+.tile .src {
+  font-size: 0.76rem;
+  color: var(--muted);
+  margin-top: 0.45rem;
+  line-height: 1.35;
+}
+
+.board-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.1rem;
+  font-size: 0.8rem;
+  color: var(--ink-2);
+  margin: 0 0 0.6rem;
+  max-width: none;
+}
+.board-legend i {
+  display: inline-block;
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 3px;
+  margin-right: 0.4rem;
+  vertical-align: -1px;
+}
+.board-legend i.ln {
+  width: 1.3rem;
+  height: 0;
+  border-radius: 0;
+  vertical-align: middle;
+  border-top: 2px solid var(--ink-2);
+}
+.board-legend i.ln.chain {
+  border-top: 4px solid color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.board-legend i.ln.out {
+  border-top-color: var(--series-2);
+}
+.board-legend i.ln.rel {
+  border-top: 2px dashed var(--muted);
+}
+.board-legend .sw {
+  border: 1px solid color-mix(in srgb, var(--ink) 25%, transparent);
+}
+.board-legend .sw.done,
+.board-map .tk.done rect {
+  background: color-mix(in srgb, var(--good) 20%, var(--card));
+  fill: color-mix(in srgb, var(--good) 20%, var(--card));
+  stroke: color-mix(in srgb, var(--good) 65%, var(--card));
+}
+.board-legend .sw.canceled,
+.board-map .tk.canceled rect {
+  background: color-mix(in srgb, var(--grey-mark) 55%, var(--card));
+  fill: color-mix(in srgb, var(--grey-mark) 55%, var(--card));
+  stroke: var(--line-2);
+}
+.board-legend .sw.open,
+.board-map .tk.open rect {
+  background: color-mix(in srgb, var(--warn) 35%, var(--card));
+  fill: color-mix(in srgb, var(--warn) 35%, var(--card));
+  stroke: var(--warn);
+}
+
+.board-map {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.6rem;
+}
+.board-map svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  font-family: var(--sans);
+}
+.board-map text {
+  fill: var(--ink);
+  font-size: 12px;
+}
+.board-map .mh {
+  font-weight: 600;
+  font-size: 13px;
+}
+.board-map .s {
+  fill: var(--ink-2);
+  font-size: 11px;
+}
+.board-map .grid {
+  stroke: var(--grid);
+  stroke-width: 1;
+  fill: none;
+}
+.board-map .chain {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 60%, transparent);
+  stroke-width: 4;
+  stroke-linejoin: round;
+}
+.board-map #links path {
+  fill: none;
+  stroke: var(--ink-2);
+  stroke-width: 1.6;
+}
+.board-map #links path.out {
+  stroke: var(--series-2);
+}
+.board-map #links path.rel {
+  stroke: var(--muted);
+  stroke-dasharray: 4 3;
+}
+.board-map .tk rect {
+  stroke-width: 1.2;
+}
+.board-map .tk text {
+  font: 500 11px var(--mono);
+  pointer-events: none;
+}
+.board-map .tk.epic text {
+  font: 600 12px var(--sans);
+}
+.board-map .tk.on-chain rect {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.board-map .tk.lit rect {
+  stroke: var(--series-2);
+  stroke-width: 2.4;
+}
+.board-map .tk:hover rect,
+.board-map .tk:focus-visible rect,
+.board-map .tk.sel rect {
+  stroke: var(--ink);
+  stroke-width: 2.4;
+}
+.board-hint {
+  display: none;
+}
+.board-cap {
+  margin: 0.7rem 0 0;
+  min-height: 4.2em;
+  max-width: none;
+  font-size: 0.9rem;
+  color: var(--ink-2);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.7rem 0.9rem;
+}
+.board-cap b {
+  color: var(--ink);
+}
+
+/* Narrow screens: the map scrolls sideways inside its own box; the page body never does. */
+@media (max-width: 760px) {
+  .board-map {
+    overflow-x: auto;
+  }
+  .board-map svg {
+    min-width: 1040px;
+  }
+  .board-hint {
+    display: block;
+  }
+}
