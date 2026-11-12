@@ -196,7 +196,7 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 | `WS` | `'/ws'` | Room WebSocket upgrade. |
 | `OPENAPI` | `'/openapi.json'` | OpenAPI 3.1 document of the routes with `describeRoute` metadata. |
 | `DOCS` | `'/docs'` | API reference UI (Scalar) rendering OPENAPI; public and read-only, like the document. |
-| `APP` | `{ HOME: '/', LOGIN: '/login', REGISTER: '/register', MAP: '/map', GUIDE: '/guide/' }` | SPA routes: redirect/Link/navigate targets (file-route ids in createFileRoute stay literal). GUIDE is not a router route: the static reviewer guide under apps/web/public/guide/, opened from the top bar in a new tab. |
+| `APP` | `{ HOME: '/', LOGIN: '/login', REGISTER: '/register', MAP: '/map', GUIDE: '/guide/' }` | SPA routes: redirect/Link/navigate targets (file-route ids in createFileRoute stay literal). GUIDE is not a router route: the static capability guide under apps/web/public/guide/, opened from the top bar in a new tab. |
 
 ## ROUTER
 
@@ -349,7 +349,7 @@ Which responses the audit middleware records (apps/api/src/middleware/audit.ts).
 | Name | Value | Notes |
 |---|---|---|
 | `NAME` | `'Collaborative GIS'` |  |
-| `GUIDE` | `'Guide'` | Top-bar link to the reviewer guide (ROUTES.APP.GUIDE), on every page. |
+| `GUIDE` | `'Guide'` | Top-bar link to the capability guide (ROUTES.APP.GUIDE), on every page. |
 | `MENU_OPEN` | `'Open menu'` | Phone width only: the top-bar button that opens the panel holding the guide link and the session menu. |
 | `MENU_CLOSE` | `'Close menu'` | The same button while the panel is open. |
 

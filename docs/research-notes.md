@@ -56,12 +56,12 @@ Date: 2026-10-12. Sources: Context7 docs, official sites. Each note states the f
 - Durable Objects (DO) with the WebSocket Hibernation API: `ctx.acceptWebSocket(server)`, class handlers `webSocketMessage/Close/Error`, `ctx.getWebSockets()` for broadcast, `serializeAttachment` (≤16 KB) for per-socket state that survives hibernation, `setWebSocketAutoResponse` for ping/pong without waking. One DO per room is the single coordinator, which removes the multi-instance fan-out problem. Soft limit ≈1,000 req/s per object; CPU 30 s per event; SQLite-backed storage on Free and Paid. Alarms (`setAlarm`, at-least-once, 6 retries) suit presence timeouts and cleanup.
 - Hyperdrive: pooled Postgres from Workers via `env.HYPERDRIVE.connectionString`; create a `pg` client per request; transaction-pooling mode (no session state; `postgres.js` with `prepare:false` unreliable; cap `max` at 5). Needs `nodejs_compat` (default for compat dates ≥ 2026-08-04). Drizzle on node-postgres is supported. Migrations run against the Neon direct URL from CI, not through Hyperdrive.
 - Static assets: Vite SPA served by the same Worker via `assets.directory`, `not_found_handling = "single-page-application"`, `run_worker_first = ["/api/*", "/ws"]`; `@cloudflare/vite-plugin` runs the Worker inside Vite dev with HMR and supports `vite preview` on workerd.
-- Rate limiting binding: `limit({ key })`, period 10 or 60 s, per-location and eventually consistent ("permissive"). → Not exact enough for the brief's 50/min/user; use a per-user DO counter (exact, shared by REST and WS); the binding can act as a cheap edge pre-filter.
+- Rate limiting binding: `limit({ key })`, period 10 or 60 s, per-location and eventually consistent ("permissive"). → Not exact enough for the 50/min/user limit; use a per-user DO counter (exact, shared by REST and WS); the binding can act as a cheap edge pre-filter.
 - Cache API (`caches.default`, honours `s-maxage`) and KV for cached bounds responses; Cron Triggers (`scheduled` handler alongside Hono `fetch`) for the retention purge; Workers Logs via `observability.enabled`.
 - Better Auth on Workers: needs `nodejs_compat` (or `nodejs_als`) for AsyncLocalStorage; mount `app.all('/api/auth/*', c => auth.handler(c.req.raw))` after `cors` with explicit origin + credentials.
 - Leaflet choice recorded above (1.9.4).
 - Earlier Vercel findings (kept for the ADR): WebSockets in public beta, connection pinned to one instance with a 300 s/800 s duration cap, Redis pub/sub needed for fan-out. The duration cap is the reason for the switch.
 
-## Blocked lookups (noted for the reviewer)
+## Blocked lookups
 - 1Password item for Neon: service account requires `--vault`; the permission classifier also blocked the lookup. Waiting on the user.
 - One Context7 PostGIS query was blocked by the permission classifier; replaced by direct reads of postgis.net.

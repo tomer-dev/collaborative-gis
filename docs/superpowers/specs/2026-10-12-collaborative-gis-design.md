@@ -1,12 +1,12 @@
 # Collaborative GIS — design spec
 
-Date: 2026-10-12. Status: **approved 2026-10-12 after a section-by-section human review** (§2–§9 each acknowledged in `docs/decisions-brief.html`); decisions D1–D14 resolved (see §10). Source: the written product brief. Roadmap: `docs/roadmap.md` (Linear P-TOM-1). Research: `docs/research-notes.md`.
+Date: 2026-10-12. Status: **approved 2026-10-12 after a section-by-section human review** (§2–§9 each acknowledged in `docs/decisions-brief.html`); decisions D1–D14 resolved (see §10). Source: the written product scope. Roadmap: `docs/roadmap.md` (Linear P-TOM-1). Research: `docs/research-notes.md`.
 
-## 1. Goal and success criteria
+## 1. Goal and definition of done
 
 Multiple signed-in users draw polygons on a Leaflet map, see each other's drawing live, switch between OpenStreetMap and govmap aerial imagery without overlays drifting, and get an accurate area in km² for each polygon. The system survives WebSocket loss, limits abuse, keeps history, and runs on Cloudflare with PostGIS on Neon.
 
-Success: a reviewer can clone, run `docker compose up` or `wrangler dev`, open two browsers, and watch one draw while the other sees it; every evaluation criterion in the brief maps to a ticket and to a README section.
+Success: a developer can clone, run `docker compose up` or `wrangler dev`, open two browsers, and watch one draw while the other sees it; every focus area of the product scope maps to a ticket and to a README section.
 
 ## 2. Architecture
 
@@ -27,7 +27,7 @@ Cron Trigger ──► retention purge
 Static assets (Vite build) served by the same Worker
 ```
 
-One deployable unit: a single Worker with two Durable Object classes and static assets. Local parity: `wrangler dev` with a Hyperdrive `localConnectionString` to a docker PostGIS, and docker-compose runs PostGIS plus a `wrangler dev` (workerd) container for the one-command bonus; no Node port of the Worker (D9). The Hono CLI (`@hono/cli`) inspects and tests the app in-process (`hono routes`, `hono request`, `hono batch`) with local Cloudflare bindings injected.
+One deployable unit: a single Worker with two Durable Object classes and static assets. Local parity: `wrangler dev` with a Hyperdrive `localConnectionString` to a docker PostGIS, and docker-compose runs PostGIS plus a `wrangler dev` (workerd) container for the one-command option; no Node port of the Worker (D9). The Hono CLI (`@hono/cli`) inspects and tests the app in-process (`hono routes`, `hono request`, `hono batch`) with local Cloudflare bindings injected.
 
 ## 3. Components and boundaries
 
@@ -87,7 +87,7 @@ Better Auth sessions in httpOnly secure cookies; `trustedOrigins` and CORS with 
 
 ## 9. Scope boundaries
 
-In: everything in the brief's sections 1–6, bonus Docker/tests/OpenAPI/benchmarks. Out (design notes only): multi-region sharding of rooms, Queues for audit batching, OpenTelemetry export, offline editing merge beyond rename.
+In: everything in the product scope's sections 1–6, plus the optional Docker/tests/OpenAPI/benchmarks. Out (design notes only): multi-region sharding of rooms, Queues for audit batching, OpenTelemetry export, offline editing merge beyond rename.
 
 ## 10. Decisions log
 
@@ -110,10 +110,10 @@ In: everything in the brief's sections 1–6, bonus Docker/tests/OpenAPI/benchma
 - Cloudflare over Vercel: Vercel WebSocket beta has a hard per-connection duration cap; Durable Objects give a native coordinator.
 - Design system "Grid 4" adopted (D15, 2026-10-12): 4 px base unit, fixed spacing steps, 6 type sizes on the grid, OKLCH ramps used only through semantic tokens with base/hover/active/disabled variants; reasonable exceptions allowed case by case when a 4 px multiple cannot work, documented in the token file. Brief: `docs/design-system-brief.html`.
 - HTTP client (D19, 2026-10-12; amended ~18:35): auth (session, sign-in/up/out) goes through Better Auth's official React client (`better-auth/react`); the small native-`fetch` helper covers only non-auth calls until the Hono `hc` RPC client typed from the api's `AppType` replaces it with the areas routes. App paths live in `ROUTES.APP` (shared constants). No axios/ky; undici/got are Node-only.
-- Audit trail (D20, 2026-10-12): `audit_log` stays as a separate append-only table (brief: "log all user actions for audit trail and analytics"; versions are state snapshots with data-retention lifetime, audit rows outlive the data). `payload_hash` dropped; area events reference `(entity_id, version)`. Folding audit into `area_versions` was considered and rejected: it would cover only area mutations and tie audit retention to the purge.
+- Audit trail (D20, 2026-10-12): `audit_log` stays as a separate append-only table (product scope: "log all user actions for audit trail and analytics"; versions are state snapshots with data-retention lifetime, audit rows outlive the data). `payload_hash` dropped; area events reference `(entity_id, version)`. Folding audit into `area_versions` was considered and rejected: it would cover only area mutations and tie audit retention to the purge.
 - Database access (D23, 2026-10-12, system-wide): every query goes through the Drizzle query builder. The `sql` tagged template is allowed only as a fragment inside a builder call for a PostGIS expression the builder cannot model, or for a data-modifying CTE chain the builder cannot express (the atomic validate → insert area → insert version write). Never a whole read statement, never string concatenation. Guarded by lint. Ticket 1.7 (M2).
 - Session cookie cache (D24, 2026-10-12): Better Auth `session.cookieCache` enabled with a 5-minute lifetime, so signed-in requests inside the window skip the Neon session lookup (one round-trip less per pan/save). Revocation elsewhere lags ≤ 5 min; same-device sign-out is immediate. Scoped to session validity only, unlike the rejected Hyperdrive query cache. Ticket 2.9, lands in T16.
-- Draw tool (D25, 2026-10-12, final): the brief's "No third-party plugins for the collaborative features" is read narrowly (owner ruling): it bans collaboration SDKs (Yjs, partyserver, Liveblocks …), not map drawing plugins. The draw tool is a thin adapter over `leaflet-editable` 1.3.2 (Leaflet org, 13 kB; `@types/leaflet-editable` 1.2.7) exposing the `draw:*` events; the hand-rolled `L.Handler` is retired. The realtime presence/draft protocol (Room DO) stays ours. Pure maths via `@turf/area` / `@turf/kinks` 7.4.0; PostGIS stays the authority.
+- Draw tool (D25, 2026-10-12, final): the product scope's "No third-party plugins for the collaborative features" is read narrowly (owner ruling): it bans collaboration SDKs (Yjs, partyserver, Liveblocks …), not map drawing plugins. The draw tool is a thin adapter over `leaflet-editable` 1.3.2 (Leaflet org, 13 kB; `@types/leaflet-editable` 1.2.7) exposing the `draw:*` events; the hand-rolled `L.Handler` is retired. The realtime presence/draft protocol (Room DO) stays ours. Pure maths via `@turf/area` / `@turf/kinks` 7.4.0; PostGIS stays the authority.
 - Font: Inter variable, self-hosted (D16). Primary hue: blue as proposed (D17). Storybook: full scope — foundations + components + a11y gating + vitest browser tests in CI (D18).
 
 ## 11. Open questions carried into tickets

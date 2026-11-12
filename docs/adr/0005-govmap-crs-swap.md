@@ -3,7 +3,7 @@
 Date: 2026-10-12 · Status: accepted · Tickets: TOM-45 (spike, closed by this record), TOM-46
 
 ## Context
-The product brief asks for govmap aerial imagery as a base layer. Decision D3 chose option A: swap the map's CRS to EPSG:2039 while the aerial layer is on, with no tile proxy and no fallback imagery. D22 builds that CRS with Proj4Leaflet on proj4 instead of the hand-rolled CRS ADR-0003 described. Every fact below was probed from a browser or curl on 2026-10-12 or computed with PROJ 9.5.1 and proj4 2.22.0.
+The product scope asks for govmap aerial imagery as a base layer. Decision D3 chose option A: swap the map's CRS to EPSG:2039 while the aerial layer is on, with no tile proxy and no fallback imagery. D22 builds that CRS with Proj4Leaflet on proj4 instead of the hand-rolled CRS ADR-0003 described. Every fact below was probed from a browser or curl on 2026-10-12 or computed with PROJ 9.5.1 and proj4 2.22.0.
 
 **Legacy tile scheme (verified).**
 - URL: `https://cdn.govmap.gov.il/<cache>/L<level, 2 decimal digits>/R<row, 8 hex digits>/C<column, 8 hex digits>.jpg`. The hex must be lowercase: `R000129A8/C0001018F` answers 403, `R000129a8/C0001018f` answers 200.

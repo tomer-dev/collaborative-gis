@@ -1,5 +1,5 @@
 /**
- * Two users on one map, in two browser contexts: the product brief's collaboration requirements
+ * Two users on one map, in two browser contexts: the product's collaboration requirements
  * end to end (presence, live drafts, live saves, the version conflict, leaving).
  *
  * Run: `pnpm e2e` at the repo root; apps/web/e2e/README.md has the setup and the ports.
@@ -10,7 +10,7 @@ import { register, STACK } from './stack';
 
 /** Every wait in the scenario. */
 const WAIT = {
-  /** The product brief: a polygon one user saves shows up for the others within 2 s. */
+  /** Product requirement: a polygon one user saves shows up for the others within 2 s. */
   SAVED_AREA_MS: 2000,
   /** Presence and draft relays over the room WebSocket. */
   REALTIME_MS: 10_000,
