@@ -112,11 +112,11 @@ describe('how-it-was-built/index.html as committed', () => {
     expect(tile('chain')?.startsWith(String(data.chain.length))).toBe(true);
   });
 
-  it('loads nothing from another origin', () => {
-    const external = [...doc.querySelectorAll('[src], link[href]')].map(
+  it('loads only the shared board files next to it, nothing from another origin', () => {
+    const refs = [...doc.querySelectorAll('[src], link[href]')].map(
       (el) => el.getAttribute('src') ?? el.getAttribute('href'),
     );
-    expect(external).toEqual([]);
+    expect(refs.toSorted()).toEqual(['board.css', 'board.js']);
   });
 
   it('passes the banned-string check', () => {
@@ -130,6 +130,50 @@ describe('how-it-was-built/index.html as committed', () => {
     const href = 'a[href="../how-it-was-built/index.html"]';
     expect(g.querySelector(`#start ${href}`)).not.toBeNull();
     expect(g.querySelector(`#docs ${href}`)).not.toBeNull();
+  });
+});
+
+/** Each stat tile's key and value, in page order. */
+function tileValues(root: ParentNode | null) {
+  const tiles = [...(root?.querySelectorAll('[data-tile]') ?? [])];
+  return tiles.map((t) => [t.getAttribute('data-tile'), t.querySelector('.value')?.textContent]);
+}
+
+describe('guide/index.html: the board section', () => {
+  const g = parse(readFileSync(guide, 'utf8'));
+  const full = parse(readFileSync(page, 'utf8'));
+  const board = g.querySelector('section#board');
+
+  it('follows the opening section and shows the five tiles of the How-it-was-built page', () => {
+    expect(g.querySelector('section#start + section')?.id).toBe('board');
+    expect(tileValues(board)).toHaveLength(5);
+    expect(tileValues(board)).toEqual(tileValues(full));
+  });
+
+  it('draws the same map, each box linking to its entry on the full page', () => {
+    const boxes = [...(board?.querySelectorAll('#map a.tk') ?? [])];
+    expect(boxes).toHaveLength(full.querySelectorAll('#map a.tk').length);
+    for (const a of boxes) {
+      const id = a.getAttribute('data-id') ?? '';
+      expect(a.getAttribute('href')).toBe(`../how-it-was-built/index.html#${id}`);
+    }
+    expect(board?.querySelector('.board-legend')).not.toBeNull();
+    expect(board?.querySelector('#map-cap[aria-live="polite"]')).not.toBeNull();
+  });
+
+  it('lets keyboard and screen-reader users skip the map to the next section', () => {
+    expect(board?.querySelector('a[href^="#"]')?.textContent).toBe('Skip the map');
+    expect(board?.querySelector('a[href^="#"]')?.getAttribute('href')).toBe('#tour');
+    expect(g.querySelector('section#board + section')?.id).toBe('tour');
+  });
+
+  it('loads the shared board styles and script, which sit next to the full page', () => {
+    expect(g.querySelector('link[href="../how-it-was-built/board.css"]')).not.toBeNull();
+    expect(g.querySelector('script[src="../how-it-was-built/board.js"]')).not.toBeNull();
+    for (const file of ['board.css', 'board.js']) {
+      const path = join(import.meta.dirname, '../public/how-it-was-built', file);
+      expect(readFileSync(path, 'utf8').length, file).toBeGreaterThan(0);
+    }
   });
 });
 
@@ -195,7 +239,7 @@ describe('scripts/how-it-was-built.py', () => {
     prs: { 'TOM-3': [12] },
   };
 
-  /** A fresh export folder, data file and copy of the committed page; returns their paths. */
+  /** A fresh export folder, data file and copies of both pages; returns their paths. */
   function fixture(name: string, summaries = data.summaries, titles = data.titles) {
     const dir = join(work, name);
     rmSync(dir, { recursive: true, force: true });
@@ -207,12 +251,17 @@ describe('scripts/how-it-was-built.py', () => {
     );
     writeFileSync(join(dir, 'data.json'), JSON.stringify({ ...data, summaries, titles }));
     copyFileSync(page, join(dir, 'index.html'));
+    copyFileSync(guide, join(dir, 'guide.html'));
     const args = [dir, '--data', join(dir, 'data.json'), '--page', join(dir, 'index.html')];
-    return { args, out: join(dir, 'index.html') };
+    return {
+      args: [...args, '--guide', join(dir, 'guide.html')],
+      out: join(dir, 'index.html'),
+      outGuide: join(dir, 'guide.html'),
+    };
   }
 
   it('turns an export into the public shape: fields only, unpublished tickets and links dropped', () => {
-    const { args, out } = fixture('ok');
+    const { args, out, outGuide } = fixture('ok');
     const result = run(args);
     expect(result.stderr).toBe('');
     expect(result.status).toBe(0);
@@ -259,6 +308,9 @@ describe('scripts/how-it-was-built.py', () => {
     expect(doc.querySelectorAll('details.epic li')).toHaveLength(3);
     expect(doc.querySelector('details.epic summary .n')?.textContent).toBe('TOM-1 · 3 tasks');
     expect(doc.querySelector('[data-tile="tickets"] .value')?.textContent).toBe('4');
+    const fixed = parse(readFileSync(outGuide, 'utf8'));
+    expect(fixed.querySelectorAll('#board #map a.tk')).toHaveLength(4);
+    expect(fixed.querySelector('#board [data-tile="tickets"] .value')?.textContent).toBe('4');
   });
 
   it('refuses a hostname or a commit hash in any field, and leaves the page unchanged', () => {
